@@ -18,7 +18,7 @@ export class StatusBarManager implements vscode.Disposable {
             100
         );
         this.serialStatusBar.command = 'qserial.serial.connect';
-        this.serialStatusBar.tooltip = '涓插彛鐘舵€?- 鐐瑰嚮杩炴帴/鏂紑';
+        this.serialStatusBar.tooltip = '串口状态 - 点击连接/断开';
 
         // SSH status bar item
         this.sshStatusBar = vscode.window.createStatusBarItem(
@@ -26,7 +26,7 @@ export class StatusBarManager implements vscode.Disposable {
             99
         );
         this.sshStatusBar.command = 'qserial.ssh.connect';
-        this.sshStatusBar.tooltip = 'SSH 鐘舵€?- 鐐瑰嚮杩炴帴/鏂紑';
+        this.sshStatusBar.tooltip = 'SSH 状态 - 点击连接/断开';
 
         this.update();
     }
@@ -44,7 +44,7 @@ export class StatusBarManager implements vscode.Disposable {
             this.serialStatusBar.backgroundColor = undefined;
             this.serialStatusBar.show();
         } else {
-            this.serialStatusBar.text = '$(plug) 涓插彛';
+            this.serialStatusBar.text = '$(plug) 串口';
             this.serialStatusBar.command = 'qserial.serial.connect';
             this.serialStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
             this.serialStatusBar.show();
