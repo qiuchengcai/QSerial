@@ -7,4 +7,9 @@ src/**
 **/tsconfig.json
 **/.eslintrc.json
 **/*.md
-**/node_modules/**
+.git/**
+.husky/**
+.codebuddy/**
+scripts/**
+vsix/**
+*.vsix
