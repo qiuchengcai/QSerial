@@ -4,6 +4,10 @@
   "description": "VSCode extension for Serial Port and SSH access with custom shortcut buttons",
   "version": "0.0.1",
   "publisher": "qiuchengcai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qiuchengcai/QSerial.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

@@ -2,7 +2,7 @@
 description: 
 alwaysApply: true
 enabled: true
-updatedAt: 2026-03-27T13:34:30.546Z
+updatedAt: 2026-03-27T20:30:36.233Z
 provider: 
 ---
 
@@ -11,6 +11,7 @@ provider:
 ## 规则要求
 1. **提交信息必须使用中文**
 2. **用户明确不允许的内容禁止提交**
+3. **未经用户明确要求，禁止擅自执行 git commit 或 git push**
 
 ## 实现方式
 
