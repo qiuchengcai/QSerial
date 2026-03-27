@@ -1,0 +1,61 @@
+---
+description: 
+alwaysApply: false
+enabled: true
+updatedAt: 2026-03-27T20:56:58.418Z
+provider: 
+---
+
+# VSIX 编译规则
+
+## 打包命令
+
+```bash
+cd d:\QPrj\QSerial && npx vsce package -o vsix/qserial-0.0.1.vsix
+```
+
+**注意**：不要使用 `--no-dependencies` 参数，否则会缺少 node_modules 依赖导致插件无法运行。
+
+## 关键配置
+
+### .vscodeignore
+确保包含以下内容以正确打包依赖：
+
+```
+.vscode/**
+.vscode-test/**
+src/**
+**/*.ts
+**/*.map
+.gitignore
+**/tsconfig.json
+**/.eslintrc.json
+**/*.md
+.git/**
+.husky/**
+.codebuddy/**
+scripts/**
+vsix/**
+*.vsix
+!node_modules/**
+```
+
+**关键点**：最后一行 `!node_modules/**` 用于**包含** node_modules 目录，这是插件运行所必需的。
+
+## 打包检查
+
+成功打包的 VSIX 应满足：
+- 文件大小：约 6 MB（包含依赖）
+- 包含文件数：约 690 个文件
+- 包含 node_modules 目录
+
+如果打包后只有 50-60 KB，说明缺少依赖，需要检查 `.vscodeignore` 配置。
+
+## 版本更新
+
+更新版本号时需要修改 `package.json` 中的 `version` 字段，然后重新打包：
+
+```bash
+# 更新版本号后重新打包
+npx vsce package -o vsix/qserial-{version}.vsix
+```
