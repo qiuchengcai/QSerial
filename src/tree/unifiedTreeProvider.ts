@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SerialManager } from '../serial/serialManager';
 import { SSHManager } from '../ssh/sshManager';
-import { ButtonManager, CustomButton, CommandItem } from '../buttons/buttonManager';
+import { ButtonManager } from '../buttons/buttonManager';
 
 // 选项卡类型
 export type TabType = 'connections' | 'buttons' | 'settings';
@@ -127,11 +127,10 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
         const serialConn = this.serialManager.getConnectionInfo();
         if (serialConn) {
             const connectedItem = new UnifiedItem(
-                serialConn.path,
+                `🟢 ${serialConn.path}`,
                 vscode.TreeItemCollapsibleState.None,
                 'serial-connected'
             );
-            connectedItem.iconPath = new vscode.ThemeIcon('plug', new vscode.ThemeColor('charts.green'));
             connectedItem.description = `${serialConn.baudRate} baud`;
             connectedItem.tooltip = '已连接 - 点击断开';
             connectedItem.command = {
@@ -147,11 +146,10 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
                 continue;
             }
             const item = new UnifiedItem(
-                port.path,
+                `⚪ ${port.path}`,
                 vscode.TreeItemCollapsibleState.None,
                 'serial-port'
             );
-            item.iconPath = new vscode.ThemeIcon('circle-outline');
             item.itemData = port;
             item.description = port.manufacturer || '';
             item.tooltip = `${port.path}${port.vendorId ? `\nVID:${port.vendorId} PID:${port.productId || 'N/A'}` : ''}\n\n点击连接`;
@@ -227,18 +225,15 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
         for (const host of savedHosts) {
             const isConnected = host.id && connectedHostIds.has(host.id);
             const contextValue = isConnected ? 'ssh-connected' : 'ssh-host';
+            const indicator = isConnected ? '🟢' : '⚪';
 
             const item = new UnifiedItem(
-                host.name || host.host,
+                `${indicator} ${host.name || host.host}`,
                 vscode.TreeItemCollapsibleState.None,
                 contextValue
             );
             item.id = host.id;
             item.itemData = { ...host, id: host.id };
-            item.iconPath = new vscode.ThemeIcon(
-                'server',
-                isConnected ? new vscode.ThemeColor('charts.green') : undefined
-            );
             item.description = `${host.username}@${host.host}:${host.port || 22}`;
             item.tooltip = isConnected ? '已连接 - 点击断开' : `${host.name || host.host}\n${host.username}@${host.host}:${host.port || 22}\n\n点击连接`;
             item.command = {
@@ -273,23 +268,31 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
         const buttons = this.buttonManager.getButtons();
         const items: UnifiedItem[] = [];
 
+        const colorIndicator: Record<string, string> = {
+            'green': '🟢',
+            'yellow': '🟡',
+            'red': '🔴',
+            'blue': '🔵'
+        };
+
+        const colorMap: Record<string, vscode.ThemeColor | undefined> = {
+            'green': new vscode.ThemeColor('charts.green'),
+            'yellow': new vscode.ThemeColor('charts.yellow'),
+            'red': new vscode.ThemeColor('charts.red'),
+            'blue': new vscode.ThemeColor('charts.blue')
+        };
+
         for (const button of buttons) {
+            const indicator = colorIndicator[button.color || ''] || '⚪';
+            const iconColor = colorMap[button.color || ''];
             const cmdCount = button.commands?.length || 0;
 
             const item = new UnifiedItem(
-                button.label,
+                `${indicator} ${button.label}`,
                 vscode.TreeItemCollapsibleState.None,
                 'custom-button'
             );
             item.itemData = button;
-
-            const colorMap: Record<string, vscode.ThemeColor | undefined> = {
-                'green': new vscode.ThemeColor('charts.green'),
-                'yellow': new vscode.ThemeColor('charts.yellow'),
-                'red': new vscode.ThemeColor('charts.red'),
-                'blue': new vscode.ThemeColor('charts.blue')
-            };
-            const iconColor = colorMap[button.color || ''];
             item.iconPath = new vscode.ThemeIcon('play', iconColor);
 
             if (cmdCount === 1) {
