@@ -1,0 +1,17 @@
+out
+node_modules
+.vscode-test/
+*.vsix
+.DS_Store
+Thumbs.db
+
+# 敏感文件 - 禁止提交
+.env
+.env.local
+.env.*.local
+credentials.json
+secrets.json
+*.pem
+*.key
+id_rsa
+id_ed25519

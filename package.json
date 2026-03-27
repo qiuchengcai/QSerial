@@ -1,0 +1,509 @@
+{
+  "name": "qserial",
+  "displayName": "QSerial - Serial & SSH Terminal",
+  "description": "VSCode extension for Serial Port and SSH access with custom shortcut buttons",
+  "version": "0.0.1",
+  "publisher": "qiuchengcai",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "serial",
+    "ssh",
+    "terminal",
+    "shortcut"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "icon": "resources/icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "qserial.switchTab",
+        "title": "切换选项卡"
+      },
+      {
+        "command": "qserial.tab.connections",
+        "title": "连接",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "qserial.tab.buttons",
+        "title": "快捷按钮",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "qserial.tab.settings",
+        "title": "设置",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "qserial.serial.connect",
+        "title": "连接串口"
+      },
+      {
+        "command": "qserial.serial.disconnect",
+        "title": "断开串口"
+      },
+      {
+        "command": "qserial.serial.refreshPorts",
+        "title": "刷新串口列表",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "qserial.serial.connectPort",
+        "title": "连接指定端口"
+      },
+      {
+        "command": "qserial.ssh.connect",
+        "title": "新建 SSH 连接"
+      },
+      {
+        "command": "qserial.ssh.disconnect",
+        "title": "断开 SSH"
+      },
+      {
+        "command": "qserial.ssh.quickConnect",
+        "title": "快速连接 SSH"
+      },
+      {
+        "command": "qserial.ssh.removeHost",
+        "title": "删除 SSH 主机"
+      },
+      {
+        "command": "qserial.ssh.editHost",
+        "title": "编辑 SSH 主机"
+      },
+      {
+        "command": "qserial.ssh.addHost",
+        "title": "添加 SSH 主机"
+      },
+      {
+        "command": "qserial.ssh.clearPasswords",
+        "title": "清除保存的 SSH 密码"
+      },
+      {
+        "command": "qserial.buttons.addButton",
+        "title": "添加快捷按钮",
+        "icon": "$(add)"
+      },
+      {
+        "command": "qserial.buttons.removeButton",
+        "title": "删除按钮"
+      },
+      {
+        "command": "qserial.buttons.editButton",
+        "title": "编辑按钮"
+      },
+      {
+        "command": "qserial.buttons.executeButton",
+        "title": "执行按钮命令"
+      },
+      {
+        "command": "qserial.buttons.moveUp",
+        "title": "上移按钮",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "qserial.buttons.moveDown",
+        "title": "下移按钮",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "qserial.buttons.moveToTop",
+        "title": "置顶按钮"
+      },
+      {
+        "command": "qserial.buttons.moveToBottom",
+        "title": "置底按钮"
+      },
+      {
+        "command": "qserial.settings.editBaudRate",
+        "title": "修改默认波特率"
+      },
+      {
+        "command": "qserial.settings.editDataBits",
+        "title": "修改数据位"
+      },
+      {
+        "command": "qserial.settings.editStopBits",
+        "title": "修改停止位"
+      },
+      {
+        "command": "qserial.settings.editParity",
+        "title": "修改校验位"
+      },
+      {
+        "command": "qserial.settings.toggleAutoNewline",
+        "title": "切换自动换行"
+      },
+      {
+        "command": "qserial.settings.openSettings",
+        "title": "打开 VSCode 设置"
+      },
+      {
+        "command": "qserial.showPanel",
+        "title": "QSerial: 显示面板"
+      },
+      {
+        "command": "qserial.log.startSerial",
+        "title": "开始记录串口日志"
+      },
+      {
+        "command": "qserial.log.stopSerial",
+        "title": "停止记录串口日志"
+      },
+      {
+        "command": "qserial.log.startSSH",
+        "title": "开始记录 SSH 日志"
+      },
+      {
+        "command": "qserial.log.stopSSH",
+        "title": "停止记录 SSH 日志"
+      },
+      {
+        "command": "qserial.log.openLogFolder",
+        "title": "打开日志文件夹"
+      },
+      {
+        "command": "qserial.log.setLogPath",
+        "title": "设置日志存储路径"
+      },
+      {
+        "command": "qserial.log.resetLogPath",
+        "title": "恢复默认日志路径"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "qserial-panel",
+          "title": "QSerial",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "qserial-panel": [
+        {
+          "id": "qserial-main",
+          "name": "",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "qserial.tab.connections",
+          "when": "view == qserial-main",
+          "group": "navigation@1"
+        },
+        {
+          "command": "qserial.tab.buttons",
+          "when": "view == qserial-main",
+          "group": "navigation@2"
+        },
+        {
+          "command": "qserial.tab.settings",
+          "when": "view == qserial-main",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "qserial.serial.connectPort",
+          "when": "view == qserial-main && viewItem == serial-port",
+          "group": "1_connect"
+        },
+        {
+          "command": "qserial.serial.disconnect",
+          "when": "view == qserial-main && viewItem == serial-connected",
+          "group": "1_disconnect"
+        },
+        {
+          "command": "qserial.log.startSerial",
+          "when": "view == qserial-main && viewItem == serial-connected",
+          "group": "2_log"
+        },
+        {
+          "command": "qserial.log.stopSerial",
+          "when": "view == qserial-main && viewItem == serial-connected",
+          "group": "2_log"
+        },
+        {
+          "command": "qserial.ssh.quickConnect",
+          "when": "view == qserial-main && viewItem == ssh-host",
+          "group": "1_connect"
+        },
+        {
+          "command": "qserial.ssh.editHost",
+          "when": "view == qserial-main && viewItem == ssh-host",
+          "group": "2_manage"
+        },
+        {
+          "command": "qserial.ssh.removeHost",
+          "when": "view == qserial-main && viewItem == ssh-host",
+          "group": "2_manage"
+        },
+        {
+          "command": "qserial.ssh.disconnect",
+          "when": "view == qserial-main && viewItem == ssh-connected",
+          "group": "1_disconnect"
+        },
+        {
+          "command": "qserial.log.startSSH",
+          "when": "view == qserial-main && viewItem == ssh-connected",
+          "group": "2_log"
+        },
+        {
+          "command": "qserial.log.stopSSH",
+          "when": "view == qserial-main && viewItem == ssh-connected",
+          "group": "2_log"
+        },
+        {
+          "command": "qserial.ssh.quickConnect",
+          "when": "view == qserial-main && viewItem == ssh-saved-host",
+          "group": "1_connect"
+        },
+        {
+          "command": "qserial.ssh.editHost",
+          "when": "view == qserial-settings && viewItem == ssh-saved-host",
+          "group": "2_manage"
+        },
+        {
+          "command": "qserial.ssh.removeHost",
+          "when": "view == qserial-main && viewItem == ssh-saved-host",
+          "group": "2_manage"
+        },
+        {
+          "command": "qserial.buttons.executeButton",
+          "when": "view == qserial-main && viewItem == custom-button",
+          "group": "1_execute"
+        },
+        {
+          "command": "qserial.buttons.editButton",
+          "when": "view == qserial-main && viewItem == custom-button",
+          "group": "2_manage"
+        },
+        {
+          "command": "qserial.buttons.removeButton",
+          "when": "view == qserial-main && viewItem == custom-button",
+          "group": "2_manage"
+        },
+        {
+          "command": "qserial.buttons.moveUp",
+          "when": "view == qserial-main && viewItem == custom-button",
+          "group": "3_sort"
+        },
+        {
+          "command": "qserial.buttons.moveDown",
+          "when": "view == qserial-main && viewItem == custom-button",
+          "group": "3_sort"
+        },
+        {
+          "command": "qserial.buttons.moveToTop",
+          "when": "view == qserial-main && viewItem == custom-button",
+          "group": "3_sort"
+        },
+        {
+          "command": "qserial.buttons.moveToBottom",
+          "when": "view == qserial-main && viewItem == custom-button",
+          "group": "3_sort"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "QSerial",
+      "properties": {
+        "qserial.serial.defaultBaudRate": {
+          "type": "number",
+          "default": 115200,
+          "description": "Default baud rate for serial connections"
+        },
+        "qserial.serial.dataBits": {
+          "type": "number",
+          "enum": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "default": 8,
+          "description": "Data bits for serial connection"
+        },
+        "qserial.serial.stopBits": {
+          "type": "number",
+          "enum": [
+            1,
+            2
+          ],
+          "default": 1,
+          "description": "Stop bits for serial connection"
+        },
+        "qserial.serial.parity": {
+          "type": "string",
+          "enum": [
+            "none",
+            "even",
+            "odd",
+            "mark",
+            "space"
+          ],
+          "default": "none",
+          "description": "Parity for serial connection"
+        },
+        "qserial.serial.autoNewline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically send a newline after serial connection to trigger login prompt"
+        },
+        "qserial.serial.encoding": {
+          "type": "string",
+          "enum": [
+            "utf8",
+            "gbk",
+            "gb2312",
+            "ascii",
+            "latin1",
+            "hex"
+          ],
+          "default": "gbk",
+          "description": "Encoding for serial port data"
+        },
+        "qserial.log.defaultPath": {
+          "type": "string",
+          "default": "",
+          "description": "Default path for terminal log files (empty string uses Documents/QSerial/logs)"
+        },
+        "qserial.ssh.savedHosts": {
+          "type": "array",
+          "default": [],
+          "description": "Saved SSH host configurations",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "number"
+              },
+              "username": {
+                "type": "string"
+              },
+              "authMethod": {
+                "type": "string",
+                "enum": [
+                  "password",
+                  "key"
+                ],
+                "description": "Authentication method"
+              }
+            }
+          }
+        },
+        "qserial.buttons.customButtons": {
+          "type": "array",
+          "default": [],
+          "description": "Custom shortcut buttons configuration",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "commands": {
+                "type": "array",
+                "description": "List of commands to execute",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "command": {
+                      "type": "string"
+                    },
+                    "delay": {
+                      "type": "number",
+                      "description": "Delay in milliseconds after executing this command"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "command"
+                  ]
+                }
+              },
+              "command": {
+                "type": "string",
+                "description": "Legacy single command (converted to commands array)"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "color": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string",
+                "enum": [
+                  "serial",
+                  "ssh",
+                  "both"
+                ],
+                "description": "Target connection type"
+              }
+            }
+          }
+        }
+      }
+    },
+    "keybindings": []
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@types/iconv-lite": "^0.0.1",
+    "@types/node": "^20.10.0",
+    "@types/ssh2": "^1.15.5",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/test-electron": "^2.3.8",
+    "@vscode/vsce": "^2.22.0",
+    "eslint": "^8.54.0",
+    "husky": "^9.1.7",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.7.2",
+    "serialport": "^12.0.0",
+    "ssh2": "^1.15.0"
+  }
+}

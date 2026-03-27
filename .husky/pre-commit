@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 检查是否包含敏感文件
+forbidden_patterns=(
+  "\.env$"
+  "\.env\.local$"
+  "\.env\..*\.local$"
+  "credentials\.json$"
+  "\.pem$"
+  "\.key$"
+  "secrets\.json$"
+  "id_rsa$"
+  "id_ed25519$"
+)
+
+staged_files=$(git diff --cached --name-only)
+
+for pattern in "${forbidden_patterns[@]}"; do
+  matched=$(echo "$staged_files" | grep -E "$pattern" 2>/dev/null || true)
+  if [ -n "$matched" ]; then
+    echo "❌ 错误: 禁止提交敏感文件:"
+    echo "$matched"
+    echo ""
+    echo "如确需提交，请使用 git commit --no-verify 绕过检查（不推荐）"
+    exit 1
+  fi
+done
+
+echo "✅ 提交检查通过"
+exit 0

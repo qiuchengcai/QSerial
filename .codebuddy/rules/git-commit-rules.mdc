@@ -1,0 +1,115 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-03-27T13:34:30.546Z
+provider: 
+---
+
+# Git 提交规范规则
+
+## 规则要求
+1. **提交信息必须使用中文**
+2. **用户明确不允许的内容禁止提交**
+
+## 实现方式
+
+### 1. commit-msg Hook - 强制中文提交信息
+创建 `.git/hooks/commit-msg` 文件：
+
+```bash
+#!/bin/sh
+
+# 检查提交信息是否包含中文
+commit_msg=$(cat "$1")
+
+# 正则匹配中文字符
+if ! echo "$commit_msg" | grep -qP '[\x{4e00}-\x{9fa5}]'; then
+    echo "错误: 提交信息必须包含中文!"
+    echo ""
+    echo "示例:"
+    echo "  feat: 添加用户登录功能"
+    echo "  fix: 修复串口连接断开问题"
+    echo "  docs: 更新README文档"
+    exit 1
+fi
+
+exit 0
+```
+
+### 2. pre-commit Hook - 检查禁止提交的内容
+创建 `.git/hooks/pre-commit` 文件：
+
+```bash
+#!/bin/sh
+
+# 检查是否包含敏感文件
+forbidden_files=(
+    ".env"
+    ".env.local"
+    ".env.*.local"
+    "credentials.json"
+    "*.pem"
+    "*.key"
+    "secrets.json"
+)
+
+staged_files=$(git diff --cached --name-only)
+
+for pattern in "${forbidden_files[@]}"; do
+    matched=$(echo "$staged_files" | grep -E "^$pattern$" 2>/dev/null)
+    if [ -n "$matched" ]; then
+        echo "错误: 禁止提交敏感文件: $matched"
+        exit 1
+    fi
+done
+
+exit 0
+```
+
+### 3. 使用 Husky 自动化 (推荐)
+
+安装 husky:
+```bash
+npm install husky --save-dev
+npx husky init
+```
+
+创建 `.husky/commit-msg`:
+```bash
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+commit_msg=$(cat "$1")
+
+# 检查是否包含中文字符
+if ! echo "$commit_msg" | grep -qP '[\x{4e00}-\x{9fa5}]'; then
+    echo "❌ 提交信息必须使用中文!"
+    echo ""
+    echo "✅ 正确示例:"
+    echo "   feat: 添加新功能"
+    echo "   fix: 修复某个bug"
+    echo "   docs: 更新文档"
+    exit 1
+fi
+```
+
+## 提交信息格式建议
+
+```
+<类型>: <中文描述>
+
+类型说明:
+- feat:     新功能
+- fix:      修复bug
+- docs:     文档更新
+- style:    代码格式调整
+- refactor: 重构代码
+- test:     测试相关
+- chore:    构建/工具变动
+```
+
+## 注意事项
+- 确保 hook 文件有执行权限: `chmod +x .git/hooks/*`
+- Windows 用户需在 Git Bash 中执行脚本
+- 使用 `--no-verify` 可绕过检查（不推荐）

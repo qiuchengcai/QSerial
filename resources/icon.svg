@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+  <!-- 终端窗口边框 -->
+  <rect x="2" y="3" width="20" height="18" rx="2"/>
+  <!-- 命令提示符 >_ -->
+  <polyline points="6,9 10,12 6,15" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="12" y1="15" x2="18" y2="15" stroke-linecap="round"/>
+</svg>
