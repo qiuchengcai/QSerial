@@ -7,6 +7,8 @@ import { TerminalManager } from './terminal/terminalManager';
 import { UnifiedTreeProvider, TabType } from './tree/unifiedTreeProvider';
 import { StatusBarManager } from './statusBar/statusBarManager';
 import { Logger } from './utils/logger';
+import { StatusListener } from './mcp/statusListener';
+import { MCPConnectionManager } from './mcp/mcpConnectionManager';
 
 let serialManager: SerialManager;
 let sshManager: SSHManager;
@@ -16,6 +18,8 @@ let unifiedTreeProvider: UnifiedTreeProvider;
 let statusBarManager: StatusBarManager;
 let secrets: vscode.SecretStorage;
 let unifiedView: vscode.TreeView<vscode.TreeItem>;
+let statusListener: StatusListener;
+let mcpConnectionManager: MCPConnectionManager;
 
 export function activate(context: vscode.ExtensionContext) {
     Logger.info('QSerial extension is activating...');
@@ -47,6 +51,20 @@ export function activate(context: vscode.ExtensionContext) {
     unifiedTreeProvider = new UnifiedTreeProvider(serialManager, sshManager, buttonManager);
 
     statusBarManager = new StatusBarManager(serialManager, sshManager);
+
+    // 初始化 MCP 状态监听器
+    statusListener = new StatusListener();
+    mcpConnectionManager = new MCPConnectionManager(serialManager, terminalManager, statusBarManager);
+    
+    // 订阅 MCP 状态变化事件
+    statusListener.onStatusChange((event) => {
+        if (event.type === 'connected') {
+            mcpConnectionManager.handleConnected(event.terminal);
+        } else {
+            mcpConnectionManager.handleDisconnected(event.terminal);
+        }
+        unifiedTreeProvider.refresh();
+    });
 
     unifiedView = vscode.window.createTreeView('qserial-main', {
         treeDataProvider: unifiedTreeProvider
@@ -105,6 +123,8 @@ export function activate(context: vscode.ExtensionContext) {
     commands.forEach(cmd => context.subscriptions.push(cmd));
     context.subscriptions.push(unifiedView);
     context.subscriptions.push(statusBarManager);
+    context.subscriptions.push(statusListener);
+    context.subscriptions.push(mcpConnectionManager);
 
     refreshSerialPorts();
 
