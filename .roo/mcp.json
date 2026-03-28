@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "qmcp": {
+            "command": "node",
+            "args": [
+                "D:/QPrj/QMCP/dist/index.js"
+            ]
+        }
+    }
+}
