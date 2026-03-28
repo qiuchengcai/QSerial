@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { SerialManager } from '../serial/serialManager';
 import { SSHManager } from '../ssh/sshManager';
 import { MCPConnectionManager } from '../mcp/mcpConnectionManager';
+import { Logger } from '../utils/logger';
 
 export class StatusBarManager implements vscode.Disposable {
     private serialStatusBar: vscode.StatusBarItem;
@@ -52,6 +53,8 @@ export class StatusBarManager implements vscode.Disposable {
         
         // 检查 MCP 串口连接
         const mcpSerialConnected = this.mcpConnectionManager?.hasMCPConnectionOfType('serial') ?? false;
+        
+        Logger.info(`updateSerialStatus: local=${!!conn && conn.isOpen}, mcp=${mcpSerialConnected}, mcpManager=${!!this.mcpConnectionManager}`);
         
         if (conn && conn.isOpen) {
             // 本地串口已连接

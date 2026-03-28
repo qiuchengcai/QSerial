@@ -57,8 +57,9 @@ export function activate(context: vscode.ExtensionContext) {
     statusListener = new StatusListener();
     mcpConnectionManager = new MCPConnectionManager(serialManager, terminalManager, statusBarManager);
     
-    // 设置 MCP 连接管理器到 StatusBarManager
+    // 设置 MCP 连接管理器到 StatusBarManager 和 UnifiedTreeProvider
     statusBarManager.setMCPConnectionManager(mcpConnectionManager);
+    unifiedTreeProvider.setMCPConnectionManager(mcpConnectionManager);
     
     // 订阅 MCP 状态变化事件
     statusListener.onStatusChange((event) => {

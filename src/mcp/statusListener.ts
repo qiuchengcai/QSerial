@@ -87,11 +87,14 @@ export class StatusListener implements vscode.Disposable {
     private readStatus(): void {
         try {
             if (!fs.existsSync(STATUS_FILE)) {
+                Logger.info('状态文件不存在');
                 return;
             }
 
             const content = fs.readFileSync(STATUS_FILE, 'utf8');
             const status: StatusFile = JSON.parse(content);
+            
+            Logger.info(`读取状态文件: ${status.terminals.length} 个终端, lastStatus: ${this.lastStatus ? '有' : '无'}`);
 
             // 检测变化并发射事件
             this.detectChanges(status);
@@ -108,8 +111,10 @@ export class StatusListener implements vscode.Disposable {
     private detectChanges(newStatus: StatusFile): void {
         if (!this.lastStatus) {
             // 首次读取，所有连接都是新连接
+            Logger.info(`首次读取状态，检测 ${newStatus.terminals.length} 个终端`);
             for (const terminal of newStatus.terminals) {
                 if (terminal.connected) {
+                    Logger.info(`发射 connected 事件: ${terminal.id}`);
                     this._onStatusChange.fire({
                         type: 'connected',
                         terminal,
