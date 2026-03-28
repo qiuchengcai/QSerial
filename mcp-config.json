@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "qserial": {
+      "command": "node",
+      "args": ["${workspaceFolder}/out/mcp/server.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

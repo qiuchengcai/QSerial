@@ -7,8 +7,7 @@ import { TerminalManager } from './terminal/terminalManager';
 import { UnifiedTreeProvider, TabType } from './tree/unifiedTreeProvider';
 import { StatusBarManager } from './statusBar/statusBarManager';
 import { Logger } from './utils/logger';
-import { StatusListener } from './mcp/statusListener';
-import { MCPConnectionManager } from './mcp/mcpConnectionManager';
+import { MCPDataSync } from './mcp/dataSync';
 
 let serialManager: SerialManager;
 let sshManager: SSHManager;
@@ -18,8 +17,7 @@ let unifiedTreeProvider: UnifiedTreeProvider;
 let statusBarManager: StatusBarManager;
 let secrets: vscode.SecretStorage;
 let unifiedView: vscode.TreeView<vscode.TreeItem>;
-let statusListener: StatusListener;
-let mcpConnectionManager: MCPConnectionManager;
+let mcpDataSync: MCPDataSync;
 
 export function activate(context: vscode.ExtensionContext) {
     Logger.info('QSerial extension is activating...');
@@ -50,26 +48,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     unifiedTreeProvider = new UnifiedTreeProvider(serialManager, sshManager, buttonManager);
 
-    // 先创建 StatusBarManager（不传 MCPConnectionManager）
     statusBarManager = new StatusBarManager(serialManager, sshManager);
 
-    // 初始化 MCP 状态监听器
-    statusListener = new StatusListener();
-    mcpConnectionManager = new MCPConnectionManager(serialManager, terminalManager, statusBarManager);
-    
-    // 设置 MCP 连接管理器到 StatusBarManager 和 UnifiedTreeProvider
-    statusBarManager.setMCPConnectionManager(mcpConnectionManager);
-    unifiedTreeProvider.setMCPConnectionManager(mcpConnectionManager);
-    
-    // 订阅 MCP 状态变化事件
-    statusListener.onStatusChange((event) => {
-        if (event.type === 'connected') {
-            mcpConnectionManager.handleConnected(event.terminal);
-        } else {
-            mcpConnectionManager.handleDisconnected(event.terminal);
-        }
-        unifiedTreeProvider.refresh();
-    });
+    // 初始化 MCP 数据同步器
+    mcpDataSync = new MCPDataSync();
 
     unifiedView = vscode.window.createTreeView('qserial-main', {
         treeDataProvider: unifiedTreeProvider
@@ -128,8 +110,7 @@ export function activate(context: vscode.ExtensionContext) {
     commands.forEach(cmd => context.subscriptions.push(cmd));
     context.subscriptions.push(unifiedView);
     context.subscriptions.push(statusBarManager);
-    context.subscriptions.push(statusListener);
-    context.subscriptions.push(mcpConnectionManager);
+    context.subscriptions.push(mcpDataSync);
 
     refreshSerialPorts();
 

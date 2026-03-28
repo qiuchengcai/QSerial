@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { SerialManager } from '../serial/serialManager';
 import { SSHManager } from '../ssh/sshManager';
 import { ButtonManager } from '../buttons/buttonManager';
-import { MCPConnectionManager } from '../mcp/mcpConnectionManager';
 
 // 选项卡类型
 export type TabType = 'connections' | 'buttons' | 'settings';
@@ -14,18 +13,12 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
         this._onDidChangeTreeData.event;
 
     private currentTab: TabType = 'connections';
-    private mcpConnectionManager?: MCPConnectionManager;
 
     constructor(
         private serialManager: SerialManager,
         private sshManager: SSHManager,
         private buttonManager: ButtonManager
     ) { }
-
-    /** 设置 MCP 连接管理器 */
-    setMCPConnectionManager(mcpConnectionManager: MCPConnectionManager): void {
-        this.mcpConnectionManager = mcpConnectionManager;
-    }
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
@@ -133,11 +126,6 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
 
         const serialConn = this.serialManager.getConnectionInfo();
         
-        // 检查 MCP 串口连接
-        const mcpSerialConnections = this.mcpConnectionManager?.getConnections().filter(
-            c => c.type === 'serial' && c.connected
-        ) ?? [];
-        
         if (serialConn) {
             const connectedItem = new UnifiedItem(
                 `🟢 ${serialConn.path}`,
@@ -151,28 +139,11 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
                 title: '断开连接'
             };
             items.push(connectedItem);
-        } else if (mcpSerialConnections.length > 0) {
-            // 显示 MCP 连接的串口
-            for (const mcpConn of mcpSerialConnections) {
-                const connectedItem = new UnifiedItem(
-                    `🟢 ${mcpConn.path} (MCP)`,
-                    vscode.TreeItemCollapsibleState.None,
-                    'serial-connected'
-                );
-                connectedItem.description = `${mcpConn.baudRate} baud`;
-                connectedItem.tooltip = `MCP 已连接 ${mcpConn.path} - 通过 CodeBuddy 管理`;
-                connectedItem.iconPath = new vscode.ThemeIcon('plug', new vscode.ThemeColor('charts.green'));
-                items.push(connectedItem);
-            }
         }
 
         const ports = await this.serialManager.listPorts();
         for (const port of ports) {
             if (serialConn && port.path === serialConn.path) {
-                continue;
-            }
-            // 跳过 MCP 已连接的端口
-            if (mcpSerialConnections.some(c => c.path === port.path)) {
                 continue;
             }
             const item = new UnifiedItem(

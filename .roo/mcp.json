@@ -1,10 +1,24 @@
 {
-    "mcpServers": {
-        "qmcp": {
-            "command": "node",
-            "args": [
-                "D:/QPrj/QMCP/dist/index.js"
-            ]
-        }
-    }
+	"mcpServers": {
+		"qserial": {
+			"command": "node",
+			"args": [
+				"${workspaceFolder}/out/mcp/server.js"
+			],
+			"env": {
+				"NODE_ENV": "production"
+			},
+			"alwaysAllow": [
+				"serial_list_ports",
+				"terminal_connect",
+				"terminal_status",
+				"terminal_send",
+				"terminal_disconnect",
+				"terminal_read",
+				"terminal_wait",
+				"terminal_send_signal",
+				"terminal_get_screen"
+			]
+		}
+	}
 }
