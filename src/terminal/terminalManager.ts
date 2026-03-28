@@ -151,8 +151,19 @@ export class TerminalManager {
         });
     }
 
+    private getSSHEncoding(): string {
+        return vscode.workspace.getConfiguration('qserial.ssh').get('encoding', 'utf8');
+    }
+
     writeToSSHTerminal(data: Buffer, terminalName?: string): void {
-        const str = data.toString('utf8');
+        const encoding = this.getSSHEncoding();
+        let str: string;
+
+        if (encoding === 'hex') {
+            str = data.toString('hex').replace(/(.{2})/g, '$1 ');
+        } else {
+            str = iconv.decode(data, encoding);
+        }
         
         if (terminalName) {
             const term = this.sshTerminals.get(terminalName);
