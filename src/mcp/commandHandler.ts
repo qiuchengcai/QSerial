@@ -300,7 +300,8 @@ export class MCPCommandHandler {
             password,
             privateKey: keyContent,
             passphrase,
-            hostId: finalHostId  // 传入 hostId 以匹配树状图状态
+            hostId: finalHostId,  // 传入 hostId 以匹配树状图状态
+            preserveFocus: true   // 让终端不抢占焦点，避免跳到其他窗口
         });
 
         const terminalId = this.generateTerminalId('ssh');

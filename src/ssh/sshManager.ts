@@ -22,8 +22,9 @@ export class SSHManager {
         this.terminalManager = terminalManager;
     }
 
-    async connect(config: ConnectConfig & { password?: string; passphrase?: string; hostId?: string }): Promise<void> {
+    async connect(config: ConnectConfig & { password?: string; passphrase?: string; hostId?: string; preserveFocus?: boolean }): Promise<void> {
         const hostId = config.hostId || `ssh-${Date.now()}`;
+        const preserveFocus = config.preserveFocus;
 
         return new Promise((resolve, reject) => {
             const client = new Client();
@@ -44,12 +45,13 @@ export class SSHManager {
                 this.connections.set(hostId, connection);
 
                 // Create terminal for SSH
+                // preserveFocus 为 true 时终端不抢占焦点（MCP 连接时使用）
                 this.terminalManager.createSSHTerminal(terminalName, (data) => {
                     const conn = this.connections.get(hostId);
                     if (conn?.isConnected && conn.shell) {
                         conn.shell.write(data);
                     }
-                });
+                }, preserveFocus);
 
                 // Start shell
                 client.shell((err, stream) => {

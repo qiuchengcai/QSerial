@@ -75,7 +75,7 @@ export class SerialManager {
         }
     }
 
-    async connect(path: string, baudRate: number): Promise<void> {
+    async connect(path: string, baudRate: number, preserveFocus?: boolean): Promise<void> {
         if (this.connection?.isOpen) {
             await this.disconnect();
         }
@@ -117,6 +117,7 @@ export class SerialManager {
                 this.addToBuffer('SYS', `[连接成功] ${path} @ ${baudRate} baud`);
 
                 // Create terminal for this connection
+                // preserveFocus 为 true 时终端不抢占焦点（MCP 连接时使用）
                 this.terminalManager.createSerialTerminal(path, (data) => {
                     if (this.connection?.isOpen) {
                         const encoding = this.getEncoding();
@@ -128,7 +129,7 @@ export class SerialManager {
                         // 记录发送数据到缓冲
                         this.addToBuffer('TX', data);
                     }
-                });
+                }, preserveFocus);
 
                 // Handle incoming data
                 port.on('data', (data: Buffer) => {

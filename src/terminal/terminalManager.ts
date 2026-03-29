@@ -28,7 +28,7 @@ export class TerminalManager {
         this.logger = new TerminalLogger();
     }
 
-    createSerialTerminal(portName: string, onInput: (data: string) => void): void {
+    createSerialTerminal(portName: string, onInput: (data: string) => void, preserveFocus?: boolean): void {
         this.closeSerialTerminal();
         
         this.serialOnInput = onInput;
@@ -64,7 +64,8 @@ export class TerminalManager {
         };
 
         this.serialTerminal = vscode.window.createTerminal(terminalOptions);
-        this.serialTerminal.show();
+        // preserveFocus 为 true 时不抢占焦点，终端显示在后台
+        this.serialTerminal.show(preserveFocus !== false);
     }
 
     private getEncoding(): string {
@@ -106,7 +107,7 @@ export class TerminalManager {
         return this.serialTerminalName;
     }
 
-    createSSHTerminal(connectionName: string, onInput: (data: string) => void): void {
+    createSSHTerminal(connectionName: string, onInput: (data: string) => void, preserveFocus?: boolean): void {
         // 先关闭同名终端（如果存在）
         this.closeSSHTerminal(connectionName);
         
@@ -142,7 +143,8 @@ export class TerminalManager {
         };
 
         const terminal = vscode.window.createTerminal(terminalOptions);
-        terminal.show();
+        // preserveFocus 为 true 时不抢占焦点，终端显示在后台
+        terminal.show(preserveFocus !== false);
 
         this.sshTerminals.set(connectionName, {
             terminal,
