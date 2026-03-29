@@ -8,6 +8,15 @@ function isTimestampEnabled(): boolean {
     return config.get<boolean>('enableTimestamp', true);
 }
 
+function getTimestamp(): string {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const ms = now.getMilliseconds().toString().padStart(3, '0');
+    return `${hours}:${minutes}:${seconds}.${ms}`;
+}
+
 interface LogSession {
     id: string;
     terminalName: string;
@@ -106,7 +115,7 @@ export class TerminalLogger {
         if (session.writeStream && session.lineBuffer.trim()) {
             const enableTimestamp = isTimestampEnabled();
             const logLine = enableTimestamp
-                ? `[${new Date().toLocaleTimeString()}] ${session.lineBuffer.trim()}\n`
+                ? `[${getTimestamp()}] ${session.lineBuffer.trim()}\n`
                 : `${session.lineBuffer.trim()}\n`;
             session.writeStream.write(logLine);
             session.bytesWritten += Buffer.byteLength(logLine, 'utf8');
@@ -180,7 +189,7 @@ export class TerminalLogger {
                 const line = lines[i].trim();
                 if (line) {
                     const logLine = enableTimestamp
-                        ? `[${new Date().toLocaleTimeString()}] ${line}\n`
+                        ? `[${getTimestamp()}] ${line}\n`
                         : `${line}\n`;
                     session.writeStream.write(logLine);
                     session.bytesWritten += Buffer.byteLength(logLine, 'utf8');
