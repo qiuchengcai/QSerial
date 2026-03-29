@@ -123,12 +123,21 @@ export class TerminalLogger {
      * 包括颜色、光标移动、清屏、括号粘贴模式等控制码
      */
     private stripANSI(text: string): string {
-        // 使用全面的 ANSI 转义序列匹配：
-        // 1. CSI 序列: \x1b[ 后跟参数和最终字节（覆盖所有 \x1b[...X 形式）
+        // 全面剥离所有终端控制字符和 ANSI 转义序列：
+        // 1. CSI 序列: \x1b[ 后跟参数和最终字节
         // 2. OSC 序列: \x1b]...\x07 或 \x1b]...\x1b\\
-        // 3. 单字节转义: \x1b 后跟单个字符（如 \x1b=, \x1b>, \x1b( 等）
-        // 4. 回车符 \r
-        return text.replace(/\x1b\[[0-9;?]*[a-zA-Z@`]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][AB012]|\x1b[=>]|\x1b.[\x40-\x7e]?|\r/g, '');
+        // 3. 单字节 ESC 转义: \x1b 后跟字符
+        // 4. C0 控制字符 (0x00-0x1F)，保留 \n (0x0A) 和 \t (0x09)
+        // 5. C1 控制字符 (0x80-0x9F)
+        return text
+            // 先处理 ESC 序列
+            .replace(/\x1b\[[0-9;?]*[a-zA-Z@`]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][AB012]|\x1b[=>]|\x1b[\x40-\x5f]/g, '')
+            // 移除 C0 控制字符（保留换行\n和制表符\t）
+            .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
+            // 移除 C1 控制字符
+            .replace(/[\x80-\x9f]/g, '')
+            // 移除回车符
+            .replace(/\r/g, '');
     }
 
     /**
