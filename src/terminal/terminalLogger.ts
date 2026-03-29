@@ -11,6 +11,7 @@ interface LogSession {
     writeStream: fs.WriteStream | null;
     startTime: Date;
     bytesWritten: number;
+    lineBuffer: string;  // 行缓冲区，累积数据直到换行
 }
 
 export class TerminalLogger {
@@ -76,7 +77,8 @@ export class TerminalLogger {
             filePath,
             writeStream,
             startTime: new Date(),
-            bytesWritten: 0
+            bytesWritten: 0,
+            lineBuffer: ''
         };
 
         this.activeSessions.set(sessionId, session);
@@ -93,6 +95,15 @@ export class TerminalLogger {
         const session = this.findSessionByTerminalName(terminalName);
         if (!session) {
             throw new Error(`终端 "${terminalName}" 未在记录中`);
+        }
+
+        // 写入缓冲区中剩余的内容
+        if (session.writeStream && session.lineBuffer.trim()) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logLine = `[${timestamp}] ${session.lineBuffer.trim()}\n`;
+            session.writeStream.write(logLine);
+            session.bytesWritten += Buffer.byteLength(logLine, 'utf8');
+            session.lineBuffer = '';
         }
 
         // 写入文件尾
@@ -134,17 +145,32 @@ export class TerminalLogger {
         // 剥离 ANSI 转义序列，保留纯文本
         const content = this.stripANSI(data);
 
-        // 跳过剥离后为空的内容
-        if (!content.trim()) {
+        // 跳过剥离后为空的内容（只有控制码的数据）
+        if (!content) {
             return;
         }
 
-        // 添加时间戳前缀
-        const timestamp = new Date().toLocaleTimeString();
-        const logLine = `[${timestamp}] ${content}`;
+        // 累积到行缓冲区
+        session.lineBuffer += content;
 
-        session.writeStream.write(logLine);
-        session.bytesWritten += Buffer.byteLength(logLine, 'utf8');
+        // 检查是否有完整行（包含换行符）
+        const lines = session.lineBuffer.split('\n');
+        
+        // 如果有多个部分，说明有完整行
+        if (lines.length > 1) {
+            // 写入所有完整行（除了最后一个不完整的部分）
+            for (let i = 0; i < lines.length - 1; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const logLine = `[${timestamp}] ${line}\n`;
+                    session.writeStream.write(logLine);
+                    session.bytesWritten += Buffer.byteLength(logLine, 'utf8');
+                }
+            }
+            // 保留最后一个不完整的部分在缓冲区
+            session.lineBuffer = lines[lines.length - 1];
+        }
     }
 
     /**
