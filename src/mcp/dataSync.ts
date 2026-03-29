@@ -31,15 +31,38 @@ interface MCPVirtualTerminal {
 /**
  * MCP 数据同步器
  */
+/** MCP 连接信息（供外部查询） */
+export interface MCPConnectionInfo {
+    id: string;
+    type: 'serial' | 'ssh';
+    connected: boolean;
+    path?: string;
+    baudRate?: number;
+    host?: string;
+    port?: number;
+    username?: string;
+}
+
 export class MCPDataSync implements vscode.Disposable {
     private terminals: Map<string, MCPVirtualTerminal> = new Map();
     private watchers: Map<string, vscode.FileSystemWatcher> = new Map();
     private statusWatcher: vscode.FileSystemWatcher | null = null;
     private pollIntervals: Map<string, NodeJS.Timeout> = new Map();
+    private _lastConnections: MCPConnectionInfo[] = [];
+
+    /** 当 MCP 连接状态变化时触发 */
+    onStatusChanged: ((connections: MCPConnectionInfo[]) => void) | null = null;
 
     constructor() {
         this.startStatusWatcher();
         Logger.info('MCPDataSync 已初始化');
+    }
+
+    /**
+     * 获取当前 MCP 连接列表
+     */
+    getMCPConnections(): MCPConnectionInfo[] {
+        return this._lastConnections;
     }
 
     /**
@@ -72,12 +95,20 @@ export class MCPDataSync implements vscode.Disposable {
     private checkStatus(): void {
         try {
             const statusFile = path.join(STATUS_DIR, 'status.json');
-            if (!fs.existsSync(statusFile)) return;
+            if (!fs.existsSync(statusFile)) {
+                // 状态文件不存在，如果没有残留连接则无需通知
+                if (this._lastConnections.length > 0) {
+                    this._lastConnections = [];
+                    this.notifyStatusChanged();
+                }
+                return;
+            }
 
             const content = fs.readFileSync(statusFile, 'utf8');
             const status = JSON.parse(content);
 
             const activeIds = new Set<string>();
+            const connections: MCPConnectionInfo[] = [];
 
             for (const terminal of status.terminals) {
                 if (terminal.connected) {
@@ -85,6 +116,17 @@ export class MCPDataSync implements vscode.Disposable {
                     if (!this.terminals.has(terminal.id)) {
                         this.createVirtualTerminal(terminal.id, terminal);
                     }
+                    // 收集连接信息
+                    connections.push({
+                        id: terminal.id,
+                        type: terminal.type,
+                        connected: true,
+                        path: terminal.path,
+                        baudRate: terminal.baudRate,
+                        host: terminal.host,
+                        port: terminal.port,
+                        username: terminal.username,
+                    });
                 }
             }
 
@@ -94,8 +136,24 @@ export class MCPDataSync implements vscode.Disposable {
                     this.removeVirtualTerminal(id);
                 }
             }
+
+            // 检查连接状态是否变化，通知外部
+            const changed = JSON.stringify(connections) !== JSON.stringify(this._lastConnections);
+            this._lastConnections = connections;
+            if (changed) {
+                this.notifyStatusChanged();
+            }
         } catch (err) {
             Logger.error('检查 MCP 状态失败: ' + (err as Error).message);
+        }
+    }
+
+    /**
+     * 通知外部状态变化
+     */
+    private notifyStatusChanged(): void {
+        if (this.onStatusChanged) {
+            this.onStatusChanged(this._lastConnections);
         }
     }
 

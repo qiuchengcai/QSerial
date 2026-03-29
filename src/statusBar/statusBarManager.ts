@@ -2,12 +2,14 @@ import * as vscode from 'vscode';
 import { SerialManager } from '../serial/serialManager';
 import { SSHManager } from '../ssh/sshManager';
 import { Logger } from '../utils/logger';
+import { MCPDataSync, MCPConnectionInfo } from '../mcp/dataSync';
 
 export class StatusBarManager implements vscode.Disposable {
     private serialStatusBar: vscode.StatusBarItem;
     private sshStatusBar: vscode.StatusBarItem;
     private serialManager: SerialManager;
     private sshManager: SSHManager;
+    private mcpDataSync: MCPDataSync | null = null;
 
     constructor(serialManager: SerialManager, sshManager: SSHManager) {
         this.serialManager = serialManager;
@@ -32,6 +34,13 @@ export class StatusBarManager implements vscode.Disposable {
         this.update();
     }
 
+    /**
+     * 设置 MCP 数据同步器引用
+     */
+    setMCPDataSync(mcpDataSync: MCPDataSync): void {
+        this.mcpDataSync = mcpDataSync;
+    }
+
     update(): void {
         this.updateSerialStatus();
         this.updateSSHStatus();
@@ -44,6 +53,14 @@ export class StatusBarManager implements vscode.Disposable {
             this.serialStatusBar.text = `$(plug) ${conn.path} @ ${conn.baudRate}`;
             this.serialStatusBar.command = 'qserial.serial.disconnect';
             this.serialStatusBar.backgroundColor = undefined;
+            this.serialStatusBar.show();
+        } else if (this.hasMCPSerialConnection()) {
+            // MCP 连接的串口
+            const mcpConn = this.getMCPSerialConnection()!;
+            this.serialStatusBar.text = `$(plug) ${mcpConn.path} @ ${mcpConn.baudRate} (MCP)`;
+            this.serialStatusBar.command = 'qserial.serial.connect';
+            this.serialStatusBar.backgroundColor = undefined;
+            this.serialStatusBar.tooltip = `MCP 已连接: ${mcpConn.path} @ ${mcpConn.baudRate}`;
             this.serialStatusBar.show();
         } else {
             // 未连接
@@ -63,6 +80,14 @@ export class StatusBarManager implements vscode.Disposable {
             this.sshStatusBar.command = 'qserial.ssh.disconnect';
             this.sshStatusBar.backgroundColor = undefined;
             this.sshStatusBar.show();
+        } else if (this.hasMCPSSHConnection()) {
+            // MCP 连接的 SSH
+            const mcpConn = this.getMCPSSHConnection()!;
+            this.sshStatusBar.text = `$(terminal) ${mcpConn.username}@${mcpConn.host} (MCP)`;
+            this.sshStatusBar.command = 'qserial.ssh.connect';
+            this.sshStatusBar.backgroundColor = undefined;
+            this.sshStatusBar.tooltip = `MCP 已连接: ${mcpConn.username}@${mcpConn.host}`;
+            this.sshStatusBar.show();
         } else {
             // 未连接
             this.sshStatusBar.text = '$(terminal) SSH';
@@ -71,6 +96,22 @@ export class StatusBarManager implements vscode.Disposable {
             this.sshStatusBar.tooltip = 'SSH 状态 - 点击连接/断开';
             this.sshStatusBar.show();
         }
+    }
+
+    private hasMCPSerialConnection(): boolean {
+        return this.mcpDataSync?.getMCPConnections().some(c => c.type === 'serial' && c.connected) ?? false;
+    }
+
+    private hasMCPSSHConnection(): boolean {
+        return this.mcpDataSync?.getMCPConnections().some(c => c.type === 'ssh' && c.connected) ?? false;
+    }
+
+    private getMCPSerialConnection(): MCPConnectionInfo | undefined {
+        return this.mcpDataSync?.getMCPConnections().find(c => c.type === 'serial' && c.connected);
+    }
+
+    private getMCPSSHConnection(): MCPConnectionInfo | undefined {
+        return this.mcpDataSync?.getMCPConnections().find(c => c.type === 'ssh' && c.connected);
     }
 
     dispose(): void {

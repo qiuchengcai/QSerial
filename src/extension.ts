@@ -53,6 +53,14 @@ export function activate(context: vscode.ExtensionContext) {
     // 初始化 MCP 数据同步器
     mcpDataSync = new MCPDataSync();
 
+    // 设置 MCP 状态变化回调，更新状态栏和树视图
+    statusBarManager.setMCPDataSync(mcpDataSync);
+    mcpDataSync.onStatusChanged = () => {
+        statusBarManager.update();
+        unifiedTreeProvider.refresh();
+        Logger.info('MCP 连接状态变化，已更新 UI');
+    };
+
     unifiedView = vscode.window.createTreeView('qserial-main', {
         treeDataProvider: unifiedTreeProvider
     });
