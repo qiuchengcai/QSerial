@@ -1,5 +1,5 @@
 /**
- * MCP å‘½ä»¤å¤„ç†å™¨
+ * MCP å‘½ä»¤å¤„ç†å™?
  * å¤„ç†æ¥è‡ª MCP Server çš„å‘½ä»¤è¯·æ±‚ï¼Œé€šè¿‡ QSerial æ‰©å±•æ‰§è¡Œæ“ä½œ
  */
 
@@ -11,6 +11,29 @@ import { Logger } from '../utils/logger';
 
 /** ç»“æœç›®å½• */
 const RESULT_DIR = path.join(os.homedir(), '.qserial', 'results');
+const STATUS_DIR = path.join(os.homedir(), '.qserial');
+const STATUS_FILE = path.join(STATUS_DIR, 'status.json');
+
+/** MCP ç»ˆç«¯çŠ¶æ€?*/
+interface MCPTerminalStatus {
+    id: string;
+    type: 'serial' | 'ssh';
+    connected: boolean;
+    connectedAt: string;
+    encoding?: string;
+    path?: string;
+    baudRate?: number;
+    host?: string;
+    port?: number;
+    username?: string;
+}
+
+/** MCP çŠ¶æ€æ–‡ä»¶ç»“æ?*/
+interface MCPStatusFile {
+    version: number;
+    terminals: MCPTerminalStatus[];
+    updatedAt: string;
+}
 
 /** è¿æ¥å‚æ•° */
 interface ConnectParams {
@@ -32,7 +55,7 @@ interface ConnectParams {
     passphrase?: string;
 }
 
-/** å‘é€å‚æ•° */
+/** å‘é€å‚æ•?*/
 interface SendParams {
     requestId: string;
     terminalId: string;
@@ -60,12 +83,16 @@ interface ReadParams {
 }
 
 /**
- * MCP å‘½ä»¤å¤„ç†å™¨
+ * MCP å‘½ä»¤å¤„ç†å™?
  */
 export class MCPCommandHandler {
     private serialManager: any;
     private sshManager: any;
     private terminalManager: any;
+    private mcpConnections: Map<string, MCPTerminalStatus> = new Map();
+    
+    // UI ¸üĞÂ»Øµ÷
+    public onConnectionChanged?: () => void;
 
     constructor(
         serialManager: any,
@@ -76,6 +103,34 @@ export class MCPCommandHandler {
         this.sshManager = sshManager;
         this.terminalManager = terminalManager;
         this.ensureResultDir();
+        this.ensureStatusDir();
+    }
+
+    private ensureStatusDir(): void {
+        if (!fs.existsSync(STATUS_DIR)) {
+            fs.mkdirSync(STATUS_DIR, { recursive: true });
+        }
+    }
+
+    /**
+     * å†™å…¥çŠ¶æ€æ–‡ä»?
+     */
+    private writeStatusFile(): void {
+        this.ensureStatusDir();
+        const status: MCPStatusFile = {
+            version: 1,
+            terminals: Array.from(this.mcpConnections.values()).filter(c => c.connected),
+            updatedAt: new Date().toISOString()
+        };
+        fs.writeFileSync(STATUS_FILE, JSON.stringify(status, null, 2), 'utf8');
+        Logger.debug('MCP çŠ¶æ€æ–‡ä»¶å·²æ›´æ–°');
+    }
+
+    /**
+     * ç”Ÿæˆå”¯ä¸€ç»ˆç«¯ ID
+     */
+    private generateTerminalId(type: string): string {
+        return `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     }
 
     private ensureResultDir(): void {
@@ -85,12 +140,31 @@ export class MCPCommandHandler {
     }
 
     /**
+     * ÇåÀí MCP Á¬½Ó×´Ì¬£¨ÓÃ»§ÊÖ¶¯¶Ï¿ªÊ±µ÷ÓÃ£©
+     */
+    clearMCPConnections(type?: 'serial' | 'ssh'): void {
+        if (type) {
+            // ÇåÀíÖ¸¶¨ÀàĞÍµÄÁ¬½Ó
+            for (const [id, status] of this.mcpConnections) {
+                if (status.type === type) {
+                    this.mcpConnections.delete(id);
+                }
+            }
+        } else {
+            // ÇåÀíËùÓĞÁ¬½Ó
+            this.mcpConnections.clear();
+        }
+        this.writeStatusFile();
+        Logger.info(`MCP Á¬½Ó×´Ì¬ÒÑÇåÀí: ${type || 'all'}`);
+    }
+
+    /**
      * å†™å…¥ç»“æœæ–‡ä»¶
      */
     private writeResult(requestId: string, result: any): void {
         const filePath = path.join(RESULT_DIR, `${requestId}.json`);
         fs.writeFileSync(filePath, JSON.stringify(result), 'utf8');
-        Logger.debug(`MCP ç»“æœå·²å†™å…¥: ${requestId}`);
+        Logger.debug(`MCP ç»“æœå·²å†™å…? ${requestId}`);
     }
 
     /**
@@ -125,18 +199,28 @@ export class MCPCommandHandler {
      * è¿æ¥ä¸²å£
      */
     private async connectSerial(config: any): Promise<any> {
-        const { path, baudRate, dataBits, stopBits, parity, encoding } = config;
+        const { path, baudRate, encoding } = config;
 
         if (!path) {
             throw new Error('ä¸²å£è·¯å¾„ä¸èƒ½ä¸ºç©º');
         }
 
-        await this.serialManager.connect(path, {
-            baudRate: baudRate || 115200,
-            dataBits: dataBits || 8,
-            stopBits: stopBits || 1,
-            parity: parity || 'none'
-        }, encoding || 'gbk');
+        // SerialManager.connect åªæ¥å?path å’?baudRate ä¸¤ä¸ªå‚æ•°
+        // å…¶ä»–å‚æ•°ï¼ˆdataBits, stopBits, parity, encodingï¼‰ä» VS Code é…ç½®ä¸­è¯»å?
+        await this.serialManager.connect(path, baudRate || 115200);
+
+        const terminalId = this.generateTerminalId('serial');
+        const terminalStatus: MCPTerminalStatus = {
+            id: terminalId,
+            type: 'serial',
+            connected: true,
+            connectedAt: new Date().toISOString(),
+            encoding: encoding || 'gbk',
+            path,
+            baudRate: baudRate || 115200
+        };
+        this.mcpConnections.set(terminalId, terminalStatus);
+        this.writeStatusFile();
 
         return {
             terminalId: `serial_${path.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -150,10 +234,63 @@ export class MCPCommandHandler {
      * è¿æ¥ SSH
      */
     private async connectSSH(config: any): Promise<any> {
-        const { host, port, username, password, privateKey, passphrase } = config;
+        let { host, port, username, password, privateKey, passphrase, encoding, hostId: inputHostId } = config;
+
+        // Èç¹û´«ÈëÁË hostId£¬´ÓÅäÖÃÖĞ»ñÈ¡¸ÃÅäÖÃµÄÏêÏ¸ĞÅÏ¢
+        if (inputHostId) {
+            const savedConfig = vscode.workspace.getConfiguration('qserial.ssh');
+            const savedHosts = savedConfig.get<any[]>('savedHosts', []);
+            const targetHost = savedHosts.find((h: any) => h.id === inputHostId);
+            if (targetHost) {
+                host = targetHost.host;
+                port = targetHost.port || 22;
+                username = targetHost.username;
+                // Èç¹ûÅäÖÃÖĞÓĞË½Ô¿Â·¾¶£¬Ê¹ÓÃÅäÖÃÖĞµÄ
+                if (targetHost.privateKeyPath && !privateKey) {
+                    privateKey = targetHost.privateKeyPath;
+                }
+                Logger.info(`Ê¹ÓÃÖ¸¶¨ÅäÖÃ: ${targetHost.name || host} (ID: ${inputHostId})`);
+            } else {
+                Logger.warn(`Î´ÕÒµ½ÅäÖÃID: ${inputHostId}£¬Ê¹ÓÃ´«Èë²ÎÊı`);
+            }
+        }
 
         if (!host || !username) {
             throw new Error('SSH ä¸»æœºåœ°å€å’Œç”¨æˆ·åä¸èƒ½ä¸ºç©º');
+        }
+
+        // ´¦Àí privateKey - Èç¹ûÊÇÎÄ¼şÂ·¾¶Ôò¶ÁÈ¡ÎÄ¼şÄÚÈİ
+        let keyContent: string | Buffer | undefined = undefined;
+        if (privateKey) {
+            // ¼ì²éÊÇ·ñÊÇÎÄ¼şÂ·¾¶£¨°üº¬Â·¾¶·Ö¸ô·û»òÒÔ .ssh ¿ªÍ·µÄ³£¼ûÂ·¾¶£©
+            if (privateKey.includes('/') || privateKey.includes('\\') || privateKey.includes('.ssh')) {
+                try {
+                    keyContent = fs.readFileSync(privateKey);
+                    Logger.info(`¶ÁÈ¡Ë½Ô¿ÎÄ¼ş: ${privateKey}`);
+                } catch (err) {
+                    throw new Error(`ÎŞ·¨¶ÁÈ¡Ë½Ô¿ÎÄ¼ş: ${privateKey}`);
+                }
+            } else {
+                // Ö±½Ó×÷ÎªË½Ô¿ÄÚÈİ
+                keyContent = privateKey;
+            }
+        }
+
+        // È·¶¨×îÖÕµÄ hostId
+        let finalHostId: string;
+        if (inputHostId) {
+            // Ê¹ÓÃ´«ÈëµÄ hostId
+            finalHostId = inputHostId;
+        } else {
+            // ²éÕÒÒÑ±£´æµÄÖ÷»úÅäÖÃ£¬»ñÈ¡Æä hostId
+            const savedConfig = vscode.workspace.getConfiguration('qserial.ssh');
+            const savedHosts = savedConfig.get<any[]>('savedHosts', []);
+            const matchingHost = savedHosts.find((h: any) =>
+                h.host === host &&
+                (h.port || 22) === (port || 22) &&
+                h.username === username
+            );
+            finalHostId = matchingHost?.id || `ssh-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
         }
 
         await this.sshManager.connect({
@@ -161,34 +298,50 @@ export class MCPCommandHandler {
             port: port || 22,
             username,
             password,
-            privateKey,
-            passphrase
+            privateKey: keyContent,
+            passphrase,
+            hostId: finalHostId  // ´«Èë hostId ÒÔÆ¥ÅäÊ÷×´Í¼×´Ì¬
         });
+
+        const terminalId = this.generateTerminalId('ssh');
+        const terminalStatus: MCPTerminalStatus = {
+            id: terminalId,
+            type: 'ssh',
+            connected: true,
+            connectedAt: new Date().toISOString(),
+            encoding: encoding || 'utf8',
+            host,
+            port: port || 22,
+            username
+        };
+        this.mcpConnections.set(terminalId, terminalStatus);
+        this.writeStatusFile();
 
         return {
             terminalId: `ssh_${username}_${host}_${port || 22}`.replace(/[^a-zA-Z0-9_]/g, '_'),
             type: 'ssh',
             host,
             port: port || 22,
-            username
+            username,
+            hostId: finalHostId
         };
     }
 
     /**
-     * å¤„ç†å‘é€å‘½ä»¤
+     * å¤„ç†å‘é€å‘½ä»?
      */
     async handleSend(params: SendParams): Promise<any> {
         const { requestId, terminalId, data, appendNewline } = params;
-        Logger.info(`MCP å‘é€è¯·æ±‚: ${terminalId}`);
+        Logger.info(`MCP å‘é€è¯·æ±? ${terminalId}`);
 
         try {
-            // æŸ¥æ‰¾å¯¹åº”çš„ç»ˆç«¯
+            // æŸ¥æ‰¾å¯¹åº”çš„ç»ˆç«?
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`ç»ˆç«¯ä¸å­˜åœ¨: ${terminalId}`);
+                throw new Error(`ç»ˆç«¯ä¸å­˜åœ? ${terminalId}`);
             }
 
-            // å‘é€æ•°æ®
+            // å‘é€æ•°æ?
             const dataToSend = appendNewline !== false ? data + '\n' : data;
             
             if (terminal.type === 'serial') {
@@ -201,7 +354,7 @@ export class MCPCommandHandler {
             return { success: true };
         } catch (error) {
             const err = error as Error;
-            Logger.error(`MCP å‘é€å¤±è´¥: ${err.message}`);
+            Logger.error(`MCP å‘é€å¤±è´? ${err.message}`);
             this.writeResult(requestId, { success: false, error: err.message });
             throw error;
         }
@@ -217,13 +370,41 @@ export class MCPCommandHandler {
         try {
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`ç»ˆç«¯ä¸å­˜åœ¨: ${terminalId}`);
+                throw new Error(`ç»ˆç«¯ä¸å­˜åœ? ${terminalId}`);
             }
 
             if (terminal.type === 'serial') {
                 await this.serialManager.disconnect();
+                // ¹Ø±Õ´®¿ÚÖÕ¶Ë
+                this.terminalManager.closeSerialTerminal();
             } else {
-                await this.sshManager.disconnect(terminalId);
+                // »ñÈ¡Á¬½ÓĞÅÏ¢ÒÔÕÒµ½ÖÕ¶ËÃû³Æ
+                const hostId = terminal.hostId || terminal.id;
+                const conn = this.sshManager.getConnectionInfo(hostId);
+                const terminalName = conn?.terminalName;
+                
+                // Ê¹ÓÃ hostId ¶Ï¿ª SSH Á¬½Ó
+                await this.sshManager.disconnect(hostId);
+                
+                // ¹Ø±Õ¶ÔÓ¦µÄ SSH ÖÕ¶Ë
+                if (terminalName) {
+                    this.terminalManager.closeSSHTerminal(terminalName);
+                    Logger.info(`ÒÑ¹Ø±Õ SSH ÖÕ¶Ë: ${terminalName}`);
+                }
+            }
+
+            // ä»çŠ¶æ€æ–‡ä»¶ç§»é™?
+            for (const [id, status] of this.mcpConnections) {
+                if (status.type === terminal.type) {
+                    status.connected = false;
+                    this.mcpConnections.delete(id);
+                }
+            }
+            this.writeStatusFile();
+
+            // ´¥·¢ UI ¸üĞÂ
+            if (this.onConnectionChanged) {
+                this.onConnectionChanged();
             }
 
             this.writeResult(requestId, { success: true });
@@ -246,7 +427,7 @@ export class MCPCommandHandler {
         try {
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`ç»ˆç«¯ä¸å­˜åœ¨: ${terminalId}`);
+                throw new Error(`ç»ˆç«¯ä¸å­˜åœ? ${terminalId}`);
             }
 
             let data: string;
@@ -276,7 +457,7 @@ export class MCPCommandHandler {
         try {
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`ç»ˆç«¯ä¸å­˜åœ¨: ${terminalId}`);
+                throw new Error(`ç»ˆç«¯ä¸å­˜åœ? ${terminalId}`);
             }
 
             let result: string | null;
@@ -316,11 +497,11 @@ export class MCPCommandHandler {
     }
 
     /**
-     * å¤„ç†è·å–ç»ˆç«¯çŠ¶æ€å‘½ä»¤
+     * å¤„ç†è·å–ç»ˆç«¯çŠ¶æ€å‘½ä»?
      */
     async handleStatus(params: { requestId: string; terminalId?: string }): Promise<any> {
         const { requestId, terminalId } = params;
-        Logger.info(`MCP çŠ¶æ€è¯·æ±‚: ${terminalId || 'all'}`);
+        Logger.info(`MCP çŠ¶æ€è¯·æ±? ${terminalId || 'all'}`);
 
         try {
             if (terminalId) {
@@ -328,17 +509,22 @@ export class MCPCommandHandler {
                 this.writeResult(requestId, { success: true, data: terminal });
                 return terminal;
             } else {
-                // è¿”å›æ‰€æœ‰ç»ˆç«¯çŠ¶æ€
+                // è¿”å›æ‰€æœ‰ç»ˆç«¯çŠ¶æ€?
+                const serialConn = this.serialManager.getConnectionInfo();
                 const status = {
-                    serial: this.serialManager.getConnectionStatus(),
-                    ssh: this.sshManager.getAllConnections()
+                    serial: serialConn ? {
+                        connected: serialConn.isOpen,
+                        path: serialConn.path,
+                        baudRate: serialConn.baudRate
+                    } : { connected: false },
+                    ssh: this.sshManager.getAllConnections().map((conn: any) => ({ host: conn.host, port: conn.port, username: conn.username, isConnected: conn.isConnected, hostId: conn.hostId }))
                 };
                 this.writeResult(requestId, { success: true, data: status });
                 return status;
             }
         } catch (error) {
             const err = error as Error;
-            Logger.error(`MCP çŠ¶æ€æŸ¥è¯¢å¤±è´¥: ${err.message}`);
+            Logger.error(`MCP çŠ¶æ€æŸ¥è¯¢å¤±è´? ${err.message}`);
             this.writeResult(requestId, { success: false, error: err.message });
             throw error;
         }
@@ -347,22 +533,78 @@ export class MCPCommandHandler {
     /**
      * æŸ¥æ‰¾ç»ˆç«¯
      */
-    private findTerminal(terminalId: string): { type: string; id: string } | null {
-        // æ£€æŸ¥ä¸²å£è¿æ¥
-        const serialStatus = this.serialManager.getConnectionStatus();
-        if (serialStatus.connected) {
-            const serialId = `serial_${serialStatus.path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    /**
+     * ´¦Àí»ñÈ¡ÅäÖÃÃüÁî
+     */
+    async handleGetConfig(params: { requestId: string }): Promise<any> {
+        const { requestId } = params;
+        Logger.info('MCP »ñÈ¡ÅäÖÃÇëÇó');
+
+        try {
+            const config = vscode.workspace.getConfiguration('qserial');
+            
+            // »ñÈ¡ËùÓĞÅäÖÃĞÅÏ¢
+            const configInfo = {
+                serial: {
+                    defaultBaudRate: config.get<number>('serial.defaultBaudRate', 115200),
+                    dataBits: config.get<number>('serial.dataBits', 8),
+                    stopBits: config.get<number>('serial.stopBits', 1),
+                    parity: config.get<string>('serial.parity', 'none'),
+                    autoNewline: config.get<boolean>('serial.autoNewline', true),
+                    encoding: config.get<string>('serial.encoding', 'gbk')
+                },
+                log: {
+                    defaultPath: config.get<string>('log.defaultPath', ''),
+                    enableTimestamp: config.get<boolean>('log.enableTimestamp', true)
+                },
+                ssh: {
+                    savedHosts: config.get<any[]>('ssh.savedHosts', [])
+                },
+                buttons: {
+                    customButtons: config.get<any[]>('buttons.customButtons', [])
+                },
+                connections: {
+                    serial: this.serialManager.getConnectionInfo()?.isOpen ? {
+                        connected: true,
+                        path: this.serialManager.getConnectionInfo()?.path,
+                        baudRate: this.serialManager.getConnectionInfo()?.baudRate
+                    } : { connected: false },
+                    ssh: this.sshManager.getAllConnections().map((conn: any) => ({
+                        host: conn.host,
+                        port: conn.port,
+                        username: conn.username,
+                        isConnected: conn.isConnected,
+                        hostId: conn.hostId
+                    }))
+                }
+            };
+
+            this.writeResult(requestId, { success: true, data: configInfo });
+            return { success: true, data: configInfo };
+        } catch (error) {
+            const err = error as Error;
+            Logger.error(`MCP »ñÈ¡ÅäÖÃÊ§°Ü: ${err.message}`);
+            this.writeResult(requestId, { success: false, error: err.message });
+            throw error;
+        }
+    }
+
+    private findTerminal(terminalId: string): { type: string; id: string; hostId?: string } | null {
+        // ¼ì²é´®¿ÚÁ¬½Ó
+        const serialConn = this.serialManager.getConnectionInfo();
+        if (serialConn?.isOpen) {
+            const serialId = `serial_${serialConn.path.replace(/[^a-zA-Z0-9]/g, '_')}`;
             if (serialId === terminalId) {
-                return { type: 'serial', id: serialStatus.path };
+                return { type: 'serial', id: serialConn.path };
             }
         }
 
-        // æ£€æŸ¥ SSH è¿æ¥
+        // ¼ì²é SSH Á¬½Ó
         const sshConnections = this.sshManager.getAllConnections();
         for (const conn of sshConnections) {
             const sshId = `ssh_${conn.username}_${conn.host}_${conn.port}`.replace(/[^a-zA-Z0-9_]/g, '_');
-            if (sshId === terminalId) {
-                return { type: 'ssh', id: conn.terminalName };
+            if (sshId === terminalId || conn.hostId === terminalId) {
+                return { type: 'ssh', id: conn.hostId, hostId: conn.hostId };
             }
         }
 

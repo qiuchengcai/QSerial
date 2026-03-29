@@ -115,6 +115,8 @@ export class MCPHttpServer {
                 return await this.commandHandler.handleListPorts(params);
             case 'status':
                 return await this.commandHandler.handleStatus(params);
+            case 'getConfig':
+                return await this.commandHandler.handleGetConfig(params);
             default:
                 throw new Error(`未知操作: ${action}`);
         }

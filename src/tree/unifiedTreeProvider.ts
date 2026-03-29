@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { SerialManager } from '../serial/serialManager';
 import { SSHManager } from '../ssh/sshManager';
 import { ButtonManager } from '../buttons/buttonManager';
+import { MCPDataSync, MCPConnectionInfo } from '../mcp/dataSync';
 
 // 选项卡类型
 export type TabType = 'connections' | 'buttons' | 'settings';
@@ -13,12 +14,20 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
         this._onDidChangeTreeData.event;
 
     private currentTab: TabType = 'connections';
+    private mcpDataSync: MCPDataSync | null = null;
 
     constructor(
         private serialManager: SerialManager,
         private sshManager: SSHManager,
         private buttonManager: ButtonManager
     ) { }
+
+    /**
+     * 设置 MCP 数据同步器引用
+     */
+    setMCPDataSync(mcpDataSync: MCPDataSync): void {
+        this.mcpDataSync = mcpDataSync;
+    }
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
@@ -125,8 +134,24 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
         const items: UnifiedItem[] = [];
 
         const serialConn = this.serialManager.getConnectionInfo();
-        
-        if (serialConn) {
+        const mcpSerialConn = this.mcpDataSync?.getMCPConnections().find(c => c.type === 'serial' && c.connected);
+
+        // 优先显示 MCP 连接（蓝色）
+        if (mcpSerialConn) {
+            const mcpConnectedItem = new UnifiedItem(
+                `🔵 ${mcpSerialConn.path}`,
+                vscode.TreeItemCollapsibleState.None,
+                'mcp-serial-connected'
+            );
+            mcpConnectedItem.description = `${mcpSerialConn.baudRate} baud (MCP)`;
+            mcpConnectedItem.tooltip = `MCP AI 已连接 ${mcpSerialConn.path} - 点击断开`;
+            mcpConnectedItem.command = {
+                command: 'qserial.mcp.disconnect',
+                title: '断开 MCP 连接'
+            };
+            items.push(mcpConnectedItem);
+        } else if (serialConn) {
+            // 本地连接（绿色）- 仅在没有 MCP 连接时显示
             const connectedItem = new UnifiedItem(
                 `🟢 ${serialConn.path}`,
                 vscode.TreeItemCollapsibleState.None,
@@ -143,7 +168,10 @@ export class UnifiedTreeProvider implements vscode.TreeDataProvider<UnifiedItem>
 
         const ports = await this.serialManager.listPorts();
         for (const port of ports) {
-            if (serialConn && port.path === serialConn.path) {
+            // 排除已连接的端口（本地或 MCP）
+            const isConnected = (serialConn && port.path === serialConn.path) ||
+                                (mcpSerialConn && port.path === mcpSerialConn.path);
+            if (isConnected) {
                 continue;
             }
             const item = new UnifiedItem(

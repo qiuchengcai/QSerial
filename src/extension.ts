@@ -59,6 +59,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 初始化 MCP 命令处理器
     mcpCommandHandler = new MCPCommandHandler(serialManager, sshManager, terminalManager);
+    
+    // 设置 MCP 连接状态变化回调，更新 UI
+    mcpCommandHandler.onConnectionChanged = () => {
+        unifiedTreeProvider.refresh();
+        statusBarManager.update();
+        Logger.info('MCP 连接状态变化，已更新 UI');
+    };
 
     // 启动 MCP HTTP Server
     mcpHttpServer = new MCPHttpServer(mcpCommandHandler);
@@ -66,6 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 设置 MCP 状态变化回调，更新状态栏和树视图
     statusBarManager.setMCPDataSync(mcpDataSync);
+    unifiedTreeProvider.setMCPDataSync(mcpDataSync);
     mcpDataSync.onStatusChanged = () => {
         statusBarManager.update();
         unifiedTreeProvider.refresh();
@@ -89,6 +97,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('qserial.serial.disconnect', () => disconnectSerial()),
         vscode.commands.registerCommand('qserial.serial.refreshPorts', () => refreshSerialPorts()),
         vscode.commands.registerCommand('qserial.serial.connectPort', (port: any) => connectSerialPort(port)),
+        vscode.commands.registerCommand('qserial.mcp.disconnect', () => disconnectMCPSerial()),
 
         vscode.commands.registerCommand('qserial.ssh.connect', () => connectSSH()),
         vscode.commands.registerCommand('qserial.ssh.disconnect', () => disconnectSSH()),
@@ -313,6 +322,20 @@ async function disconnectSerial() {
         unifiedTreeProvider.refresh();
         statusBarManager.update();
         vscode.window.showInformationMessage('串口已断开');
+    } catch (error) {
+        vscode.window.showErrorMessage(`断开失败: ${error}`);
+    }
+}
+
+async function disconnectMCPSerial() {
+    try {
+        // 断开串口连接
+        await serialManager.disconnect();
+        // 清理 MCP 状态文件
+        mcpCommandHandler.clearMCPConnections('serial');
+        unifiedTreeProvider.refresh();
+        statusBarManager.update();
+        vscode.window.showInformationMessage('MCP 串口连接已断开');
     } catch (error) {
         vscode.window.showErrorMessage(`断开失败: ${error}`);
     }

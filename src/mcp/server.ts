@@ -154,6 +154,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         passphrase: {
                             type: 'string',
                             description: 'SSH 私钥密码'
+                        },
+                        hostId: {
+                            type: 'string',
+                            description: 'SSH 配置ID（可选，用于连接指定配置）'
                         }
                     },
                     required: ['type']
@@ -350,6 +354,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     type: 'object',
                     properties: {}
                 }
+            },
+            {
+                name: 'config_get',
+                description: '获取 QSerial 的所有实时配置信息，包括串口设置、SSH保存的主机、自定义按钮等',
+                inputSchema: {
+                    type: 'object',
+                    properties: {}
+                }
             }
         ]
     };
@@ -357,13 +369,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // ==================== 工具调用处理 ====================
 
+/** 生成唯一请求ID */
+function generateRequestId(): string {
+    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
         switch (name) {
             case 'terminal_connect': {
-                const result = await callHttpServer('connect', args);
+                const result = await callHttpServer('connect', { ...args, requestId: generateRequestId() });
                 return {
                     content: [
                         {
@@ -375,7 +392,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_disconnect': {
-                await callHttpServer('disconnect', args);
+                await callHttpServer('disconnect', { ...args, requestId: generateRequestId() });
                 return {
                     content: [
                         {
@@ -387,7 +404,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_send': {
-                await callHttpServer('send', args);
+                await callHttpServer('send', { ...args, requestId: generateRequestId() });
                 return {
                     content: [
                         {
@@ -399,60 +416,80 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_read': {
-                const result = await callHttpServer('read', args);
+                const result = await callHttpServer('read', { ...args, requestId: generateRequestId() });
+                // result 格式: { success: true, data: "实际数据" }
+                const actualData = result?.data || result || '';
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: result || ''
+                            text: typeof actualData === 'string' ? actualData : JSON.stringify(actualData, null, 2)
                         }
                     ]
                 };
             }
 
             case 'terminal_wait': {
-                const result = await callHttpServer('wait', args);
+                const result = await callHttpServer('wait', { ...args, requestId: generateRequestId() });
+                const actualData = result?.data || result || '';
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: result || ''
+                            text: typeof actualData === 'string' ? actualData : JSON.stringify(actualData, null, 2)
                         }
                     ]
                 };
             }
 
             case 'terminal_send_signal': {
-                // 信号发送需要特殊处理
+                // 将信号转换为对应的控制字符并发送
+                const signalMap: Record<string, string> = {
+                    'SIGINT': '\x03',   // Ctrl+C
+                    'SIGQUIT': '\x04',  // Ctrl+D
+                    'SIGTSTP': '\x1a',  // Ctrl+Z
+                    'SIGTERM': '\x03'   // 默认用 Ctrl+C
+                };
+                const signal = args?.signal as string || 'SIGINT';
+                const terminalId = args?.terminalId as string;
+                const signalChar = signalMap[signal] || '\x03';
+                await callHttpServer('send', {
+                    terminalId,
+                    data: signalChar,
+                    appendNewline: false,
+                    requestId: generateRequestId()
+                });
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: JSON.stringify({ success: true, note: '信号发送功能暂未实现' }, null, 2)
+                            text: JSON.stringify({ success: true, signal, note: `已发送 ${signal} 信号` }, null, 2)
                         }
                     ]
                 };
             }
 
             case 'terminal_read_stream': {
-                const result = await callHttpServer('read', { ...args, mode: 'new', clear: false });
+                const result = await callHttpServer('read', { ...args, mode: 'new', clear: false, requestId: generateRequestId() });
+                const actualData = result?.data || result || '';
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: result || ''
+                            text: typeof actualData === 'string' ? actualData : JSON.stringify(actualData, null, 2)
                         }
                     ]
                 };
             }
 
             case 'terminal_get_screen': {
-                const result = await callHttpServer('read', { ...args, mode: 'screen' });
+                const result = await callHttpServer('read', { ...args, mode: 'screen', requestId: generateRequestId() });
+                const actualData = result?.data || result || '';
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: result || ''
+                            text: typeof actualData === 'string' ? actualData : JSON.stringify(actualData, null, 2)
                         }
                     ]
                 };
@@ -471,7 +508,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_status': {
-                const result = await callHttpServer('status', args);
+                const result = await callHttpServer('status', { ...args, requestId: generateRequestId() });
                 return {
                     content: [
                         {
@@ -483,7 +520,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'serial_list_ports': {
-                const result = await callHttpServer('listPorts', args);
+                const result = await callHttpServer('listPorts', { ...args, requestId: generateRequestId() });
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(result, null, 2)
+                        }
+                    ]
+                };
+            }
+
+            case 'config_get': {
+                const result = await callHttpServer('getConfig', { ...args, requestId: generateRequestId() });
                 return {
                     content: [
                         {

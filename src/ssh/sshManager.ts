@@ -76,15 +76,28 @@ export class SSHManager {
                         // 不再关闭终端，因为可能是用户手动关闭终端触发的
                         // 如果是服务器断开，终端会显示连接断开
                     });
-                });
 
-                Logger.info(`SSH connected to ${config.username}@${config.host}`);
-                resolve();
+                    Logger.info(`SSH connected to ${config.username}@${config.host}`);
+                    resolve();  // shell 创建成功后才 resolve
+                });
             });
 
             client.on('error', (err) => {
                 Logger.error('SSH connection error: ' + err.message);
                 Logger.error('SSH connection error level: ' + (err as any).level);
+                
+                // 如果是连接断开相关的错误，不显示弹窗（这是正常断开流程）
+                const isDisconnectError = err.message.includes('ECONNRESET') ||
+                    err.message.includes('Connection closed') ||
+                    err.message.includes('socket hang up');
+                
+                // 如果连接已存在（在 Map 中），说明是断开过程中的错误，不需要弹窗
+                const isExistingConnection = this.connections.has(hostId);
+                
+                if (isDisconnectError && isExistingConnection) {
+                    Logger.info('SSH 连接断开: ' + err.message);
+                    return;
+                }
                 
                 // 提供更详细的错误信息
                 let errorMsg = err.message;
@@ -121,17 +134,30 @@ export class SSHManager {
                 }
                 Logger.info('Using private key authentication');
             } else {
-                // Try default private key
+                // Try default private keys in order of preference
                 const fs = require('fs');
                 const path = require('path');
                 const homeDir = process.env.HOME || process.env.USERPROFILE;
-                const privateKeyPath = path.join(homeDir, '.ssh', 'id_rsa');
+                const sshDir = path.join(homeDir, '.ssh');
                 
-                try {
-                    connConfig.privateKey = fs.readFileSync(privateKeyPath);
-                    Logger.info('Using default private key: ' + privateKeyPath);
-                } catch {
-                    Logger.warn('No private key found, password required');
+                // Try common key file names in order
+                const keyFiles = ['id_ed25519', 'id_rsa', 'id_ecdsa', 'id_dsa'];
+                let keyFound = false;
+                
+                for (const keyFile of keyFiles) {
+                    const keyPath = path.join(sshDir, keyFile);
+                    try {
+                        connConfig.privateKey = fs.readFileSync(keyPath);
+                        Logger.info('Using default private key: ' + keyPath);
+                        keyFound = true;
+                        break;
+                    } catch {
+                        // Try next key file
+                    }
+                }
+                
+                if (!keyFound) {
+                    Logger.warn('No private key found in ' + sshDir + ', password required');
                 }
             }
 
@@ -180,6 +206,25 @@ export class SSHManager {
         }
 
         shell.write(data);
+    }
+
+    /**
+     * 读取 SSH 终端数据（MCP 用）
+     * 注意：SSH 数据直接显示在终端，此方法返回空字符串
+     */
+    read(hostId: string, options?: { mode?: string; bytes?: number; lines?: number; clear?: boolean }): string {
+        // SSH 数据直接写入终端，不缓存
+        // 返回空字符串，MCP 用户需要查看终端输出
+        return '';
+    }
+
+    /**
+     * 等待 SSH 输出匹配（MCP 用）
+     */
+    async wait(hostId: string, pattern: string, options?: { patternType?: string; timeout?: number }): Promise<string | null> {
+        // SSH 数据直接写入终端，无法等待匹配
+        // 返回 null 表示不支持
+        return null;
     }
 
     isConnected(hostId?: string): boolean {
