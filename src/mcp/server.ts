@@ -1,7 +1,7 @@
 /**
  * QSerial MCP Server
  * 提供 AI 助手访问串口和 SSH 的 MCP 工具
- * 通过 VS Code 命令调用 QSerial 扩展执行实际操作
+ * 通过 HTTP 请求调用 QSerial 扩展执行实际操作
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -13,80 +13,63 @@ import {
     ListResourcesRequestSchema,
     ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import * as childProcess from 'child_process';
-import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
-import * as crypto from 'crypto';
+import * as http from 'http';
 
-/** 结果目录 */
-const RESULT_DIR = path.join(os.homedir(), '.qserial', 'results');
-
-/** 确保结果目录存在 */
-function ensureResultDir(): void {
-    if (!fs.existsSync(RESULT_DIR)) {
-        fs.mkdirSync(RESULT_DIR, { recursive: true });
-    }
-}
+/** HTTP Server 端口 */
+const HTTP_PORT = 9527;
 
 /**
- * 调用 VS Code 命令并等待结果
+ * 发送 HTTP 请求到 QSerial HTTP Server
  */
-async function callVSCodeCommand(command: string, args: any): Promise<any> {
-    const requestId = crypto.randomUUID();
-    ensureResultDir();
-
-    // 添加 requestId 到参数
-    const paramsWithId = { ...args, requestId };
-
-    // 构建命令
-    const argsJson = JSON.stringify(paramsWithId);
-    const codeCommand = `code --command ${command} --args '${argsJson}'`;
-
-    // 执行命令
+async function callHttpServer(action: string, params: any): Promise<any> {
     return new Promise((resolve, reject) => {
-        childProcess.exec(codeCommand, (error, stdout, stderr) => {
-            if (error) {
-                reject(new Error(`命令执行失败: ${error.message}`));
-                return;
+        const body = JSON.stringify(params);
+        const options = {
+            hostname: 'localhost',
+            port: HTTP_PORT,
+            path: `/mcp/${action}`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body)
             }
-        });
+        };
 
-        // 轮询等待结果
-        const resultFile = path.join(RESULT_DIR, `${requestId}.json`);
-        const startTime = Date.now();
-        const timeout = 30000; // 30秒超时
-
-        const checkResult = () => {
-            if (fs.existsSync(resultFile)) {
+        const req = http.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
                 try {
-                    const result = JSON.parse(fs.readFileSync(resultFile, 'utf8'));
-                    // 删除结果文件
-                    fs.unlinkSync(resultFile);
+                    const result = JSON.parse(data);
                     if (result.success) {
                         resolve(result.data);
                     } else {
                         reject(new Error(result.error || '操作失败'));
                     }
                 } catch (err) {
-                    reject(new Error('解析结果失败'));
+                    reject(new Error('解析响应失败'));
                 }
-            } else if (Date.now() - startTime > timeout) {
-                reject(new Error('操作超时'));
-            } else {
-                setTimeout(checkResult, 100);
-            }
-        };
+            });
+        });
 
-        // 延迟开始检查，给 VS Code 时间处理命令
-        setTimeout(checkResult, 500);
+        req.on('error', (err) => {
+            reject(new Error(`HTTP 请求失败: ${err.message}`));
+        });
+
+        req.setTimeout(30000, () => {
+            req.destroy();
+            reject(new Error('请求超时'));
+        });
+
+        req.write(body);
+        req.end();
     });
 }
 
 const server = new Server(
     {
         name: 'qserial-mcp-server',
-        version: '0.2.0',
+        version: '0.3.0',
     },
     {
         capabilities: {
@@ -380,7 +363,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
         switch (name) {
             case 'terminal_connect': {
-                const result = await callVSCodeCommand('qserial.mcp.connect', args);
+                const result = await callHttpServer('connect', args);
                 return {
                     content: [
                         {
@@ -392,7 +375,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_disconnect': {
-                await callVSCodeCommand('qserial.mcp.disconnect', args);
+                await callHttpServer('disconnect', args);
                 return {
                     content: [
                         {
@@ -404,7 +387,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_send': {
-                await callVSCodeCommand('qserial.mcp.send', args);
+                await callHttpServer('send', args);
                 return {
                     content: [
                         {
@@ -416,7 +399,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_read': {
-                const result = await callVSCodeCommand('qserial.mcp.read', args);
+                const result = await callHttpServer('read', args);
                 return {
                     content: [
                         {
@@ -428,7 +411,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_wait': {
-                const result = await callVSCodeCommand('qserial.mcp.wait', args);
+                const result = await callHttpServer('wait', args);
                 return {
                     content: [
                         {
@@ -452,7 +435,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_read_stream': {
-                const result = await callVSCodeCommand('qserial.mcp.read', { ...args, mode: 'new', clear: false });
+                const result = await callHttpServer('read', { ...args, mode: 'new', clear: false });
                 return {
                     content: [
                         {
@@ -464,7 +447,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_get_screen': {
-                const result = await callVSCodeCommand('qserial.mcp.read', { ...args, mode: 'screen' });
+                const result = await callHttpServer('read', { ...args, mode: 'screen' });
                 return {
                     content: [
                         {
@@ -488,7 +471,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_status': {
-                const result = await callVSCodeCommand('qserial.mcp.status', args);
+                const result = await callHttpServer('status', args);
                 return {
                     content: [
                         {
@@ -500,7 +483,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'serial_list_ports': {
-                const result = await callVSCodeCommand('qserial.mcp.listPorts', args);
+                const result = await callHttpServer('listPorts', args);
                 return {
                     content: [
                         {
@@ -556,7 +539,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
     if (uri === 'qserial://status') {
         try {
-            const status = await callVSCodeCommand('qserial.mcp.status', {});
+            const status = await callHttpServer('status', {});
             return {
                 contents: [
                     {
@@ -588,7 +571,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('QSerial MCP Server 已启动 (VS Code 命令模式)');
+    console.error('QSerial MCP Server 已启动 (HTTP 模式，端口 9527)');
 }
 
 main().catch((error) => {

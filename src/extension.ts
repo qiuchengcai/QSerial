@@ -9,6 +9,7 @@ import { StatusBarManager } from './statusBar/statusBarManager';
 import { Logger } from './utils/logger';
 import { MCPDataSync } from './mcp/dataSync';
 import { MCPCommandHandler } from './mcp/commandHandler';
+import { MCPHttpServer } from './mcp/httpServer';
 
 let serialManager: SerialManager;
 let sshManager: SSHManager;
@@ -20,6 +21,7 @@ let secrets: vscode.SecretStorage;
 let unifiedView: vscode.TreeView<vscode.TreeItem>;
 let mcpDataSync: MCPDataSync;
 let mcpCommandHandler: MCPCommandHandler;
+let mcpHttpServer: MCPHttpServer;
 
 export function activate(context: vscode.ExtensionContext) {
     Logger.info('QSerial extension is activating...');
@@ -57,6 +59,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 初始化 MCP 命令处理器
     mcpCommandHandler = new MCPCommandHandler(serialManager, sshManager, terminalManager);
+
+    // 启动 MCP HTTP Server
+    mcpHttpServer = new MCPHttpServer(mcpCommandHandler);
+    mcpHttpServer.start();
 
     // 设置 MCP 状态变化回调，更新状态栏和树视图
     statusBarManager.setMCPDataSync(mcpDataSync);
