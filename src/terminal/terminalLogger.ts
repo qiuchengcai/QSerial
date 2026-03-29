@@ -108,6 +108,26 @@ export class TerminalLogger {
     }
 
     /**
+     * 剥离 ANSI 转义序列
+     * 包括颜色、光标移动、清屏、括号粘贴模式等控制码
+     */
+    private stripANSI(text: string): string {
+        // 匹配所有常见的 ANSI 转义序列：
+        // \x1b[...m     - SGR（颜色/样式）
+        // \x1b[...H     - 光标定位
+        // \x1b[...J     - 清屏
+        // \x1b[...K     - 清行
+        // \x1b[...A/B/C/D - 光标移动
+        // \x1b[?...h/l  - DEC 私有模式（如 ?2004h 括号粘贴模式, ?1h 光标键模式）
+        // \x1b[...r     - 设置滚动区域
+        // \x1b[...s/u   - 保存/恢复光标
+        // \x1b]...\x07  - OSC 序列（窗口标题等）
+        // \x1b[()...    - 字符集切换
+        // \x1b= / \x1b> - 键盘模式
+        return text.replace(/\x1b\[[0-9;]*[a-zA-Z]|\x1b\[\?[0-9;]*[hl]|\x1b\][^\x07]*\x07|\x1b[()][AB012]|\x1b[=>]|\r/g, '');
+    }
+
+    /**
      * 写入日志数据
      * @param terminalName 终端名称
      * @param data 数据（已解码的字符串）
@@ -118,7 +138,13 @@ export class TerminalLogger {
             return;
         }
 
-        const content = data;
+        // 剥离 ANSI 转义序列，保留纯文本
+        const content = this.stripANSI(data);
+
+        // 跳过剥离后为空的内容
+        if (!content.trim()) {
+            return;
+        }
 
         // 添加时间戳前缀
         const timestamp = new Date().toLocaleTimeString();
