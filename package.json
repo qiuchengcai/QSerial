@@ -20,6 +20,7 @@
     "terminal",
     "shortcut"
   ],
+  "extensionKind": ["ui"],
   "activationEvents": [
     "onStartupFinished"
   ],
