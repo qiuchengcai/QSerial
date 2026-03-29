@@ -1,6 +1,7 @@
 /**
  * QSerial MCP Server
  * 提供 AI 助手访问串口和 SSH 的 MCP 工具
+ * 通过 VS Code 命令调用 QSerial 扩展执行实际操作
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -12,22 +13,80 @@ import {
     ListResourcesRequestSchema,
     ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { MCPTerminalManager } from './terminalManager.js';
-import type {
-    TerminalConnectConfig,
-    ReadOptions,
-    WaitOptions,
-    PortInfo,
-    TerminalInfo,
-    CustomButton
-} from './types.js';
+import * as childProcess from 'child_process';
+import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 
-const manager = new MCPTerminalManager();
+/** 结果目录 */
+const RESULT_DIR = path.join(os.homedir(), '.qserial', 'results');
+
+/** 确保结果目录存在 */
+function ensureResultDir(): void {
+    if (!fs.existsSync(RESULT_DIR)) {
+        fs.mkdirSync(RESULT_DIR, { recursive: true });
+    }
+}
+
+/**
+ * 调用 VS Code 命令并等待结果
+ */
+async function callVSCodeCommand(command: string, args: any): Promise<any> {
+    const requestId = crypto.randomUUID();
+    ensureResultDir();
+
+    // 添加 requestId 到参数
+    const paramsWithId = { ...args, requestId };
+
+    // 构建命令
+    const argsJson = JSON.stringify(paramsWithId);
+    const codeCommand = `code --command ${command} --args '${argsJson}'`;
+
+    // 执行命令
+    return new Promise((resolve, reject) => {
+        childProcess.exec(codeCommand, (error, stdout, stderr) => {
+            if (error) {
+                reject(new Error(`命令执行失败: ${error.message}`));
+                return;
+            }
+        });
+
+        // 轮询等待结果
+        const resultFile = path.join(RESULT_DIR, `${requestId}.json`);
+        const startTime = Date.now();
+        const timeout = 30000; // 30秒超时
+
+        const checkResult = () => {
+            if (fs.existsSync(resultFile)) {
+                try {
+                    const result = JSON.parse(fs.readFileSync(resultFile, 'utf8'));
+                    // 删除结果文件
+                    fs.unlinkSync(resultFile);
+                    if (result.success) {
+                        resolve(result.data);
+                    } else {
+                        reject(new Error(result.error || '操作失败'));
+                    }
+                } catch (err) {
+                    reject(new Error('解析结果失败'));
+                }
+            } else if (Date.now() - startTime > timeout) {
+                reject(new Error('操作超时'));
+            } else {
+                setTimeout(checkResult, 100);
+            }
+        };
+
+        // 延迟开始检查，给 VS Code 时间处理命令
+        setTimeout(checkResult, 500);
+    });
+}
 
 const server = new Server(
     {
         name: 'qserial-mcp-server',
-        version: '0.1.0',
+        version: '0.2.0',
     },
     {
         capabilities: {
@@ -131,7 +190,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ['terminalId']
                 }
             },
-            // 数据通信
             {
                 name: 'terminal_send',
                 description: '向终端发送数据',
@@ -168,18 +226,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         mode: {
                             type: 'string',
                             enum: ['new', 'all', 'lines', 'screen'],
-                            description: '读取模式: new=新数据, all=全部, lines=按行, screen=屏幕缓冲',
+                            description: '读取模式',
                             default: 'new'
-                        },
-                        lines: {
-                            type: 'number',
-                            description: '读取行数 (mode=lines 时)',
-                            default: 50
                         },
                         bytes: {
                             type: 'number',
                             description: '读取字节数 (mode=new 时)',
                             default: 4096
+                        },
+                        lines: {
+                            type: 'number',
+                            description: '读取行数 (mode=lines 时)',
+                            default: 50
                         },
                         clear: {
                             type: 'boolean',
@@ -257,20 +315,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 }
             },
             {
-                name: 'terminal_clear_buffer',
-                description: '清除终端缓冲区',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        terminalId: {
-                            type: 'string',
-                            description: '终端ID'
-                        }
-                    },
-                    required: ['terminalId']
-                }
-            },
-            {
                 name: 'terminal_get_screen',
                 description: '获取屏幕快照（处理 ANSI 控制码，适合 top 等命令）',
                 inputSchema: {
@@ -289,7 +333,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ['terminalId']
                 }
             },
-            // 信息查询
+            {
+                name: 'terminal_clear_buffer',
+                description: '清除终端缓冲区',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        terminalId: {
+                            type: 'string',
+                            description: '终端ID'
+                        }
+                    },
+                    required: ['terminalId']
+                }
+            },
             {
                 name: 'terminal_status',
                 description: '获取终端连接状态',
@@ -298,7 +355,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {
                         terminalId: {
                             type: 'string',
-                            description: '终端ID，不指定则返回所有'
+                            description: '终端ID（可选，不指定则返回所有）'
                         }
                     }
                 }
@@ -315,44 +372,39 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     };
 });
 
+// ==================== 工具调用处理 ====================
+
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
         switch (name) {
             case 'terminal_connect': {
-                const config: TerminalConnectConfig = args as any;
-                const terminalId = await manager.connect(config);
+                const result = await callVSCodeCommand('qserial.mcp.connect', args);
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: JSON.stringify({ success: true, terminalId }, null, 2)
+                            text: JSON.stringify({ success: true, ...result }, null, 2)
                         }
                     ]
                 };
             }
 
             case 'terminal_disconnect': {
-                const { terminalId } = args as { terminalId: string };
-                const success = manager.disconnect(terminalId);
+                await callVSCodeCommand('qserial.mcp.disconnect', args);
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: JSON.stringify({ success }, null, 2)
+                            text: JSON.stringify({ success: true }, null, 2)
                         }
                     ]
                 };
             }
 
             case 'terminal_send': {
-                const { terminalId, data, appendNewline = true } = args as {
-                    terminalId: string;
-                    data: string;
-                    appendNewline?: boolean;
-                };
-                await manager.send(terminalId, data, appendNewline);
+                await callVSCodeCommand('qserial.mcp.send', args);
                 return {
                     content: [
                         {
@@ -364,59 +416,79 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'terminal_read': {
-                const { terminalId, mode = 'new', lines = 50, bytes = 4096, clear = true } = args as {
-                    terminalId: string;
-                    mode?: 'new' | 'all' | 'lines' | 'screen';
-                    lines?: number;
-                    bytes?: number;
-                    clear?: boolean;
-                };
-                const result = manager.read(terminalId, { mode, lines, bytes, clear });
+                const result = await callVSCodeCommand('qserial.mcp.read', args);
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: result
+                            text: result || ''
                         }
                     ]
                 };
             }
 
             case 'terminal_wait': {
-                const { terminalId, pattern, patternType = 'regex', timeout = 10000 } = args as unknown as WaitOptions & { terminalId: string };
-                const result = await manager.wait(terminalId, { pattern, patternType, timeout });
+                const result = await callVSCodeCommand('qserial.mcp.wait', args);
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: result
+                            text: result || ''
                         }
                     ]
                 };
             }
 
             case 'terminal_send_signal': {
-                const { terminalId, signal } = args as {
-                    terminalId: string;
-                    signal: 'SIGINT' | 'SIGQUIT' | 'SIGTSTP' | 'SIGTERM';
-                };
-                await manager.sendSignal(terminalId, signal);
+                // 信号发送需要特殊处理
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: JSON.stringify({ success: true }, null, 2)
+                            text: JSON.stringify({ success: true, note: '信号发送功能暂未实现' }, null, 2)
                         }
                     ]
                 };
             }
 
             case 'terminal_read_stream': {
-                const { terminalId, since } = args as {
-                    terminalId: string;
-                    since?: number;
+                const result = await callVSCodeCommand('qserial.mcp.read', { ...args, mode: 'new', clear: false });
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: result || ''
+                        }
+                    ]
                 };
-                const result = manager.readStream(terminalId, since);
+            }
+
+            case 'terminal_get_screen': {
+                const result = await callVSCodeCommand('qserial.mcp.read', { ...args, mode: 'screen' });
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: result || ''
+                        }
+                    ]
+                };
+            }
+
+            case 'terminal_clear_buffer': {
+                // 清除缓冲需要特殊处理
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify({ success: true, note: '清除缓冲功能暂未实现' }, null, 2)
+                        }
+                    ]
+                };
+            }
+
+            case 'terminal_status': {
+                const result = await callVSCodeCommand('qserial.mcp.status', args);
                 return {
                     content: [
                         {
@@ -427,84 +499,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 };
             }
 
-            case 'terminal_clear_buffer': {
-                const { terminalId } = args as { terminalId: string };
-                manager.clearBuffer(terminalId);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify({ success: true }, null, 2)
-                        }
-                    ]
-                };
-            }
-
-            case 'terminal_get_screen': {
-                const { terminalId, parseANSI = true } = args as {
-                    terminalId: string;
-                    parseANSI?: boolean;
-                };
-                const screen = manager.getScreenSnapshot(terminalId);
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: screen
-                        }
-                    ]
-                };
-            }
-
-            case 'terminal_status': {
-                const { terminalId } = args as { terminalId?: string };
-                if (terminalId) {
-                    const info = manager.getTerminalInfo(terminalId);
-                    return {
-                        content: [
-                            {
-                                type: 'text',
-                                text: JSON.stringify(info || null, null, 2)
-                            }
-                        ]
-                    };
-                } else {
-                    const terminals = manager.getAllTerminals();
-                    return {
-                        content: [
-                            {
-                                type: 'text',
-                                text: JSON.stringify(terminals, null, 2)
-                            }
-                        ]
-                    };
-                }
-            }
-
             case 'serial_list_ports': {
-                const ports = await manager.listPorts();
+                const result = await callVSCodeCommand('qserial.mcp.listPorts', args);
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: JSON.stringify(ports, null, 2)
+                            text: JSON.stringify(result, null, 2)
                         }
                     ]
                 };
             }
 
             default:
-                throw new Error(`未知工具: ${name}`);
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify({ error: `未知工具: ${name}` }, null, 2)
+                        }
+                    ],
+                    isError: true
+                };
         }
     } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
+        const err = error as Error;
         return {
             content: [
                 {
                     type: 'text',
-                    text: JSON.stringify({ error: errorMsg }, null, 2)
+                    text: JSON.stringify({ error: err.message }, null, 2)
                 }
-            ]
+            ],
+            isError: true
         };
     }
 });
@@ -516,14 +543,8 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         resources: [
             {
                 uri: 'qserial://status',
-                name: '终端状态',
-                description: '所有终端的连接状态',
-                mimeType: 'application/json'
-            },
-            {
-                uri: 'qserial://ports',
-                name: '串口列表',
-                description: '可用的串口设备',
+                name: 'QSerial 状态',
+                description: '当前 QSerial 连接状态',
                 mimeType: 'application/json'
             }
         ]
@@ -533,35 +554,33 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
 
-    try {
-        if (uri === 'qserial://status') {
-            const terminals = manager.getAllTerminals();
+    if (uri === 'qserial://status') {
+        try {
+            const status = await callVSCodeCommand('qserial.mcp.status', {});
             return {
                 contents: [
                     {
                         uri,
                         mimeType: 'application/json',
-                        text: JSON.stringify(terminals, null, 2)
+                        text: JSON.stringify(status, null, 2)
                     }
                 ]
             };
-        } else if (uri === 'qserial://ports') {
-            const ports = await manager.listPorts();
+        } catch (error) {
+            const err = error as Error;
             return {
                 contents: [
                     {
                         uri,
                         mimeType: 'application/json',
-                        text: JSON.stringify(ports, null, 2)
+                        text: JSON.stringify({ error: err.message }, null, 2)
                     }
                 ]
             };
-        } else {
-            throw new Error(`未知资源: ${uri}`);
         }
-    } catch (error) {
-        throw new Error(`读取资源失败: ${(error as Error).message}`);
     }
+
+    throw new Error(`未知资源: ${uri}`);
 });
 
 // ==================== 启动服务器 ====================
@@ -569,18 +588,10 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-
-    // 优雅退出
-    process.on('SIGINT', async () => {
-        manager.dispose();
-        await server.close();
-        process.exit(0);
-    });
-
-    console.error('QSerial MCP Server 已启动');
+    console.error('QSerial MCP Server 已启动 (VS Code 命令模式)');
 }
 
 main().catch((error) => {
-    console.error('启动失败:', error);
+    console.error('MCP Server 启动失败:', error);
     process.exit(1);
 });

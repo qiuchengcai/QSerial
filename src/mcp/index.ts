@@ -3,6 +3,7 @@
  * 导出 MCP Server 相关模块
  */
 
-export { MCPTerminalManager } from './terminalManager';
 export { server } from './server';
+export { MCPCommandHandler } from './commandHandler';
+export { MCPDataSync } from './dataSync';
 export * from './types';

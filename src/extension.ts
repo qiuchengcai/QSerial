@@ -8,6 +8,7 @@ import { UnifiedTreeProvider, TabType } from './tree/unifiedTreeProvider';
 import { StatusBarManager } from './statusBar/statusBarManager';
 import { Logger } from './utils/logger';
 import { MCPDataSync } from './mcp/dataSync';
+import { MCPCommandHandler } from './mcp/commandHandler';
 
 let serialManager: SerialManager;
 let sshManager: SSHManager;
@@ -18,6 +19,7 @@ let statusBarManager: StatusBarManager;
 let secrets: vscode.SecretStorage;
 let unifiedView: vscode.TreeView<vscode.TreeItem>;
 let mcpDataSync: MCPDataSync;
+let mcpCommandHandler: MCPCommandHandler;
 
 export function activate(context: vscode.ExtensionContext) {
     Logger.info('QSerial extension is activating...');
@@ -52,6 +54,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 初始化 MCP 数据同步器
     mcpDataSync = new MCPDataSync();
+
+    // 初始化 MCP 命令处理器
+    mcpCommandHandler = new MCPCommandHandler(serialManager, sshManager, terminalManager);
 
     // 设置 MCP 状态变化回调，更新状态栏和树视图
     statusBarManager.setMCPDataSync(mcpDataSync);
@@ -113,7 +118,16 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('qserial.log.openLogFolder', () => openLogFolder()),
         vscode.commands.registerCommand('qserial.log.setLogPath', () => setLogPath()),
         vscode.commands.registerCommand('qserial.log.resetLogPath', () => resetLogPath()),
-        vscode.commands.registerCommand('qserial.log.toggleTimestamp', () => toggleLogTimestamp())
+        vscode.commands.registerCommand('qserial.log.toggleTimestamp', () => toggleLogTimestamp()),
+
+        // MCP 命令 - 供 MCP Server 调用
+        vscode.commands.registerCommand('qserial.mcp.connect', (params) => mcpCommandHandler.handleConnect(params)),
+        vscode.commands.registerCommand('qserial.mcp.send', (params) => mcpCommandHandler.handleSend(params)),
+        vscode.commands.registerCommand('qserial.mcp.disconnect', (params) => mcpCommandHandler.handleDisconnect(params)),
+        vscode.commands.registerCommand('qserial.mcp.read', (params) => mcpCommandHandler.handleRead(params)),
+        vscode.commands.registerCommand('qserial.mcp.wait', (params) => mcpCommandHandler.handleWait(params)),
+        vscode.commands.registerCommand('qserial.mcp.listPorts', (params) => mcpCommandHandler.handleListPorts(params)),
+        vscode.commands.registerCommand('qserial.mcp.status', (params) => mcpCommandHandler.handleStatus(params))
     ];
 
     commands.forEach(cmd => context.subscriptions.push(cmd));
