@@ -103,6 +103,26 @@ AI：[调用 terminal_send, terminal_wait]
 收到响应：OK
 ```
 
+## 支持平台
+
+### VS Code 扩展平台
+| 平台 | 串口支持 | 说明 |
+|------|----------|------|
+| **Windows** | COM 端口 | 如 COM3, COM4 |
+| **Linux** | /dev/ttyUSB* | 需要 dialout 组权限 |
+| **macOS** | /dev/tty.* | 如 /dev/tty.usbserial |
+
+### MCP 支持的 AI 平台
+| 平台 | 配置方式 |
+|------|----------|
+| **CodeBuddy** | `.codebuddy/mcp.json` |
+| **Claude Desktop** | `claude_desktop_config.json` |
+| **Cursor** | Settings → AI → MCP Servers |
+
+### 技术要求
+- **VS Code**: 1.85.0 或更高版本
+- **Node.js**: 18+ 版本（MCP 服务需要）
+
 ## 注意事项
 
 1. **Node.js 要求**：需要安装 Node.js 18+ 版本

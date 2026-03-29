@@ -142,6 +142,26 @@ code --install-extension qserial-1.0.0.vsix
 - 自定义快捷按钮
 - MCP 协议支持
 
+## 支持平台
+
+### VS Code 扩展平台
+| 平台 | 串口支持 | 说明 |
+|------|----------|------|
+| **Windows** | COM 端口 | 如 COM3, COM4 |
+| **Linux** | /dev/ttyUSB* | 需要 dialout 组权限 |
+| **macOS** | /dev/tty.* | 如 /dev/tty.usbserial |
+
+### MCP 支持的 AI 平台
+| 平台 | 配置方式 |
+|------|----------|
+| **CodeBuddy** | `.codebuddy/mcp.json` |
+| **Claude Desktop** | `claude_desktop_config.json` |
+| **Cursor** | Settings → AI → MCP Servers |
+
+### 技术要求
+- **VS Code**: 1.85.0 或更高版本
+- **Node.js**: 18+ 版本（MCP 服务需要）
+
 ## 许可证
 
 [MIT License](LICENSE)
