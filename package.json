@@ -2,7 +2,7 @@
   "name": "qserial",
   "displayName": "QSerial - Serial & SSH Terminal",
   "description": "VSCode extension for Serial Port and SSH access with custom shortcut buttons",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "qiuchengcai",
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "icon": "resources/icon.png",
+  "icon": "resources/QSerial.png",
   "contributes": {
     "commands": [
       {

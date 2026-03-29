@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QSerial MCP 配置指南</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background: #fafafa;
+        }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        h3 { color: #4a6fa5; }
+        h4 { color: #666; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code { background: none; color: inherit; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        ul, ol { padding-left: 25px; }
+        li { margin: 8px 0; }
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background: #f0f7fb;
+        }
+        a { color: #3498db; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .nav { 
+            background: #3498db; 
+            padding: 10px 20px; 
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .nav a { color: white; margin-right: 15px; }
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="USER_GUIDE.html">使用指南</a>
+        <a href="DEVELOPMENT.html">开发指南</a>
+        <a href="TESTING.html">测试指南</a>
+        <a href="MCP_DESIGN.html">MCP 设计</a>
+        <a href="MCP_SETUP.html">MCP 配置</a>
+    </div>
+
+    <h1>QSerial MCP 配置指南</h1>
+
+    <h2>方法一：Claude Desktop 配置</h2>
+    <p>在 Claude Desktop 中，编辑 <code>claude_desktop_config.json</code> 文件：</p>
+    <pre><code class="language-json">{
+  "mcpServers": {
+    "qserial": {
+      "command": "node",
+      "args": ["D:\\QPrj\\QSerial\\out\\mcp\\server.js"]
+    }
+  }
+}</code></pre>
+
+    <h2>方法二：Cursor 配置</h2>
+    <p>在 Cursor 的设置中，添加 MCP 配置：</p>
+    <ol>
+        <li>打开 Cursor Settings → AI → MCP Servers</li>
+        <li>添加新的 MCP Server：
+            <ul>
+                <li>Name: <code>qserial</code></li>
+                <li>Command: <code>node</code></li>
+                <li>Args: <code>["D:\\QPrj\\QSerial\\out\\mcp\\server.js"]</code></li>
+            </ul>
+        </li>
+    </ol>
+
+    <h2>方法三：VS Code with CodeBuddy 配置</h2>
+    <p>如果使用 VS Code 的 CodeBuddy 插件：</p>
+    <ol>
+        <li>在用户目录下创建配置文件 <code>.codebuddy/mcp.json</code>：</li>
+    </ol>
+    <pre><code class="language-json">{
+  "mcpServers": {
+    "qmcp": {
+      "command": "node",
+      "args": ["D:/QPrj/QSerial/out/mcp/server.js"]
+    }
+  }
+}</code></pre>
+    <p>或者在项目根目录创建 <code>.codebuddy/mcp.json</code>（使用相对路径）：</p>
+    <pre><code class="language-json">{
+  "mcpServers": {
+    "qmcp": {
+      "command": "node",
+      "args": ["./out/mcp/server.js"]
+    }
+  }
+}</code></pre>
+
+    <h2>测试 MCP Server</h2>
+    <p>启动测试：</p>
+    <pre><code class="language-bash">cd D:/QPrj/QSerial
+npm run mcp</code></pre>
+
+    <h2>可用工具</h2>
+    <p>连接到 MCP 后，可以使用以下工具：</p>
+    <table>
+        <tr><th>工具</th><th>说明</th></tr>
+        <tr><td><code>terminal_connect</code></td><td>连接串口/SSH</td></tr>
+        <tr><td><code>terminal_disconnect</code></td><td>断开连接</td></tr>
+        <tr><td><code>terminal_send</code></td><td>发送数据</td></tr>
+        <tr><td><code>terminal_read</code></td><td>读取数据</td></tr>
+        <tr><td><code>terminal_wait</code></td><td>等待匹配输出</td></tr>
+        <tr><td><code>terminal_send_signal</code></td><td>发送控制信号 (Ctrl+C)</td></tr>
+        <tr><td><code>terminal_read_stream</code></td><td>流式读取</td></tr>
+        <tr><td><code>terminal_clear_buffer</code></td><td>清除缓冲区</td></tr>
+        <tr><td><code>terminal_get_screen</code></td><td>获取屏幕快照</td></tr>
+        <tr><td><code>terminal_status</code></td><td>查询状态</td></tr>
+        <tr><td><code>serial_list_ports</code></td><td>列出串口</td></tr>
+    </table>
+
+    <h2>示例对话</h2>
+    <pre><code>用户：帮我连接 COM3 串口，波特率 115200
+
+AI：我来帮你连接串口。
+[调用 terminal_connect(type="serial", path="COM3", baudRate=115200)]
+已成功连接 COM3 @ 115200，终端 ID: serial-xxx
+
+用户：发送 AT 命令并等待响应
+
+AI：[调用 terminal_send(terminalId="serial-xxx", data="AT")]
+[调用 terminal_wait(terminalId="serial-xxx", pattern="OK|ERROR", timeout=5000)]
+收到响应：OK
+
+用户：执行 top 命令
+
+AI：[调用 terminal_send(terminalId="serial-xxx", data="top")]
+[调用 terminal_get_screen(terminalId="serial-xxx")]
+显示 top 输出...
+（如果要退出，可以使用 terminal_send_signal 发送 Ctrl+C）</code></pre>
+
+    <div class="note">
+        <h3>注意事项</h3>
+        <ol>
+            <li>确保已运行 <code>npm run compile</code> 编译项目</li>
+            <li>串口路径在 Windows 上是 <code>COM3</code>，Linux/macOS 上是 <code>/dev/ttyUSB0</code></li>
+            <li>SSH 密码和私钥参数不会被记录在日志中</li>
+            <li>状态文件位于 <code>~/.qserial/status.json</code></li>
+        </ol>
+    </div>
+</body>
+</html>
