@@ -3,6 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Logger } from '../utils/logger';
 
+function isTimestampEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('qserial.log');
+    return config.get<boolean>('enableTimestamp', true);
+}
+
 interface LogSession {
     id: string;
     terminalName: string;
@@ -99,8 +104,10 @@ export class TerminalLogger {
 
         // 写入缓冲区中剩余的内容
         if (session.writeStream && session.lineBuffer.trim()) {
-            const timestamp = new Date().toLocaleTimeString();
-            const logLine = `[${timestamp}] ${session.lineBuffer.trim()}\n`;
+            const enableTimestamp = isTimestampEnabled();
+            const logLine = enableTimestamp
+                ? `[${new Date().toLocaleTimeString()}] ${session.lineBuffer.trim()}\n`
+                : `${session.lineBuffer.trim()}\n`;
             session.writeStream.write(logLine);
             session.bytesWritten += Buffer.byteLength(logLine, 'utf8');
             session.lineBuffer = '';
@@ -167,12 +174,14 @@ export class TerminalLogger {
         
         // 如果有多个部分，说明有完整行
         if (lines.length > 1) {
+            const enableTimestamp = isTimestampEnabled();
             // 写入所有完整行（除了最后一个不完整的部分）
             for (let i = 0; i < lines.length - 1; i++) {
                 const line = lines[i].trim();
                 if (line) {
-                    const timestamp = new Date().toLocaleTimeString();
-                    const logLine = `[${timestamp}] ${line}\n`;
+                    const logLine = enableTimestamp
+                        ? `[${new Date().toLocaleTimeString()}] ${line}\n`
+                        : `${line}\n`;
                     session.writeStream.write(logLine);
                     session.bytesWritten += Buffer.byteLength(logLine, 'utf8');
                 }

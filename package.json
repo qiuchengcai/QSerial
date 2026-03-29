@@ -385,6 +385,11 @@
           "default": "",
           "description": "Default path for terminal log files (empty string uses Documents/QSerial/logs)"
         },
+        "qserial.log.enableTimestamp": {
+          "type": "boolean",
+          "default": true,
+          "description": "在日志每行前添加时间戳前缀"
+        },
         "qserial.ssh.savedHosts": {
           "type": "array",
           "default": [],
