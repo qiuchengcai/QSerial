@@ -112,7 +112,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('qserial.log.stopSSH', (node: any) => stopSSHLog(node)),
         vscode.commands.registerCommand('qserial.log.openLogFolder', () => openLogFolder()),
         vscode.commands.registerCommand('qserial.log.setLogPath', () => setLogPath()),
-        vscode.commands.registerCommand('qserial.log.resetLogPath', () => resetLogPath())
+        vscode.commands.registerCommand('qserial.log.resetLogPath', () => resetLogPath()),
+        vscode.commands.registerCommand('qserial.log.toggleTimestamp', () => toggleLogTimestamp())
     ];
 
     commands.forEach(cmd => context.subscriptions.push(cmd));
@@ -1435,6 +1436,16 @@ async function setLogPath() {
     
     unifiedTreeProvider.refresh();
     vscode.window.showInformationMessage(`日志路径已设置为: ${selectedPath}`);
+}
+
+async function toggleLogTimestamp() {
+    const config = vscode.workspace.getConfiguration('qserial.log');
+    const currentValue = config.get<boolean>('enableTimestamp', true);
+    await config.update('enableTimestamp', !currentValue, vscode.ConfigurationTarget.Global);
+    
+    const status = !currentValue ? '开启' : '关闭';
+    vscode.window.showInformationMessage(`日志时间戳已${status}`);
+    unifiedTreeProvider.refresh();
 }
 
 async function resetLogPath() {

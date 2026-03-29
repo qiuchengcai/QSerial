@@ -276,6 +276,23 @@ export class SettingsTreeProvider implements vscode.TreeDataProvider<SettingsIte
         };
         items.push(openFolderItem);
 
+        // 时间戳开关
+        const enableTimestamp = config.get<boolean>('enableTimestamp', true);
+        const timestampItem = new SettingsItem(
+            '日志时间戳',
+            vscode.TreeItemCollapsibleState.None,
+            'log-timestamp',
+            null
+        );
+        timestampItem.description = enableTimestamp ? '开启' : '关闭';
+        timestampItem.iconPath = new vscode.ThemeIcon(enableTimestamp ? 'check' : 'close');
+        timestampItem.tooltip = '点击切换日志时间戳显示';
+        timestampItem.command = {
+            command: 'qserial.log.toggleTimestamp',
+            title: '切换时间戳'
+        };
+        items.push(timestampItem);
+
         return items;
     }
 
