@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QSerial 开发指南</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background: #fafafa;
+        }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        h3 { color: #4a6fa5; }
+        h4 { color: #666; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code { background: none; color: inherit; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        ul, ol { padding-left: 25px; }
+        li { margin: 8px 0; }
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background: #f0f7fb;
+        }
+        a { color: #3498db; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .nav { 
+            background: #3498db; 
+            padding: 10px 20px; 
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .nav a { color: white; margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="USER_GUIDE.html">使用指南</a>
+        <a href="DEVELOPMENT.html">开发指南</a>
+        <a href="TESTING.html">测试指南</a>
+        <a href="MCP_DESIGN.html">MCP 设计</a>
+        <a href="MCP_SETUP.html">MCP 配置</a>
+    </div>
+
+    <h1>QSerial 开发指南</h1>
+
+    <h2>项目概述</h2>
+    <p>QSerial 是一个 VS Code 扩展，提供串口和 SSH 终端管理功能，支持自定义快捷按钮，并集成了 MCP (Model Context Protocol) 以支持 AI 助手操作。</p>
+
+    <h2>技术栈</h2>
+    <ul>
+        <li><strong>语言</strong>: TypeScript</li>
+        <li><strong>框架</strong>: VS Code Extension API</li>
+        <li><strong>依赖</strong>:
+            <ul>
+                <li><code>serialport</code> - 串口通信</li>
+                <li><code>ssh2</code> - SSH 协议实现</li>
+                <li><code>iconv-lite</code> - 编码转换（支持 GBK/UTF-8）</li>
+                <li><code>@modelcontextprotocol/sdk</code> - MCP 协议支持</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>项目结构</h2>
+    <pre><code>src/
+├── extension.ts              # 扩展入口，初始化所有 Manager
+├── serial/
+│   └── serialManager.ts      # 串口连接管理
+├── ssh/
+│   └── sshManager.ts         # SSH 多连接管理
+├── terminal/
+│   ├── terminalManager.ts    # VS Code Terminal 管理
+│   └── terminalLogger.ts     # 日志记录到文件
+├── tree/
+│   ├── unifiedTreeProvider.ts    # 三选项卡视图统一管理
+│   ├── connectionTreeProvider.ts # 连接选项卡
+│   ├── buttonTreeProvider.ts     # 快捷按钮选项卡
+│   └── settingsTreeProvider.ts   # 设置选项卡
+├── statusBar/
+│   └── statusBarManager.ts   # 状态栏显示连接状态
+├── buttons/
+│   └── buttonManager.ts      # 自定义按钮管理
+├── mcp/
+│   ├── server.ts             # MCP Server 主入口
+│   ├── commandHandler.ts     # MCP 命令处理器
+│   ├── httpServer.ts         # HTTP 服务（状态同步）
+│   ├── dataSync.ts           # 数据同步机制
+│   └── types.ts              # MCP 类型定义
+└── utils/
+    └── logger.ts             # 日志工具</code></pre>
+
+    <h2>核心模块</h2>
+
+    <h3>1. SerialManager</h3>
+    <p>串口连接管理器，负责：</p>
+    <ul>
+        <li>串口连接/断开</li>
+        <li>数据收发</li>
+        <li>编码转换（GBK/UTF-8）</li>
+        <li>缓冲区管理</li>
+    </ul>
+    <pre><code class="language-typescript">// 主要方法
+connect(path: string, baudRate: number): Promise&lt;void&gt;
+disconnect(): Promise&lt;void&gt;
+send(data: string): void
+read(options?: ReadOptions): string
+listPorts(): Promise&lt;PortInfo[]&gt;</code></pre>
+
+    <h3>2. SSHManager</h3>
+    <p>SSH 多连接管理器，使用 <code>Map&lt;string, SSHConnection&gt;</code> 以 <code>hostId</code> 为键存储连接：</p>
+    <ul>
+        <li>支持密码和私钥认证</li>
+        <li>支持多个 SSH 连接</li>
+        <li>自动查找默认私钥（id_ed25519, id_rsa 等）</li>
+    </ul>
+    <pre><code class="language-typescript">// 主要方法
+connect(config: SSHConfig): Promise&lt;void&gt;
+disconnect(hostId?: string): Promise&lt;void&gt;
+send(hostId: string, data: string): void
+read(hostId: string, options?: ReadOptions): string
+getAllConnections(): SSHConnection[]</code></pre>
+
+    <h3>3. TerminalManager</h3>
+    <p>VS Code Terminal 管理，使用 <code>Pseudoterminal</code> 实现：</p>
+    <ul>
+        <li>创建串口/SSH 专用终端</li>
+        <li>处理用户输入</li>
+        <li>写入设备输出</li>
+    </ul>
+
+    <h3>4. UnifiedTreeProvider</h3>
+    <p>三选项卡视图：</p>
+    <ul>
+        <li><strong>连接</strong> - 串口列表、SSH 主机列表</li>
+        <li><strong>快捷按钮</strong> - 自定义按钮列表</li>
+        <li><strong>设置</strong> - 串口/SSH/日志配置</li>
+    </ul>
+
+    <h3>5. MCPCommandHandler</h3>
+    <p>MCP 命令处理器，处理来自 MCP Server 的请求：</p>
+    <ul>
+        <li>连接/断开操作</li>
+        <li>数据发送/读取</li>
+        <li>状态查询</li>
+        <li>UI 同步（通过 <code>onConnectionChanged</code> 回调）</li>
+    </ul>
+
+    <h2>数据流</h2>
+    <pre><code>用户输入 → TerminalManager → SerialManager/SSHManager → 设备/服务器
+设备输出 → SerialManager/SSHManager → TerminalManager → VS Code Terminal</code></pre>
+
+    <h2>开发环境设置</h2>
+
+    <h3>1. 克隆项目</h3>
+    <pre><code class="language-bash">git clone https://github.com/qiuchengcai/QSerial.git
+cd QSerial</code></pre>
+
+    <h3>2. 安装依赖</h3>
+    <pre><code class="language-bash">npm install</code></pre>
+
+    <h3>3. 编译</h3>
+    <pre><code class="language-bash">npm run compile      # 单次编译
+npm run watch        # 监听模式编译</code></pre>
+
+    <h3>4. 调试</h3>
+    <ol>
+        <li>在 VS Code 中打开项目</li>
+        <li>按 <code>F5</code> 启动调试</li>
+        <li>这会打开一个新的 VS Code 窗口，扩展已加载</li>
+    </ol>
+
+    <h2>常用命令</h2>
+    <table>
+        <tr><th>命令</th><th>说明</th></tr>
+        <tr><td><code>npm run compile</code></td><td>TypeScript 编译</td></tr>
+        <tr><td><code>npm run watch</code></td><td>监听模式编译</td></tr>
+        <tr><td><code>npm run lint</code></td><td>ESLint 检查</td></tr>
+        <tr><td><code>npm run pretest</code></td><td>编译 + lint</td></tr>
+        <tr><td><code>npm run test</code></td><td>运行测试</td></tr>
+        <tr><td><code>npm run package</code></td><td>打包 VSIX</td></tr>
+        <tr><td><code>npm run mcp</code></td><td>启动 MCP Server</td></tr>
+    </table>
+
+    <h2>配置存储</h2>
+    <ul>
+        <li><strong>VS Code Settings</strong>: <code>qserial.serial.*</code>, <code>qserial.ssh.savedHosts</code>, <code>qserial.buttons.customButtons</code></li>
+        <li><strong>SecretStorage</strong>: SSH 密码（安全存储）</li>
+        <li><strong>全局状态</strong>: 自定义按钮配置</li>
+    </ul>
+
+    <h2>编码处理</h2>
+    <p>串口数据使用 <code>iconv-lite</code> 转换，默认 GBK。流式数据可能分割多字节字符，需注意缓冲处理：</p>
+    <pre><code class="language-typescript">// 支持的编码
+'utf8' | 'gbk' | 'gb2312' | 'ascii' | 'latin1' | 'hex'</code></pre>
+
+    <h2>Git 提交规范</h2>
+    <p>提交信息必须使用中文，格式：</p>
+    <pre><code>&lt;类型&gt;: &lt;中文描述&gt;
+
+类型说明:
+- feat:     新功能
+- fix:      修复bug
+- docs:     文档更新
+- style:    代码格式调整
+- refactor: 重构代码
+- test:     测试相关
+- chore:    构建/工具变动</code></pre>
+
+    <h2>添加新功能</h2>
+
+    <h3>1. 添加新命令</h3>
+    <p>在 <code>package.json</code> 的 <code>contributes.commands</code> 中添加：</p>
+    <pre><code class="language-json">{
+  "command": "qserial.newCommand",
+  "title": "新命令"
+}</code></pre>
+    <p>然后在 <code>extension.ts</code> 中注册：</p>
+    <pre><code class="language-typescript">context.subscriptions.push(
+  vscode.commands.registerCommand('qserial.newCommand', () => {
+    // 命令实现
+  })
+);</code></pre>
+
+    <h3>2. 添加新配置</h3>
+    <p>在 <code>package.json</code> 的 <code>contributes.configuration.properties</code> 中添加：</p>
+    <pre><code class="language-json">{
+  "qserial.newConfig": {
+    "type": "string",
+    "default": "",
+    "description": "新配置说明"
+  }
+}</code></pre>
+
+    <h3>3. 添加 MCP 工具</h3>
+    <p>在 <code>src/mcp/server.ts</code> 中添加新工具定义，并在 <code>commandHandler.ts</code> 中实现处理逻辑。</p>
+
+    <h2>调试技巧</h2>
+    <ol>
+        <li><strong>查看日志</strong>: 使用 <code>Logger.info/debug/error</code> 输出日志</li>
+        <li><strong>检查状态</strong>: 查看 <code>~/.qserial/status.json</code></li>
+        <li><strong>串口测试</strong>: 使用虚拟串口软件（如 com0com）</li>
+        <li><strong>SSH 测试</strong>: 使用本地 SSH 服务器或 Docker 容器</li>
+    </ol>
+
+    <h2>发布流程</h2>
+    <ol>
+        <li>更新 <code>package.json</code> 版本号</li>
+        <li>运行 <code>npm run pretest</code> 确保代码质量</li>
+        <li>运行 <code>npm run package</code> 生成 VSIX</li>
+        <li>发布到 VS Code Marketplace 或 GitHub Releases</li>
+    </ol>
+</body>
+</html>

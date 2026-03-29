@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QSerial MCP 设计方案</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background: #fafafa;
+        }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        h3 { color: #4a6fa5; }
+        h4 { color: #666; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code { background: none; color: inherit; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        ul, ol { padding-left: 25px; }
+        li { margin: 8px 0; }
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background: #f0f7fb;
+        }
+        a { color: #3498db; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .nav { 
+            background: #3498db; 
+            padding: 10px 20px; 
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .nav a { color: white; margin-right: 15px; }
+        .diagram {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="USER_GUIDE.html">使用指南</a>
+        <a href="DEVELOPMENT.html">开发指南</a>
+        <a href="TESTING.html">测试指南</a>
+        <a href="MCP_DESIGN.html">MCP 设计</a>
+        <a href="MCP_SETUP.html">MCP 配置</a>
+    </div>
+
+    <h1>QSerial MCP 设计方案</h1>
+
+    <h2>目标</h2>
+    <p>让 AI 能够像人类用户一样使用 QSerial 扩展的所有功能，包括：</p>
+    <ul>
+        <li>串口连接/断开/数据收发</li>
+        <li>SSH 连接/断开/命令执行</li>
+        <li>快捷按钮执行</li>
+        <li>状态查询</li>
+    </ul>
+
+    <h2>架构设计</h2>
+    <div class="diagram">┌─────────────────────────────────────────────────────────────────┐
+│                        AI 助手 (Claude等)                        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    MCP Server (qmcp)                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   Tools      │  │  Resources   │  │   Prompts    │          │
+│  │ - connect    │  │ - status     │  │ - 串口调试   │          │
+│  │ - disconnect │  │ - ports      │  │ - SSH操作    │          │
+│  │ - send       │  │ - buttons    │  │              │          │
+│  │ - execute    │  │ - history    │  │              │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│   SerialPort    │  │     SSH2        │  │  QSerial 扩展   │
+│   (串口硬件)     │  │   (SSH协议)     │  │  (UI 同步)      │
+└─────────────────┘  └─────────────────┘  └─────────────────┐</div>
+
+    <h2>MCP Tools 设计</h2>
+
+    <h3>1. 连接管理工具</h3>
+
+    <h4><code>terminal_connect</code> - 连接终端</h4>
+    <pre><code class="language-typescript">{
+  name: "terminal_connect",
+  description: "连接到串口或SSH服务器",
+  inputSchema: {
+    type: "object",
+    properties: {
+      type: { type: "string", enum: ["serial", "ssh"] },
+      // 串口参数
+      path: { type: "string", description: "串口路径，如 COM3 或 /dev/ttyUSB0" },
+      baudRate: { type: "number", default: 115200 },
+      dataBits: { type: "number", enum: [5, 6, 7, 8], default: 8 },
+      stopBits: { type: "number", enum: [1, 2], default: 1 },
+      parity: { type: "string", enum: ["none", "even", "odd"], default: "none" },
+      encoding: { type: "string", default: "gbk" },
+      // SSH 参数
+      host: { type: "string" },
+      port: { type: "number", default: 22 },
+      username: { type: "string" },
+      password: { type: "string" },
+      privateKey: { type: "string", description: "私钥内容或路径" },
+      passphrase: { type: "string", description: "私钥密码" }
+    },
+    required: ["type"]
+  }
+}</code></pre>
+
+    <h4><code>terminal_disconnect</code> - 断开连接</h4>
+    <pre><code class="language-typescript">{
+  name: "terminal_disconnect",
+  description: "断开终端连接",
+  inputSchema: {
+    type: "object",
+    properties: {
+      terminalId: { type: "string", description: "终端ID" }
+    },
+    required: ["terminalId"]
+  }
+}</code></pre>
+
+    <h3>2. 数据通信工具</h3>
+
+    <h4><code>terminal_send</code> - 发送数据</h4>
+    <pre><code class="language-typescript">{
+  name: "terminal_send",
+  description: "向终端发送数据",
+  inputSchema: {
+    type: "object",
+    properties: {
+      terminalId: { type: "string" },
+      data: { type: "string", description: "要发送的数据" },
+      appendNewline: { type: "boolean", default: true, description: "是否追加换行符" }
+    },
+    required: ["terminalId", "data"]
+  }
+}</code></pre>
+
+    <h4><code>terminal_read</code> - 读取数据</h4>
+    <pre><code class="language-typescript">{
+  name: "terminal_read",
+  description: "从终端读取数据",
+  inputSchema: {
+    type: "object",
+    properties: {
+      terminalId: { type: "string" },
+      mode: { 
+        type: "string", 
+        enum: ["new", "all", "lines", "screen"],
+        default: "new",
+        description: "读取模式: new=新数据, all=全部, lines=按行, screen=屏幕缓冲"
+      },
+      lines: { type: "number", default: 50, description: "mode=lines 时的行数" },
+      bytes: { type: "number", default: 4096, description: "读取字节数" },
+      clear: { type: "boolean", default: true, description: "读取后是否清除缓冲" }
+    },
+    required: ["terminalId"]
+  }
+}</code></pre>
+
+    <h4><code>terminal_wait</code> - 等待数据</h4>
+    <pre><code class="language-typescript">{
+  name: "terminal_wait",
+  description: "等待终端输出匹配特定模式",
+  inputSchema: {
+    type: "object",
+    properties: {
+      terminalId: { type: "string" },
+      pattern: { type: "string", description: "匹配模式（正则表达式或字符串）" },
+      patternType: { type: "string", enum: ["regex", "string"], default: "regex" },
+      timeout: { type: "number", default: 10000, description: "超时时间(毫秒)" }
+    },
+    required: ["terminalId", "pattern"]
+  }
+}</code></pre>
+
+    <h3>3. 信息查询工具</h3>
+
+    <h4><code>terminal_status</code> - 查询状态</h4>
+    <pre><code class="language-typescript">{
+  name: "terminal_status",
+  description: "获取终端连接状态",
+  inputSchema: {
+    type: "object",
+    properties: {
+      terminalId: { type: "string", description: "终端ID，不指定则返回所有" }
+    }
+  }
+}</code></pre>
+
+    <h4><code>serial_list_ports</code> - 列出串口</h4>
+    <pre><code class="language-typescript">{
+  name: "serial_list_ports",
+  description: "列出所有可用的串口设备",
+  inputSchema: {
+    type: "object",
+    properties: {}
+  }
+}</code></pre>
+
+    <h3>4. 快捷按钮工具</h3>
+
+    <h4><code>button_execute</code> - 执行快捷按钮</h4>
+    <pre><code class="language-typescript">{
+  name: "button_execute",
+  description: "执行 QSerial 中配置的快捷按钮",
+  inputSchema: {
+    type: "object",
+    properties: {
+      buttonId: { type: "string", description: "按钮ID" },
+      terminalId: { type: "string", description: "目标终端ID" }
+    },
+    required: ["buttonId"]
+  }
+}</code></pre>
+
+    <h4><code>button_list</code> - 列出快捷按钮</h4>
+    <pre><code class="language-typescript">{
+  name: "button_list",
+  description: "列出所有可用的快捷按钮",
+  inputSchema: {
+    type: "object",
+    properties: {}
+  }
+}</code></pre>
+
+    <h2>MCP Resources 设计</h2>
+
+    <h3>1. 终端状态资源</h3>
+    <pre><code>terminal://status</code></pre>
+    <p>返回所有终端的当前状态，包括连接信息、缓冲区数据等。</p>
+
+    <h3>2. 串口列表资源</h3>
+    <pre><code>serial://ports</code></pre>
+    <p>返回可用串口设备列表。</p>
+
+    <h3>3. 快捷按钮资源</h3>
+    <pre><code>qserial://buttons</code></pre>
+    <p>返回配置的快捷按钮列表。</p>
+
+    <h3>4. 历史记录资源</h3>
+    <pre><code>terminal://history/{terminalId}</code></pre>
+    <p>返回指定终端的命令历史。</p>
+
+    <h2>MCP Prompts 设计</h2>
+
+    <h3>1. 串口调试助手</h3>
+    <pre><code class="language-typescript">{
+  name: "serial_debug",
+  description: "串口调试助手 - 帮助用户进行串口通信调试",
+  arguments: [
+    { name: "port", description: "串口路径" },
+    { name: "baudRate", description: "波特率" }
+  ]
+}</code></pre>
+
+    <h3>2. SSH 远程操作</h3>
+    <pre><code class="language-typescript">{
+  name: "ssh_session",
+  description: "SSH 会话助手 - 帮助用户进行远程服务器操作",
+  arguments: [
+    { name: "host", description: "主机地址" },
+    { name: "username", description: "用户名" }
+  ]
+}</code></pre>
+
+    <h2>与 QSerial 扩展的同步机制</h2>
+
+    <h3>方案一：状态文件同步（当前实现）</h3>
+    <pre><code>MCP Server ──写入──▶ ~/.qserial/status.json ◀──监听── QSerial 扩展</code></pre>
+    <p><strong>优点</strong>：简单，解耦</p>
+    <p><strong>缺点</strong>：实时性差，需要轮询或文件监听</p>
+
+    <h3>方案二：VS Code API 直接调用（推荐）</h3>
+    <p>让 MCP Server 通过 VS Code 扩展 API 直接操作：</p>
+    <pre><code class="language-typescript">// 在 QSerial 扩展中暴露 API
+export interface QSerialAPI {
+  // 连接管理
+  connectSerial(path: string, options?: SerialOptions): Promise&lt;string&gt;;
+  connectSSH(config: SSHConfig): Promise&lt;string&gt;;
+  disconnect(terminalId: string): Promise&lt;void&gt;;
+  
+  // 数据通信
+  send(terminalId: string, data: string): Promise&lt;void&gt;;
+  read(terminalId: string, options?: ReadOptions): Promise&lt;string&gt;;
+  wait(terminalId: string, pattern: string, timeout?: number): Promise&lt;string&gt;;
+  
+  // 状态查询
+  getStatus(): Promise&lt;TerminalStatus[]&gt;;
+  listPorts(): Promise&lt;PortInfo[]&gt;;
+  
+  // 快捷按钮
+  executeButton(buttonId: string, terminalId?: string): Promise&lt;void&gt;;
+  listButtons(): Promise&lt;CustomButton[]&gt;;
+}
+
+// extension.ts 中导出
+export function activate(context: vscode.ExtensionContext): QSerialAPI {
+  // ... 初始化代码 ...
+  
+  // 返回 API
+  return {
+    connectSerial: serialManager.connect.bind(serialManager),
+    connectSSH: sshManager.connect.bind(sshManager),
+    // ...
+  };
+}</code></pre>
+
+    <h3>方案三：WebSocket 通信</h3>
+    <pre><code>MCP Server ◀──WebSocket──▶ QSerial 扩展</code></pre>
+    <p><strong>优点</strong>：实时双向通信</p>
+    <p><strong>缺点</strong>：复杂度高，需要额外的服务</p>
+
+    <h2>推荐实现方案</h2>
+
+    <h3>阶段一：完善现有 MCP Tools</h3>
+    <ol>
+        <li>实现完整的终端管理工具</li>
+        <li>添加数据读取和等待功能</li>
+        <li>添加快捷按钮支持</li>
+    </ol>
+
+    <h3>阶段二：QSerial 扩展集成</h3>
+    <ol>
+        <li>在 QSerial 中暴露公共 API</li>
+        <li>MCP Server 通过 VS Code API 调用</li>
+        <li>实现双向状态同步</li>
+    </ol>
+
+    <h3>阶段三：增强功能</h3>
+    <ol>
+        <li>添加命令历史记录</li>
+        <li>支持多终端会话</li>
+        <li>添加数据过滤和解析</li>
+    </ol>
+
+    <h2>使用示例</h2>
+
+    <h3>AI 助手使用场景</h3>
+
+    <h4>场景一：串口调试</h4>
+    <pre><code>用户: 帮我连接 COM3 串口，波特率 115200
+
+AI: 我来帮你连接串口。
+[调用 terminal_connect(type="serial", path="COM3", baudRate=115200)]
+已成功连接 COM3 @ 115200。
+
+用户: 发送 AT 命令
+
+AI: [调用 terminal_send(terminalId="xxx", data="AT")]
+已发送 AT 命令。
+[调用 terminal_wait(terminalId="xxx", pattern="OK|ERROR", timeout=5000)]
+收到响应: OK</code></pre>
+
+    <h4>场景二：SSH 远程操作</h4>
+    <pre><code>用户: 连接到服务器 192.168.1.100
+
+AI: 我来帮你连接 SSH 服务器。
+[调用 terminal_connect(type="ssh", host="192.168.1.100", username="user")]
+请输入密码: ******
+
+[调用 terminal_send(terminalId="xxx", data="ls -la")]
+[调用 terminal_read(terminalId="xxx", mode="new")]
+显示目录列表...</code></pre>
+
+    <h4>场景三：使用快捷按钮</h4>
+    <pre><code>用户: 执行重启设备的按钮
+
+AI: [调用 button_list()]
+找到按钮: "重启设备" (id: btn-restart)
+[调用 button_execute(buttonId="btn-restart", terminalId="xxx")]
+已执行重启命令。</code></pre>
+
+    <h2>技术细节</h2>
+
+    <h3>编码处理</h3>
+    <ul>
+        <li>串口默认使用 GBK 编码（中文环境常见）</li>
+        <li>支持 UTF-8、ASCII、HEX 等多种编码</li>
+        <li>流式数据需要处理多字节字符分割问题</li>
+    </ul>
+
+    <h3>缓冲区管理</h3>
+    <ul>
+        <li>环形缓冲区存储接收数据</li>
+        <li>支持按行、按字节、按模式读取</li>
+        <li>自动清理过期数据</li>
+    </ul>
+
+    <h3>错误处理</h3>
+    <ul>
+        <li>连接超时自动重试</li>
+        <li>断线自动重连</li>
+        <li>错误信息友好提示</li>
+    </ul>
+
+    <h2>文件结构</h2>
+    <pre><code>src/mcp/
+├── mcpServer.ts           # MCP 服务器主入口
+├── tools/
+│   ├── connectTool.ts     # 连接工具
+│   ├── disconnectTool.ts  # 断开工具
+│   ├── sendTool.ts        # 发送工具
+│   ├── readTool.ts        # 读取工具
+│   ├── waitTool.ts        # 等待工具
+│   ├── statusTool.ts      # 状态工具
+│   ├── listPortsTool.ts   # 列出串口工具
+│   └── buttonTool.ts      # 快捷按钮工具
+├── resources/
+│   ├── statusResource.ts  # 状态资源
+│   ├── portsResource.ts   # 串口列表资源
+│   └── buttonsResource.ts # 按钮资源
+├── prompts/
+│   ├── serialPrompt.ts    # 串口调试提示
+│   └── sshPrompt.ts       # SSH 提示
+└── types.ts               # 类型定义</code></pre>
+</body>
+</html>

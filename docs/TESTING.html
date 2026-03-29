@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QSerial 测试指南</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background: #fafafa;
+        }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        h3 { color: #4a6fa5; }
+        h4 { color: #666; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code { background: none; color: inherit; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        ul, ol { padding-left: 25px; }
+        li { margin: 8px 0; }
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background: #f0f7fb;
+        }
+        a { color: #3498db; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .nav { 
+            background: #3498db; 
+            padding: 10px 20px; 
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .nav a { color: white; margin-right: 15px; }
+        .tip {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .warning {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="USER_GUIDE.html">使用指南</a>
+        <a href="DEVELOPMENT.html">开发指南</a>
+        <a href="TESTING.html">测试指南</a>
+        <a href="MCP_DESIGN.html">MCP 设计</a>
+        <a href="MCP_SETUP.html">MCP 配置</a>
+    </div>
+
+    <h1>QSerial 测试指南</h1>
+
+    <h2>测试环境准备</h2>
+
+    <h3>串口测试</h3>
+
+    <h4>Windows</h4>
+    <p>使用虚拟串口软件创建测试环境：</p>
+    <ul>
+        <li><strong>com0com</strong> - 开源虚拟串口驱动</li>
+        <li><strong>Virtual Serial Port Driver</strong> - 商业软件</li>
+    </ul>
+    <p>安装 com0com：</p>
+    <ol>
+        <li>下载并安装 com0com</li>
+        <li>创建一对虚拟串口（如 COM3-COM4）</li>
+        <li>一个用于 QSerial 连接，另一个用于测试数据发送</li>
+    </ol>
+
+    <h4>Linux/macOS</h4>
+    <p>可以使用 socat 创建虚拟串口：</p>
+    <pre><code class="language-bash">socat -d -d pty,link=/tmp/ttyV0,raw pty,link=/tmp/ttyV1,raw</code></pre>
+
+    <h3>SSH 测试</h3>
+
+    <h4>本地 SSH 服务器</h4>
+    <p>使用 Docker 快速搭建：</p>
+    <pre><code class="language-bash">docker run -d -p 2222:22 --name ssh-test \
+  -e PUID=1000 -e PGID=1000 \
+  -e TZ=Asia/Shanghai \
+  linuxserver/openssh-server</code></pre>
+    <p>连接测试：</p>
+    <pre><code class="language-bash">ssh -p 2222 testuser@localhost</code></pre>
+
+    <h4>远程服务器</h4>
+    <p>使用已有的 SSH 服务器进行测试。</p>
+
+    <h2>功能测试</h2>
+
+    <h3>1. 串口连接测试</h3>
+
+    <h4>测试步骤</h4>
+    <ol>
+        <li>打开 QSerial 面板（侧边栏）</li>
+        <li>点击"连接"选项卡</li>
+        <li>点击串口设备刷新按钮</li>
+        <li>选择一个串口，右键点击"连接"</li>
+        <li>选择波特率（默认 115200）</li>
+        <li>观察终端是否打开</li>
+    </ol>
+
+    <h4>验证要点</h4>
+    <ul>
+        <li>串口连接成功后状态栏显示连接信息</li>
+        <li>树状图中串口状态变为"已连接"</li>
+        <li>VS Code 终端窗口打开</li>
+    </ul>
+
+    <h3>2. SSH 连接测试</h3>
+
+    <h4>密码认证测试</h4>
+    <ol>
+        <li>点击"新建 SSH 连接"</li>
+        <li>输入主机地址、端口、用户名</li>
+        <li>选择"密码认证"</li>
+        <li>输入密码</li>
+        <li>观察连接是否成功</li>
+    </ol>
+
+    <h4>私钥认证测试</h4>
+    <ol>
+        <li>确保私钥文件存在（~/.ssh/id_ed25519 或 id_rsa）</li>
+        <li>点击"新建 SSH 连接"</li>
+        <li>输入主机信息</li>
+        <li>选择"私钥认证"</li>
+        <li>如有 passphrase 则输入</li>
+        <li>观察连接是否成功</li>
+    </ol>
+
+    <h4>多连接测试</h4>
+    <ol>
+        <li>连接多个 SSH 服务器</li>
+        <li>验证每个连接独立工作</li>
+        <li>测试断开单个连接不影响其他</li>
+    </ol>
+
+    <h3>3. 数据收发测试</h3>
+
+    <h4>串口数据测试</h4>
+    <ol>
+        <li>连接虚拟串口对的一端（如 COM3）</li>
+        <li>使用另一端（COM4）发送数据</li>
+        <li>观察 QSerial 终端是否正确显示</li>
+        <li>在 QSerial 终端输入数据</li>
+        <li>观察 COM4 是否收到数据</li>
+    </ol>
+
+    <h4>编码测试</h4>
+    <p>测试不同编码的数据显示：</p>
+    <ul>
+        <li>GBK 中文数据</li>
+        <li>UTF-8 数据</li>
+        <li>HEX 模式显示</li>
+    </ul>
+
+    <h3>4. 快捷按钮测试</h3>
+
+    <h4>创建按钮</h4>
+    <ol>
+        <li>切换到"快捷按钮"选项卡</li>
+        <li>点击添加按钮</li>
+        <li>输入按钮名称、命令</li>
+        <li>选择目标（串口/SSH/两者）</li>
+    </ol>
+
+    <h4>执行按钮</h4>
+    <ol>
+        <li>连接终端</li>
+        <li>点击快捷按钮</li>
+        <li>观察命令是否正确发送</li>
+    </ol>
+
+    <h4>多命令序列</h4>
+    <ol>
+        <li>创建包含多个命令的按钮</li>
+        <li>设置命令间延迟</li>
+        <li>执行并观察命令序列执行</li>
+    </ol>
+
+    <h3>5. 日志记录测试</h3>
+    <ol>
+        <li>连接终端后右键点击</li>
+        <li>选择"开始记录日志"</li>
+        <li>发送/接收数据</li>
+        <li>选择"停止记录日志"</li>
+        <li>打开日志文件夹查看日志文件</li>
+    </ol>
+
+    <h3>6. MCP 功能测试</h3>
+    <p>参考 <code>docs/MCP_SETUP.md</code> 配置 MCP Server。</p>
+
+    <h4>测试 MCP 工具</h4>
+    <pre><code class="language-bash"># 编译项目
+npm run compile
+
+# 启动 MCP Server
+npm run mcp</code></pre>
+
+    <h4>测试连接</h4>
+    <p>在 AI 助手中测试：</p>
+    <pre><code>用户：帮我连接 COM3 串口，波特率 115200
+AI：[调用 terminal_connect]</code></pre>
+
+    <h4>测试数据操作</h4>
+    <pre><code>用户：发送 AT 命令并等待响应
+AI：[调用 terminal_send, terminal_wait]</code></pre>
+
+    <h2>自动化测试</h2>
+
+    <h3>运行测试</h3>
+    <pre><code class="language-bash">npm run test</code></pre>
+    <div class="tip">注意：VS Code 扩展测试需要在 VS Code 环境中运行。</div>
+
+    <h3>测试文件结构</h3>
+    <pre><code>src/test/
+├── runTest.ts        # 测试入口
+├── suite/
+│   ├── index.ts      # 测试套件索引
+│   └── extension.test.ts  # 扩展测试</code></pre>
+
+    <h3>编写测试</h3>
+    <pre><code class="language-typescript">import * as assert from 'assert';
+import * as vscode from 'vscode';
+
+suite('Extension Test Suite', () => {
+  test('Sample test', () => {
+    assert.strictEqual(-1, [1, 2, 3].indexOf(5));
+  });
+});</code></pre>
+
+    <h2>边缘情况测试</h2>
+
+    <h3>1. 断线重连</h3>
+    <ul>
+        <li>测试串口突然断开</li>
+        <li>测试 SSH 连接超时</li>
+        <li>测试网络中断后恢复</li>
+    </ul>
+
+    <h3>2. 异常数据</h3>
+    <ul>
+        <li>测试大量数据快速发送</li>
+        <li>测试特殊字符（中文、控制字符）</li>
+        <li>测试二进制数据</li>
+    </ul>
+
+    <h3>3. 并发操作</h3>
+    <ul>
+        <li>同时连接多个终端</li>
+        <li>同时发送多个命令</li>
+        <li>快速切换连接/断开</li>
+    </ul>
+
+    <h3>4. 配置边界</h3>
+    <ul>
+        <li>测试无效波特率</li>
+        <li>测试无效串口路径</li>
+        <li>测试无效 SSH 配置</li>
+    </ul>
+
+    <h2>性能测试</h2>
+
+    <h3>1. 大数据量测试</h3>
+    <ul>
+        <li>发送大量数据观察内存使用</li>
+        <li>测试长时间运行的稳定性</li>
+    </ul>
+
+    <h3>2. 高频率操作</h3>
+    <ul>
+        <li>快速发送命令测试响应速度</li>
+        <li>测试 UI 更新延迟</li>
+    </ul>
+
+    <h2>测试检查清单</h2>
+    <table>
+        <tr><th>功能</th><th>测试项</th><th>状态</th></tr>
+        <tr><td>串口连接</td><td>连接/断开/重连</td><td>☐</td></tr>
+        <tr><td>SSH 连接</td><td>密码/私钥认证</td><td>☐</td></tr>
+        <tr><td>多 SSH</td><td>多连接管理</td><td>☐</td></tr>
+        <tr><td>数据发送</td><td>文本/命令发送</td><td>☐</td></tr>
+        <tr><td>数据接收</td><td>编码正确显示</td><td>☐</td></tr>
+        <tr><td>快捷按钮</td><td>创建/编辑/执行</td><td>☐</td></tr>
+        <tr><td>日志记录</td><td>开始/停止/查看</td><td>☐</td></tr>
+        <tr><td>MCP 工具</td><td>connect/send/read</td><td>☐</td></tr>
+        <tr><td>UI 同步</td><td>状态栏/树状图</td><td>☐</td></tr>
+    </table>
+
+    <h2>问题排查</h2>
+
+    <h3>串口无法连接</h3>
+    <ol>
+        <li>检查串口是否存在</li>
+        <li>检查是否有其他程序占用</li>
+        <li>检查波特率设置</li>
+    </ol>
+
+    <h3>SSH 连接失败</h3>
+    <ol>
+        <li>检查网络连通性</li>
+        <li>检查用户名/密码</li>
+        <li>检查私钥文件权限</li>
+        <li>查看 SSH 服务器日志</li>
+    </ol>
+
+    <h3>数据显示乱码</h3>
+    <ol>
+        <li>检查编码设置</li>
+        <li>尝试不同编码选项</li>
+        <li>检查数据源编码</li>
+    </ol>
+
+    <h3>MCP 无法启动</h3>
+    <ol>
+        <li>确保已编译 <code>npm run compile</code></li>
+        <li>检查 MCP 配置路径</li>
+        <li>查看 MCP Server 日志</li>
+    </ol>
+</body>
+</html>
