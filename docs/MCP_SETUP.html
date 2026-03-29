@@ -106,15 +106,24 @@
     </ol>
 
     <h2>方法三：VS Code with CodeBuddy 配置</h2>
-    <p>如果使用 VS Code 的 CodeBuddy/MCP 插件：</p>
+    <p>如果使用 VS Code 的 CodeBuddy 插件：</p>
     <ol>
-        <li>在项目根目录创建 <code>mcp.config.json</code>：</li>
+        <li>在用户目录下创建配置文件 <code>.codebuddy/mcp.json</code>：</li>
     </ol>
     <pre><code class="language-json">{
-  "servers": {
-    "qserial": {
+  "mcpServers": {
+    "qmcp": {
       "command": "node",
-      "args": ["${workspaceFolder}/out/mcp/server.js"]
+      "args": ["D:/QPrj/QSerial/out/mcp/server.js"]
+    }
+  }
+}</code></pre>
+    <p>或者在项目根目录创建 <code>.codebuddy/mcp.json</code>（使用相对路径）：</p>
+    <pre><code class="language-json">{
+  "mcpServers": {
+    "qmcp": {
+      "command": "node",
+      "args": ["./out/mcp/server.js"]
     }
   }
 }</code></pre>
