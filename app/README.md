@@ -28,6 +28,23 @@ code --install-extension vsix/qserial-1.0.0.vsix
 4. 选择 `vsix/qserial-1.0.0.vsix` 文件
 5. 重启 VS Code
 
+## 使用前提
+
+**重要**：MCP Server 需要通过 HTTP 连接 VS Code 扩展才能正常工作。使用前请确保：
+
+1. **安装并启动 VS Code 扩展**
+   - 安装 `vsix/qserial-1.0.0.vsix`
+   - 重启 VS Code（扩展会自动激活）
+
+2. **验证扩展已启动**
+   - 打开 VS Code 输出面板（`Ctrl+Shift+U`）
+   - 选择 "QSerial" 输出通道
+   - 确认看到日志：`MCP HTTP Server 已启动，监听端口 9527`
+
+3. **检查端口**
+   - HTTP Server 默认使用端口 9527
+   - 确保该端口未被其他程序占用
+
 ## 配置 MCP Server
 
 ### CodeBuddy 配置

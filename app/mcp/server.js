@@ -80,7 +80,15 @@ async function callHttpServer(action, params) {
             });
         });
         req.on('error', (err) => {
-            reject(new Error(`HTTP 请求失败: ${err.message}`));
+            // 提供更详细的错误信息
+            let errorMsg = err.message || '连接被拒绝';
+            if (err.message.includes('ECONNREFUSED') || err.message === '') {
+                errorMsg = `无法连接到 QSerial HTTP Server (端口 ${HTTP_PORT})。请确保：
+1. VS Code 已安装 QSerial 扩展并启动
+2. 在 VS Code 输出面板查看 "QSerial" 日志确认 HTTP Server 已启动
+3. 端口 ${HTTP_PORT} 未被其他程序占用`;
+            }
+            reject(new Error(errorMsg));
         });
         req.setTimeout(30000, () => {
             req.destroy();

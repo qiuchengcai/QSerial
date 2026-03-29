@@ -1,6 +1,6 @@
 "use strict";
 /**
- * MCP 命令处理�?
+ * MCP 命令处理器
  * 处理来自 MCP Server 的命令请求，通过 QSerial 扩展执行操作
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -48,7 +48,7 @@ const RESULT_DIR = path.join(os.homedir(), '.qserial', 'results');
 const STATUS_DIR = path.join(os.homedir(), '.qserial');
 const STATUS_FILE = path.join(STATUS_DIR, 'status.json');
 /**
- * MCP 命令处理�?
+ * MCP 命令处理器
  */
 class MCPCommandHandler {
     constructor(serialManager, sshManager, terminalManager) {
@@ -65,7 +65,7 @@ class MCPCommandHandler {
         }
     }
     /**
-     * 写入状态文�?
+     * 写入状态文件
      */
     writeStatusFile() {
         this.ensureStatusDir();
@@ -89,11 +89,11 @@ class MCPCommandHandler {
         }
     }
     /**
-     * ���� MCP ����״̬���û��ֶ��Ͽ�ʱ���ã�
+     * 清理 MCP 连接状态（用户手动断开时调用）
      */
     clearMCPConnections(type) {
         if (type) {
-            // ����ָ�����͵�����
+            // 清理指定类型的连接
             for (const [id, status] of this.mcpConnections) {
                 if (status.type === type) {
                     this.mcpConnections.delete(id);
@@ -101,11 +101,11 @@ class MCPCommandHandler {
             }
         }
         else {
-            // ������������
+            // 清理所有连接
             this.mcpConnections.clear();
         }
         this.writeStatusFile();
-        logger_1.Logger.info(`MCP ����״̬������: ${type || 'all'}`);
+        logger_1.Logger.info(`MCP 连接状态已清理: ${type || 'all'}`);
     }
     /**
      * 写入结果文件
@@ -113,7 +113,7 @@ class MCPCommandHandler {
     writeResult(requestId, result) {
         const filePath = path.join(RESULT_DIR, `${requestId}.json`);
         fs.writeFileSync(filePath, JSON.stringify(result), 'utf8');
-        logger_1.Logger.debug(`MCP 结果已写�? ${requestId}`);
+        logger_1.Logger.debug(`MCP 结果已写入: ${requestId}`);
     }
     /**
      * 处理连接命令
@@ -150,8 +150,8 @@ class MCPCommandHandler {
         if (!path) {
             throw new Error('串口路径不能为空');
         }
-        // SerialManager.connect 只接�?path �?baudRate 两个参数
-        // 其他参数（dataBits, stopBits, parity, encoding）从 VS Code 配置中读�?
+        // SerialManager.connect 只接受 path 和 baudRate 两个参数
+        // 其他参数（dataBits, stopBits, parity, encoding）从 VS Code 配置中读取
         await this.serialManager.connect(path, baudRate || 115200);
         const terminalId = this.generateTerminalId('serial');
         const terminalStatus = {
@@ -177,7 +177,7 @@ class MCPCommandHandler {
      */
     async connectSSH(config) {
         let { host, port, username, password, privateKey, passphrase, encoding, hostId: inputHostId } = config;
-        // ��������� hostId���������л�ȡ�����õ���ϸ��Ϣ
+        // 如果传入了 hostId，从配置中获取该配置的详细信息
         if (inputHostId) {
             const savedConfig = vscode.workspace.getConfiguration('qserial.ssh');
             const savedHosts = savedConfig.get('savedHosts', []);
@@ -186,45 +186,45 @@ class MCPCommandHandler {
                 host = targetHost.host;
                 port = targetHost.port || 22;
                 username = targetHost.username;
-                // �����������˽Կ·����ʹ�������е�
+                // 如果配置中有私钥路径，使用配置中的
                 if (targetHost.privateKeyPath && !privateKey) {
                     privateKey = targetHost.privateKeyPath;
                 }
-                logger_1.Logger.info(`ʹ��ָ������: ${targetHost.name || host} (ID: ${inputHostId})`);
+                logger_1.Logger.info(`使用指定配置: ${targetHost.name || host} (ID: ${inputHostId})`);
             }
             else {
-                logger_1.Logger.warn(`δ�ҵ�����ID: ${inputHostId}��ʹ�ô������`);
+                logger_1.Logger.warn(`未找到配置ID: ${inputHostId}，使用传入参数`);
             }
         }
         if (!host || !username) {
             throw new Error('SSH 主机地址和用户名不能为空');
         }
-        // ���� privateKey - ������ļ�·�����ȡ�ļ�����
+        // 处理 privateKey - 如果是文件路径则读取文件内容
         let keyContent = undefined;
         if (privateKey) {
-            // ����Ƿ����ļ�·��������·���ָ������� .ssh ��ͷ�ĳ���·����
+            // 检查是否是文件路径（包含路径分隔符或以 .ssh 开头的常见路径）
             if (privateKey.includes('/') || privateKey.includes('\\') || privateKey.includes('.ssh')) {
                 try {
                     keyContent = fs.readFileSync(privateKey);
-                    logger_1.Logger.info(`��ȡ˽Կ�ļ�: ${privateKey}`);
+                    logger_1.Logger.info(`读取私钥文件: ${privateKey}`);
                 }
                 catch (err) {
-                    throw new Error(`�޷���ȡ˽Կ�ļ�: ${privateKey}`);
+                    throw new Error(`无法读取私钥文件: ${privateKey}`);
                 }
             }
             else {
-                // ֱ����Ϊ˽Կ����
+                // 直接作为私钥内容
                 keyContent = privateKey;
             }
         }
-        // ȷ�����յ� hostId
+        // 确定最终的 hostId
         let finalHostId;
         if (inputHostId) {
-            // ʹ�ô���� hostId
+            // 使用传入的 hostId
             finalHostId = inputHostId;
         }
         else {
-            // �����ѱ�����������ã���ȡ�� hostId
+            // 查找已保存的主机配置，获取其 hostId
             const savedConfig = vscode.workspace.getConfiguration('qserial.ssh');
             const savedHosts = savedConfig.get('savedHosts', []);
             const matchingHost = savedHosts.find((h) => h.host === host &&
@@ -239,7 +239,7 @@ class MCPCommandHandler {
             password,
             privateKey: keyContent,
             passphrase,
-            hostId: finalHostId // ���� hostId ��ƥ����״ͼ״̬
+            hostId: finalHostId // 传入 hostId 以匹配树状图状态
         });
         const terminalId = this.generateTerminalId('ssh');
         const terminalStatus = {
@@ -264,18 +264,18 @@ class MCPCommandHandler {
         };
     }
     /**
-     * 处理发送命�?
+     * 处理发送命令
      */
     async handleSend(params) {
         const { requestId, terminalId, data, appendNewline } = params;
-        logger_1.Logger.info(`MCP 发送请�? ${terminalId}`);
+        logger_1.Logger.info(`MCP 发送请求: ${terminalId}`);
         try {
-            // 查找对应的终�?
+            // 查找对应的终端
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`终端不存�? ${terminalId}`);
+                throw new Error(`终端不存在: ${terminalId}`);
             }
-            // 发送数�?
+            // 发送数据
             const dataToSend = appendNewline !== false ? data + '\n' : data;
             if (terminal.type === 'serial') {
                 this.serialManager.send(dataToSend);
@@ -288,7 +288,7 @@ class MCPCommandHandler {
         }
         catch (error) {
             const err = error;
-            logger_1.Logger.error(`MCP 发送失�? ${err.message}`);
+            logger_1.Logger.error(`MCP 发送失败: ${err.message}`);
             this.writeResult(requestId, { success: false, error: err.message });
             throw error;
         }
@@ -302,27 +302,27 @@ class MCPCommandHandler {
         try {
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`终端不存�? ${terminalId}`);
+                throw new Error(`终端不存在: ${terminalId}`);
             }
             if (terminal.type === 'serial') {
                 await this.serialManager.disconnect();
-                // �رմ����ն�
+                // 关闭串口终端
                 this.terminalManager.closeSerialTerminal();
             }
             else {
-                // ��ȡ������Ϣ���ҵ��ն�����
+                // 获取连接信息以找到终端名称
                 const hostId = terminal.hostId || terminal.id;
                 const conn = this.sshManager.getConnectionInfo(hostId);
                 const terminalName = conn?.terminalName;
-                // ʹ�� hostId �Ͽ� SSH ����
+                // 使用 hostId 断开 SSH 连接
                 await this.sshManager.disconnect(hostId);
-                // �رն�Ӧ�� SSH �ն�
+                // 关闭对应的 SSH 终端
                 if (terminalName) {
                     this.terminalManager.closeSSHTerminal(terminalName);
-                    logger_1.Logger.info(`�ѹر� SSH �ն�: ${terminalName}`);
+                    logger_1.Logger.info(`已关闭 SSH 终端: ${terminalName}`);
                 }
             }
-            // 从状态文件移�?
+            // 从状态文件移除
             for (const [id, status] of this.mcpConnections) {
                 if (status.type === terminal.type) {
                     status.connected = false;
@@ -330,7 +330,7 @@ class MCPCommandHandler {
                 }
             }
             this.writeStatusFile();
-            // ���� UI ����
+            // 触发 UI 更新
             if (this.onConnectionChanged) {
                 this.onConnectionChanged();
             }
@@ -353,7 +353,7 @@ class MCPCommandHandler {
         try {
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`终端不存�? ${terminalId}`);
+                throw new Error(`终端不存在: ${terminalId}`);
             }
             let data;
             if (terminal.type === 'serial') {
@@ -381,7 +381,7 @@ class MCPCommandHandler {
         try {
             const terminal = this.findTerminal(terminalId);
             if (!terminal) {
-                throw new Error(`终端不存�? ${terminalId}`);
+                throw new Error(`终端不存在: ${terminalId}`);
             }
             let result;
             if (terminal.type === 'serial') {
@@ -419,11 +419,11 @@ class MCPCommandHandler {
         }
     }
     /**
-     * 处理获取终端状态命�?
+     * 处理获取终端状态命令
      */
     async handleStatus(params) {
         const { requestId, terminalId } = params;
-        logger_1.Logger.info(`MCP 状态请�? ${terminalId || 'all'}`);
+        logger_1.Logger.info(`MCP 状态请求: ${terminalId || 'all'}`);
         try {
             if (terminalId) {
                 const terminal = this.findTerminal(terminalId);
@@ -431,7 +431,7 @@ class MCPCommandHandler {
                 return terminal;
             }
             else {
-                // 返回所有终端状�?
+                // 返回所有终端状态
                 const serialConn = this.serialManager.getConnectionInfo();
                 const status = {
                     serial: serialConn ? {
@@ -447,7 +447,7 @@ class MCPCommandHandler {
         }
         catch (error) {
             const err = error;
-            logger_1.Logger.error(`MCP 状态查询失�? ${err.message}`);
+            logger_1.Logger.error(`MCP 状态查询失败: ${err.message}`);
             this.writeResult(requestId, { success: false, error: err.message });
             throw error;
         }
@@ -455,15 +455,34 @@ class MCPCommandHandler {
     /**
      * 查找终端
      */
+    findTerminal(terminalId) {
+        // 检查串口连接
+        const serialConn = this.serialManager.getConnectionInfo();
+        if (serialConn?.isOpen) {
+            const serialId = `serial_${serialConn.path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            if (serialId === terminalId) {
+                return { type: 'serial', id: serialConn.path };
+            }
+        }
+        // 检查 SSH 连接
+        const sshConnections = this.sshManager.getAllConnections();
+        for (const conn of sshConnections) {
+            const sshId = `ssh_${conn.username}_${conn.host}_${conn.port}`.replace(/[^a-zA-Z0-9_]/g, '_');
+            if (sshId === terminalId || conn.hostId === terminalId) {
+                return { type: 'ssh', id: conn.hostId, hostId: conn.hostId };
+            }
+        }
+        return null;
+    }
     /**
-     * ������ȡ��������
+     * 处理获取配置命令
      */
     async handleGetConfig(params) {
         const { requestId } = params;
-        logger_1.Logger.info('MCP ��ȡ��������');
+        logger_1.Logger.info('MCP 获取配置请求');
         try {
             const config = vscode.workspace.getConfiguration('qserial');
-            // ��ȡ����������Ϣ
+            // 获取所有配置信息
             const configInfo = {
                 serial: {
                     defaultBaudRate: config.get('serial.defaultBaudRate', 115200),
@@ -503,29 +522,10 @@ class MCPCommandHandler {
         }
         catch (error) {
             const err = error;
-            logger_1.Logger.error(`MCP ��ȡ����ʧ��: ${err.message}`);
+            logger_1.Logger.error(`MCP 获取配置失败: ${err.message}`);
             this.writeResult(requestId, { success: false, error: err.message });
             throw error;
         }
-    }
-    findTerminal(terminalId) {
-        // ��鴮������
-        const serialConn = this.serialManager.getConnectionInfo();
-        if (serialConn?.isOpen) {
-            const serialId = `serial_${serialConn.path.replace(/[^a-zA-Z0-9]/g, '_')}`;
-            if (serialId === terminalId) {
-                return { type: 'serial', id: serialConn.path };
-            }
-        }
-        // ��� SSH ����
-        const sshConnections = this.sshManager.getAllConnections();
-        for (const conn of sshConnections) {
-            const sshId = `ssh_${conn.username}_${conn.host}_${conn.port}`.replace(/[^a-zA-Z0-9_]/g, '_');
-            if (sshId === terminalId || conn.hostId === terminalId) {
-                return { type: 'ssh', id: conn.hostId, hostId: conn.hostId };
-            }
-        }
-        return null;
     }
 }
 exports.MCPCommandHandler = MCPCommandHandler;
