@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(pnpm build:shared)",
+      "Bash(pnpm build:main)",
+      "Bash(pnpm --filter @qserial/main add -D @types/ssh2)",
+      "Bash(cat node_modules/.pnpm/@types+ssh2@*/node_modules/@types/ssh2/index.d.ts)",
+      "Bash(pnpm build:renderer)",
+      "Bash(pnpm --filter @qserial/renderer add immer)",
+      "Bash(npx electron:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :5173)",
+      "Bash(taskkill:*)",
+      "Bash(taskkill /F /IM electron.exe)",
+      "Bash(pnpm run:*)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(taskkill /F /PID 46920)",
+      "Bash(taskkill /F /PID 52432)",
+      "Bash(git config:*)",
+      "Bash(ping -n 2 github.com)",
+      "Bash(tasklist)",
+      "Bash(taskkill /F /PID 52804)",
+      "Bash(taskkill /F /PID 50604)",
+      "Bash(taskkill //F //IM electron.exe)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(cat C:\\\\\\\\Users\\\\\\\\31174\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\D--QPrj-QSerial\\\\\\\\d1e432b2-865d-48a4-bc9a-c02764a16661\\\\\\\\tasks\\\\\\\\bhb768bvm.output)"
+    ]
+  }
+}

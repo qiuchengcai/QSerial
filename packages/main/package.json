@@ -1,0 +1,30 @@
+{
+  "name": "@qserial/main",
+  "version": "0.1.0",
+  "description": "QSerial main process",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsc -p tsconfig.json && npm run build:preload",
+    "build:preload": "esbuild src/preload.ts --bundle --outfile=dist/preload.cjs --format=cjs --platform=node --external:electron",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@qserial/shared": "workspace:*",
+    "electron-log": "^5.0.3",
+    "node-pty": "^1.0.0",
+    "serialport": "^12.0.0",
+    "ssh2": "^1.15.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/ssh2": "^1.15.5",
+    "@types/uuid": "^9.0.7",
+    "electron": "^28.2.0",
+    "esbuild": "^0.20.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}

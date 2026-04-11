@@ -1,0 +1,44 @@
+/**
+ * 根组件
+ */
+
+import React from 'react';
+import { Layout } from './components/layout/Layout';
+import { useConfigStore } from './stores/config';
+import { useThemeStore } from './stores/theme';
+
+export const App: React.FC = () => {
+  const { initialize: initConfig } = useConfigStore();
+  const { currentTheme } = useThemeStore();
+
+  React.useEffect(() => {
+    initConfig();
+  }, [initConfig]);
+
+  // 应用主题到 CSS 变量
+  React.useEffect(() => {
+    const root = document.documentElement;
+    const { colors, fonts } = currentTheme.ui;
+
+    // 颜色变量
+    root.style.setProperty('--color-primary', colors.primary);
+    root.style.setProperty('--color-secondary', colors.secondary);
+    root.style.setProperty('--color-accent', colors.accent);
+    root.style.setProperty('--color-background', colors.background);
+    root.style.setProperty('--color-surface', colors.surface);
+    root.style.setProperty('--color-text', colors.text);
+    root.style.setProperty('--color-text-secondary', colors.textSecondary);
+    root.style.setProperty('--color-border', colors.border);
+    root.style.setProperty('--color-hover', colors.hover);
+    root.style.setProperty('--color-active', colors.active);
+    root.style.setProperty('--color-error', colors.error);
+    root.style.setProperty('--color-warning', colors.warning);
+    root.style.setProperty('--color-success', colors.success);
+
+    // 字体变量
+    root.style.setProperty('--font-sans', fonts.sans);
+    root.style.setProperty('--font-mono', fonts.mono);
+  }, [currentTheme]);
+
+  return <Layout />;
+};
