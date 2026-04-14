@@ -1,0 +1,61 @@
+{
+  "name": "qserial",
+  "version": "0.1.0",
+  "description": "A modern cross-platform terminal tool with serial port support",
+  "author": "QSerial Team",
+  "license": "MIT",
+  "private": true,
+  "main": "./packages/main/dist/index.js",
+  "type": "module",
+  "dependencies": {
+    "@qserial/shared": "workspace:*",
+    "electron-log": "^5.0.3",
+    "node-pty": "^1.0.0",
+    "serialport": "^12.0.0",
+    "ssh2": "^1.15.0",
+    "tftp": "^0.1.2",
+    "uuid": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "dev": "node scripts/build.js --dev",
+    "dev:main": "pnpm --filter @qserial/main dev",
+    "dev:renderer": "pnpm --filter @qserial/renderer dev",
+    "build": "pnpm run build:shared && pnpm run build:main && pnpm run build:renderer",
+    "build:shared": "pnpm --filter @qserial/shared build",
+    "build:main": "pnpm --filter @qserial/main build",
+    "build:renderer": "pnpm --filter @qserial/renderer build",
+    "start": "electron packages/main/dist/index.js",
+    "package": "pnpm run build && electron-builder -c electron-builder.config.cjs",
+    "package:win": "pnpm run build && electron-builder --win -c electron-builder.config.cjs",
+    "package:mac": "pnpm run build && electron-builder --mac -c electron-builder.config.cjs",
+    "package:linux": "pnpm run build && electron-builder --linux -c electron-builder.config.cjs",
+    "lint": "eslint packages --ext .ts,.tsx",
+    "lint:fix": "eslint packages --ext .ts,.tsx --fix",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,css,json}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rimraf packages/*/dist packages/*/node_modules node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.2.4",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vitest": "^1.2.1"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

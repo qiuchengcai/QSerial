@@ -1,0 +1,509 @@
+/**
+ * 串口共享对话框
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import type { SerialPortInfo } from '@qserial/shared';
+import { useTerminalStore } from '@/stores/terminal';
+import { useConfigStore } from '@/stores/config';
+import { ConnectionType, ConnectionState } from '@qserial/shared';
+
+interface SerialShareDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  defaultSerialPath?: string;
+  defaultBaudRate?: number;
+}
+
+interface SshTunnelConfig {
+  host: string;
+  port: number;
+  username: string;
+  remotePort: number;
+  password?: string; // 可选，留空使用 ~/.ssh 下的默认密钥
+}
+
+const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
+
+export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
+  isOpen,
+  onClose,
+  defaultSerialPath,
+  defaultBaudRate,
+}) => {
+  const { sessions } = useTerminalStore();
+  const { config, updateConfig } = useConfigStore();
+  const [ports, setPorts] = useState<SerialPortInfo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [status, setStatus] = useState<{
+    running: boolean;
+    serialPath: string;
+    localPort: number;
+    clientCount: number;
+    sshTunnelConnected: boolean;
+  } | null>(null);
+
+  // 监听主进程调试日志
+  useEffect(() => {
+    const unsubscribe = window.qserial.onDebugLog((event) => {
+      console.log('[Main Debug]', event.message);
+    });
+    return unsubscribe;
+  }, []);
+
+  // 串口配置 - 使用配置文件中的默认值
+  const [selectedPort, setSelectedPort] = useState(defaultSerialPath || '');
+  const [baudRate, setBaudRate] = useState(defaultBaudRate || 115200);
+  const [localPort, setLocalPort] = useState(config.serialShare?.defaultLocalPort || 8888);
+
+  // 是否复用现有连接（由后端自动检测）
+  const [shareExistingInfo, setShareExistingInfo] = useState<{ available: boolean; sessionName?: string }>({ available: false });
+
+  // 自动检测是否有现有连接
+  useEffect(() => {
+    if (!selectedPort) {
+      setShareExistingInfo({ available: false });
+      return;
+    }
+
+    // 查找使用该串口的活跃会话
+    const existingSession = Object.values(sessions).find(
+      (s) => s.connectionType === ConnectionType.SERIAL &&
+             s.serialPath?.toLowerCase() === selectedPort.toLowerCase() &&
+             (s.connectionState === ConnectionState.CONNECTED ||
+              s.connectionState === ConnectionState.CONNECTING)
+    );
+
+    if (existingSession) {
+      setShareExistingInfo({
+        available: true,
+        sessionName: existingSession.name || existingSession.serialPath
+      });
+    } else {
+      setShareExistingInfo({ available: false });
+    }
+  }, [selectedPort, sessions]);
+
+  // SSH隧道配置 - 从配置文件加载最近使用的值
+  const [enableSshTunnel, setEnableSshTunnel] = useState(false);
+  const [sshConfig, setSshConfig] = useState<SshTunnelConfig>({
+    host: config.serialShare?.recentSshTunnel?.host || '',
+    port: config.serialShare?.recentSshTunnel?.port || 22,
+    username: config.serialShare?.recentSshTunnel?.username || 'root',
+    remotePort: config.serialShare?.recentSshTunnel?.remotePort || 8888,
+    password: '',
+  });
+
+  // 根据选中的串口生成唯一的服务ID
+  const serverId = selectedPort ? `serial-server-${selectedPort.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
+
+  // 加载串口列表
+  const loadPorts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const portList = await window.qserial.serial.list();
+      setPorts(portList);
+    } catch (err) {
+      setError(`加载串口列表失败: ${(err as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadPorts();
+    }
+  }, [isOpen, loadPorts]);
+
+  // 轮询状态
+  useEffect(() => {
+    if (!isOpen || !serverId) return;
+    const pollStatus = async () => {
+      try {
+        const s = await window.qserial.serialServer.getStatus(serverId);
+        setStatus(s);
+      } catch {
+        setStatus(null);
+      }
+    };
+    pollStatus();
+    const timer = setInterval(pollStatus, 2000);
+    return () => clearInterval(timer);
+  }, [isOpen, serverId]);
+
+  const handleStart = async () => {
+    setError(null);
+    setIsStarting(true);
+    if (!serverId) {
+      setError('请选择一个串口');
+      setIsStarting(false);
+      return;
+    }
+    try {
+      const options: {
+        id: string;
+        serialPath: string;
+        baudRate: number;
+        dataBits: 5 | 6 | 7 | 8;
+        stopBits: 1 | 1.5 | 2;
+        parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
+        localPort: number;
+        sshTunnel?: {
+          host: string;
+          port: number;
+          username: string;
+          remotePort: number;
+          privateKey?: string;
+          password?: string;
+        };
+      } = {
+        id: serverId,
+        serialPath: selectedPort,
+        baudRate,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'none',
+        localPort,
+      };
+
+      if (enableSshTunnel && sshConfig.host) {
+        options.sshTunnel = {
+          host: sshConfig.host,
+          port: sshConfig.port,
+          username: sshConfig.username,
+          remotePort: sshConfig.remotePort,
+          ...(sshConfig.password ? { password: sshConfig.password } : {}),
+        };
+      }
+
+      // shareExisting 参数已废弃，后端会自动检测现有连接
+      console.log('[SerialShareDialog] shareExistingInfo:', shareExistingInfo);
+      console.log('[SerialShareDialog] sessions:', sessions);
+
+      console.log('[SerialShareDialog] Starting with options:', JSON.stringify(options, null, 2));
+      try {
+        const result = await window.qserial.serialServer.start(options);
+        console.log('[SerialShareDialog] Start result:', result);
+
+        // 保存配置到配置文件
+        updateConfig('serialShare', {
+          defaultLocalPort: localPort,
+          recentSshTunnel: enableSshTunnel && sshConfig.host ? {
+            host: sshConfig.host,
+            port: sshConfig.port,
+            username: sshConfig.username,
+            remotePort: sshConfig.remotePort,
+            savePassword: false, // 不保存密码到配置文件
+          } : undefined,
+        });
+
+        // 启动成功，显示提示对话框
+        setShowSuccessDialog(true);
+      } catch (startErr) {
+        console.error('[SerialShareDialog] Start error:', startErr);
+        throw startErr;
+      }
+    } catch (err) {
+      console.error('[SerialShareDialog] handleStart error:', err);
+      setError((err as Error).message);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const handleStop = async () => {
+    try {
+      await window.qserial.serialServer.stop(serverId);
+      setStatus(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const isRunning = status?.running ?? false;
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-surface border border-border rounded-lg p-4 w-[520px] max-h-[85vh] flex flex-col overflow-hidden">
+        <h3 className="text-lg font-medium mb-4 flex-shrink-0">串口共享</h3>
+
+        <div className="space-y-4 flex-1 overflow-y-auto min-h-0">
+          {/* 串口选择 */}
+          <div>
+            <label className="block text-sm text-text-secondary mb-1">本地串口</label>
+            <select
+              value={selectedPort}
+              onChange={(e) => setSelectedPort(e.target.value)}
+              disabled={isRunning}
+              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+            >
+              <option value="">选择串口...</option>
+              {ports.map((port) => (
+                <option key={port.path} value={port.path}>
+                  {port.path} - {port.manufacturer || port.serialNumber || 'Unknown'}
+                </option>
+              ))}
+            </select>
+
+            {/* 复用状态显示 */}
+            <div className="mt-2 flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${shareExistingInfo.available ? 'bg-green-500' : 'bg-yellow-500'}`} />
+              <span className="text-xs text-text-secondary">
+                {shareExistingInfo.available
+                  ? `检测到现有连接: ${shareExistingInfo.sessionName || selectedPort}`
+                  : '未检测到现有连接'}
+              </span>
+            </div>
+            <p className="text-xs text-text-secondary/70 mt-1 ml-4">
+              共享服务会自动检测并复用该串口的现有连接
+            </p>
+          </div>
+
+          {/* 波特率 */}
+          <div>
+            <label className="block text-sm text-text-secondary mb-1">波特率</label>
+            <select
+              value={baudRate}
+              onChange={(e) => setBaudRate(Number(e.target.value))}
+              disabled={isRunning}
+              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+            >
+              {BAUD_RATES.map((rate) => (
+                <option key={rate} value={rate}>
+                  {rate}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 本地监听端口 */}
+          <div>
+            <label className="block text-sm text-text-secondary mb-1">本地监听端口</label>
+            <input
+              type="number"
+              value={localPort}
+              onChange={(e) => setLocalPort(Number(e.target.value))}
+              disabled={isRunning}
+              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+              min={1}
+              max={65535}
+            />
+          </div>
+
+          {/* SSH反向隧道 */}
+          <div className="border-t border-border pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <input
+                type="checkbox"
+                id="sshTunnel"
+                checked={enableSshTunnel}
+                onChange={(e) => setEnableSshTunnel(e.target.checked)}
+                disabled={isRunning}
+                className="rounded"
+              />
+              <label htmlFor="sshTunnel" className="text-sm font-medium">
+                启用SSH反向隧道
+              </label>
+            </div>
+
+            {enableSshTunnel && (
+              <div className="space-y-3 ml-6">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="block text-xs text-text-secondary mb-1">远程服务器</label>
+                    <input
+                      type="text"
+                      value={sshConfig.host}
+                      onChange={(e) => setSshConfig((p) => ({ ...p, host: e.target.value }))}
+                      disabled={isRunning}
+                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                      placeholder="192.168.1.100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">SSH端口</label>
+                    <input
+                      type="number"
+                      value={sshConfig.port}
+                      onChange={(e) => setSshConfig((p) => ({ ...p, port: Number(e.target.value) }))}
+                      disabled={isRunning}
+                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">用户名</label>
+                    <input
+                      type="text"
+                      value={sshConfig.username}
+                      onChange={(e) => setSshConfig((p) => ({ ...p, username: e.target.value }))}
+                      disabled={isRunning}
+                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">远程端口</label>
+                    <input
+                      type="number"
+                      value={sshConfig.remotePort}
+                      onChange={(e) => setSshConfig((p) => ({ ...p, remotePort: Number(e.target.value) }))}
+                      disabled={isRunning}
+                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-text-secondary mb-1">
+                    密码 <span className="text-text-secondary/60">(可选，留空使用本地密钥)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={sshConfig.password || ''}
+                    onChange={(e) => setSshConfig((p) => ({ ...p, password: e.target.value }))}
+                    disabled={isRunning}
+                    className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                    placeholder="留空则使用 ~/.ssh 下的默认密钥"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 状态 */}
+          <div className="flex items-center gap-2">
+            <span className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
+            <span className="text-sm">
+              {isRunning
+                ? `运行中 - ${selectedPort} -> :${localPort}${status?.sshTunnelConnected ? ` (SSH隧道已连接)` : ''}${status ? ` [${status.clientCount}个客户端]` : ''}`
+                : '已停止'}
+            </span>
+          </div>
+
+          {/* 错误信息 */}
+          {error && (
+            <div className="text-sm text-error bg-error/10 px-3 py-2 rounded">
+              {error}
+            </div>
+          )}
+
+          {/* 操作按钮 */}
+          <div className="flex gap-2">
+            {isRunning ? (
+              <button
+                onClick={handleStop}
+                className="flex-1 px-4 py-2 bg-error text-white rounded hover:bg-error/80"
+              >
+                停止共享
+              </button>
+            ) : (
+              <button
+                onClick={handleStart}
+                disabled={!selectedPort || isStarting}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80 disabled:opacity-50"
+              >
+                {isStarting ? '启动中...' : '启动共享'}
+              </button>
+            )}
+          </div>
+
+          {/* 使用说明 */}
+          <div className="text-xs text-text-secondary bg-background/50 rounded p-3 space-y-1">
+            <p className="font-medium">使用方式：</p>
+            <p>1. 远程Linux服务器执行: nc localhost {'{远程端口}'} 即可操作串口</p>
+            <p>2. 如启用SSH隧道，远程服务器需安装ssh并监听</p>
+            <p>3. 也可使用 socat - localhost:{'{远程端口}'} 交互操作</p>
+          </div>
+        </div>
+
+        {/* 关闭按钮 */}
+        <div className="flex justify-end mt-4 pt-4 border-t border-border flex-shrink-0 bg-surface">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded hover:bg-hover">
+            关闭
+          </button>
+        </div>
+      </div>
+
+      {/* 启动成功提示对话框 */}
+      {showSuccessDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-surface border border-border rounded-lg p-5 w-[480px] max-h-[80vh] flex flex-col">
+            <h3 className="text-lg font-medium mb-4 text-green-500">✓ 串口共享已启动</h3>
+
+            <div className="space-y-4 flex-1 overflow-y-auto">
+              <div className="bg-background/50 rounded p-3">
+                <p className="text-sm text-text-secondary mb-2">连接信息：</p>
+                <div className="space-y-1 text-sm">
+                  <p><span className="text-text-secondary">串口：</span>{selectedPort}</p>
+                  <p><span className="text-text-secondary">波特率：</span>{baudRate}</p>
+                  <p><span className="text-text-secondary">本地端口：</span>{localPort}</p>
+                  {enableSshTunnel && sshConfig.host && (
+                    <p><span className="text-text-secondary">远程服务器：</span>{sshConfig.host}</p>
+                  )}
+                </div>
+              </div>
+
+              {enableSshTunnel && sshConfig.host ? (
+                <>
+                  <div className="bg-primary/10 border border-primary/30 rounded p-3">
+                    <p className="text-sm font-medium mb-2">在远程服务器 {sshConfig.host} 上执行：</p>
+                    <div className="bg-background rounded p-2 font-mono text-sm">
+                      nc localhost {sshConfig.remotePort}
+                    </div>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(`nc localhost ${sshConfig.remotePort}`)}
+                      className="mt-2 px-3 py-1 text-sm bg-primary/20 hover:bg-primary/30 rounded transition-colors"
+                    >
+                      复制命令
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-text-secondary bg-background/50 rounded p-3">
+                    <p className="font-medium mb-1">SSH反向隧道说明：</p>
+                    <p>已建立从远程服务器端口 {sshConfig.remotePort} 到本地端口 {localPort} 的反向隧道。</p>
+                    <p className="mt-1">在远程服务器上执行上述命令即可操作本地串口。</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-primary/10 border border-primary/30 rounded p-3">
+                    <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
+                    <div className="bg-background rounded p-2 font-mono text-sm">
+                      nc {'<本机IP>'} {localPort}
+                    </div>
+                    <p className="text-xs text-text-secondary mt-2">
+                      请将 {'<本机IP>'} 替换为本机的局域网 IP 地址
+                    </p>
+                  </div>
+
+                  <div className="text-xs text-text-secondary bg-background/50 rounded p-3">
+                    <p className="font-medium mb-1">本地局域网连接说明：</p>
+                    <p>同一局域网内的其他设备可通过上述命令连接串口。</p>
+                    <p className="mt-1">可在命令行执行 <code className="bg-background px-1 rounded">ipconfig</code> (Windows) 或 <code className="bg-background px-1 rounded">ifconfig</code> (Linux/Mac) 查看本机 IP。</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-end mt-4 pt-4 border-t border-border">
+              <button
+                onClick={() => setShowSuccessDialog(false)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+              >
+                知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
