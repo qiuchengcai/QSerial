@@ -1,13 +1,3 @@
-# Dependencies
-node_modules/
-.pnpm-store/
-
-# Build outputs
-dist/
-out/
-build/
-*.tsbuildinfo
-
 # IDE
 .idea/
 .vscode/
@@ -38,9 +28,6 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
-# Electron
-release/
-
 # Cache
 .cache/
 .parcel-cache/
@@ -48,6 +35,20 @@ release/
 
 # Temporary
 tmp/
-temp/
-*.tmp
-*.temp
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+release/
+
+# pnpm
+.pnpm-store/
+pnpm-lock.yaml
+
+# Misc
+nul
+*.bak
+package-lock.json
+package.json.override
