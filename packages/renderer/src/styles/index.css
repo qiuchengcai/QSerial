@@ -119,6 +119,15 @@ body,
   }
 }
 
+/* Window drag region */
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 @keyframes slideIn {
   from {
     transform: translateY(-10px);
