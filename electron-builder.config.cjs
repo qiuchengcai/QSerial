@@ -183,19 +183,12 @@ module.exports = {
   win: {
     target: [
       {
-        target: 'nsis',
-        arch: ['x64'],
-      },
-      {
-        target: 'portable',
+        target: 'dir',
         arch: ['x64'],
       },
     ],
     icon: 'build/icon.ico',
     artifactName: '${productName}-${version}-${arch}-${os}.${ext}',
-    // 跳过签名（交叉编译时）
-    signingHashAlgorithms: ['sha256'],
-    signDlls: false,
   },
 
   mac: {

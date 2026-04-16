@@ -34,19 +34,21 @@ export const MainContent: React.FC = () => {
 
           {/* 终端内容 */}
           <div className="flex-1 min-h-0 relative overflow-hidden bg-background">
-            {activeTab?.sessions.map((sessionId) => {
-              const session = sessions[sessionId];
-              if (!session) return null;
+            {tabs.map((tab) =>
+              tab.sessions.map((sessionId) => {
+                const session = sessions[sessionId];
+                if (!session) return null;
 
-              return (
-                <TerminalPane
-                  key={sessionId}
-                  sessionId={sessionId}
-                  connectionId={session.connectionId}
-                  isActive={sessionId === activeTab.activeSessionId}
-                />
-              );
-            })}
+                return (
+                  <TerminalPane
+                    key={sessionId}
+                    sessionId={sessionId}
+                    connectionId={session.connectionId}
+                    isActive={tab.id === activeTabId && sessionId === tab.activeSessionId}
+                  />
+                );
+              })
+            )}
           </div>
         </>
       )}

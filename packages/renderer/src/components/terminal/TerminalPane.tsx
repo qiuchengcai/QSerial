@@ -31,8 +31,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const messageShownRef = useRef(false);
   const isComposingRef = useRef(false);
   const compositionDataRef = useRef<string>('');
-  const [containerReady, setContainerReady] = useState(false);
   const [logStarting, setLogStarting] = useState(false);
+  const initializedRef = useRef(false);
   const [showSerialShareDialog, setShowSerialShareDialog] = useState(false);
 
   const { updateSessionSize, updateSessionState, sessions, startLog, stopLog } = useTerminalStore();
@@ -44,32 +44,6 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
-
-  // 检测容器是否准备好
-  useEffect(() => {
-    if (!containerRef.current || !isActive) return;
-
-    const checkReady = () => {
-      if (containerRef.current &&
-          containerRef.current.offsetWidth > 0 &&
-          containerRef.current.offsetHeight > 0) {
-        setContainerReady(true);
-      }
-    };
-
-    const timer = setTimeout(checkReady, 50);
-
-    const resizeObserver = new ResizeObserver(() => {
-      checkReady();
-    });
-
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      clearTimeout(timer);
-      resizeObserver.disconnect();
-    };
-  }, [isActive]);
 
   // 调整终端尺寸 - 使用 FitAddon
   const resizeTerminal = useCallback(() => {
@@ -85,21 +59,13 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
   }, [connectionId, sessionId, updateSessionSize]);
 
-  // 初始化终端
+  // 初始化终端（只执行一次，组件卸载时才销毁）
   useEffect(() => {
-    if (!containerReady || !containerRef.current) return;
+    // 防止重复初始化
+    if (initializedRef.current) return;
+    if (!containerRef.current) return;
 
-    const container = containerRef.current;
-
-    // 如果已经有终端实例，先清理
-    if (xtermRef.current) {
-      try {
-        xtermRef.current.dispose();
-      } catch {
-        // 忽略 dispose 错误
-      }
-      xtermRef.current = null;
-    }
+    initializedRef.current = true;
 
     const xterm = new XTerm({
       theme: currentTheme.xterm,
@@ -159,6 +125,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     // 使用 requestAnimationFrame 确保 DOM 完全准备好
     requestAnimationFrame(() => {
       if (!xtermRef.current || !containerRef.current) return;
+
+      const container = containerRef.current;
 
       try {
         xterm.open(container);
@@ -341,8 +309,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
         // 忽略 dispose 错误
       }
       xtermRef.current = null;
+      initializedRef.current = false;
     };
-  }, [connectionId, sessionId, updateSessionSize, updateSessionState, containerReady, resizeTerminal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionId, sessionId]);
 
   // 主题和配置变化
   useEffect(() => {
@@ -353,9 +323,19 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
   }, [currentTheme, config.terminal.fontFamily, config.terminal.fontSize]);
 
-  // 激活时聚焦
+  // 激活时聚焦和调整尺寸
   useEffect(() => {
     if (isActive && xtermRef.current) {
+      // 延迟调整尺寸，确保容器已显示
+      setTimeout(() => {
+        if (xtermRef.current && fitAddonRef.current) {
+          try {
+            fitAddonRef.current.fit();
+          } catch {
+            // 忽略错误
+          }
+        }
+      }, 50);
       xtermRef.current.focus();
     }
   }, [isActive]);
@@ -409,7 +389,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        display: isActive ? 'block' : 'none',
+        visibility: isActive ? 'visible' : 'hidden',
       }}
       onContextMenu={(e) => {
         e.preventDefault();
