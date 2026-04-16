@@ -75,45 +75,45 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-surface border border-border rounded-lg p-4 w-80">
-        <h3 className="text-lg font-medium mb-4">
+    <div className="dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="dialog-content bg-surface border border-border rounded-xl p-4 w-80">
+        <h3 className="text-sm font-medium mb-4">
           {editingButton ? '编辑按钮' : '添加按钮'}
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm text-text-secondary mb-1">名称</label>
+            <label className="block text-xs text-text-secondary mb-1">名称</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:border-primary"
+              className="dialog-input"
               placeholder="按钮名称"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">命令</label>
+            <label className="block text-xs text-text-secondary mb-1">命令</label>
             <input
               type="text"
               value={command}
               onChange={(e) => setCommand(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:border-primary"
+              className="dialog-input"
               placeholder="要发送的命令"
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-1">描述 (可选)</label>
+            <label className="block text-xs text-text-secondary mb-1">描述 (可选)</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:border-primary"
+              className="dialog-input"
               placeholder="按钮描述"
             />
           </div>
           <div>
-            <label className="block text-sm text-text-secondary mb-2">按钮颜色</label>
+            <label className="block text-xs text-text-secondary mb-2">按钮颜色</label>
             <div className="flex flex-wrap gap-2 mb-2">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -124,7 +124,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
                     setTextColor(c.textColor);
                     setCustomColor('');
                   }}
-                  className={`w-6 h-6 rounded border-2 transition-transform ${
+                  className={`w-6 h-6 rounded-md border-2 transition-all ${
                     color === c.value && !customColor ? 'border-primary scale-110' : 'border-transparent'
                   }`}
                   style={{
@@ -153,10 +153,10 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
           </div>
           {/* 预览 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">预览</label>
+            <label className="block text-xs text-text-secondary mb-1">预览</label>
             <button
               type="button"
-              className="h-6 px-2 text-xs rounded border border-border whitespace-nowrap"
+              className="h-6 px-2 text-xs rounded-md border border-border whitespace-nowrap"
               style={{
                 backgroundColor: customColor || color || undefined,
                 color: customColor
@@ -169,11 +169,11 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded hover:bg-hover">取消</button>
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs">取消</button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || !command.trim()}
-            className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary/80 disabled:opacity-50"
+            className="dialog-btn dialog-btn-primary text-xs"
           >
             保存
           </button>
@@ -203,26 +203,26 @@ const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-surface border border-border rounded-lg p-4 w-72">
-        <h3 className="text-lg font-medium mb-4">{editingGroup ? '编辑分组' : '新建分组'}</h3>
+    <div className="dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="dialog-content bg-surface border border-border rounded-xl p-4 w-72">
+        <h3 className="text-sm font-medium mb-4">{editingGroup ? '编辑分组' : '新建分组'}</h3>
         <div>
-          <label className="block text-sm text-text-secondary mb-1">分组名称</label>
+          <label className="block text-xs text-text-secondary mb-1">分组名称</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:border-primary"
+            className="dialog-input"
             placeholder="分组名称"
             autoFocus
           />
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded hover:bg-hover">取消</button>
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs">取消</button>
           <button
             onClick={handleSave}
             disabled={!name.trim()}
-            className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary/80 disabled:opacity-50"
+            className="dialog-btn dialog-btn-primary text-xs"
           >
             保存
           </button>
@@ -327,7 +327,7 @@ export const QuickButtonBar: React.FC = () => {
 
   return (
     <>
-      <div className="h-[var(--buttonbar-height)] flex items-center px-2 gap-1 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+      <div className="h-[var(--buttonbar-height)] flex items-center px-2 gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0">
         {/* 分组下拉选择 */}
         <select
           value={activeGroupIndex}
@@ -337,7 +337,7 @@ export const QuickButtonBar: React.FC = () => {
               handleContextMenu(e, 'group', groups[activeGroupIndex].id);
             }
           }}
-          className="h-6 px-1 text-xs bg-background border border-border rounded focus:outline-none focus:border-primary"
+          className="h-6 px-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer"
         >
           {groups.map((group, index) => (
             <option key={group.id} value={index}>{group.name}</option>
@@ -347,14 +347,14 @@ export const QuickButtonBar: React.FC = () => {
         {/* 当前分组的按钮 */}
         {groups[activeGroupIndex] && (
           <>
-            <div className="w-px h-5 bg-border mx-1" />
+            <div className="w-px h-4 bg-border" />
             {groups[activeGroupIndex].buttons.map((button) => (
               <button
                 key={button.id}
                 onClick={() => handleSendCommand(button.command)}
                 onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id)}
                 disabled={!isConnected}
-                className="h-6 px-2 text-xs rounded border border-border hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
+                className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all"
                 style={{
                   backgroundColor: button.color || undefined,
                   color: button.textColor || undefined,
@@ -370,10 +370,12 @@ export const QuickButtonBar: React.FC = () => {
                 setEditingButton(null);
                 setShowButtonDialog(true);
               }}
-              className="h-6 w-6 text-xs rounded border border-dashed border-border hover:bg-hover transition-colors"
+              className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center"
               title="添加按钮"
             >
-              +
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
             </button>
           </>
         )}
@@ -384,10 +386,13 @@ export const QuickButtonBar: React.FC = () => {
             setEditingGroup(null);
             setShowGroupDialog(true);
           }}
-          className="h-6 px-2 text-xs rounded border border-dashed border-border hover:bg-hover whitespace-nowrap transition-colors flex-shrink-0"
+          className="h-6 px-2 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1"
           title="添加分组"
         >
-          + 分组
+          <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+            <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+          </svg>
+          分组
         </button>
       </div>
 

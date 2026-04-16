@@ -53,10 +53,13 @@ export const Layout: React.FC = () => {
       <div className="flex items-center border-t border-border bg-surface flex-shrink-0">
         <button
           onClick={() => setShowSettings(true)}
-          className="flex-shrink-0 w-[var(--sidebar-width)] h-[var(--buttonbar-height)] flex items-center gap-2 px-3 border-r border-border hover:bg-hover transition-colors text-sm"
+          className="flex-shrink-0 w-[var(--sidebar-width)] h-[var(--buttonbar-height)] flex items-center gap-2 px-3 border-r border-border hover:bg-hover transition-colors group"
         >
-          <span>⚙️</span>
-          <span>设置</span>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
+            <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M13.3 10a1.1 1.1 0 00.2 1.2l.04.04a1.35 1.35 0 11-1.9 1.9l-.04-.04a1.1 1.1 0 00-1.2-.2 1.1 1.1 0 00-.67 1.01v.11a1.35 1.35 0 11-2.7 0v-.06a1.1 1.1 0 00-.72-1.01 1.1 1.1 0 00-1.2.2l-.04.04a1.35 1.35 0 11-1.9-1.9l.04-.04a1.1 1.1 0 00.2-1.2 1.1 1.1 0 00-1.01-.67h-.11a1.35 1.35 0 110-2.7h.06a1.1 1.1 0 001.01-.72 1.1 1.1 0 00-.2-1.2l-.04-.04a1.35 1.35 0 111.9-1.9l.04.04a1.1 1.1 0 001.2.2h.05a1.1 1.1 0 00.67-1.01v-.11a1.35 1.35 0 012.7 0v.06a1.1 1.1 0 00.72 1.01 1.1 1.1 0 001.2-.2l.04-.04a1.35 1.35 0 111.9 1.9l-.04.04a1.1 1.1 0 00-.2 1.2v.05a1.1 1.1 0 001.01.67h.11a1.35 1.35 0 010 2.7h-.06a1.1 1.1 0 00-1.01.72z" stroke="currentColor" strokeWidth="1" />
+          </svg>
+          <span className="text-xs text-text-secondary group-hover:text-text">设置</span>
         </button>
         <QuickButtonBar />
       </div>

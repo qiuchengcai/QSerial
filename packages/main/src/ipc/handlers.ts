@@ -15,6 +15,10 @@ import {
   getTftpStatus,
   setTftpMainWindow,
 } from '../tftp/manager.js';
+import {
+  setupSftpHandlers,
+  setSftpMainWindow,
+} from '../sftp/manager.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -67,6 +71,15 @@ export function setupIpcHandlers(): void {
 
   // 文件操作
   setupFileHandlers();
+
+  // SFTP 文件传输
+  setupSftpHandlers();
+  setSftpMainWindow(mainWindow);
+  app.on('browser-window-created', (_, window) => {
+    if (window === mainWindow) {
+      setSftpMainWindow(window);
+    }
+  });
 
   console.log('IPC handlers registered');
 }

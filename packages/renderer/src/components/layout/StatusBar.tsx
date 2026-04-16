@@ -5,16 +5,39 @@
 import React from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useTftpStore } from '@/stores/tftp';
-import { CONNECTION_STATE_NAMES } from '@qserial/shared';
+import { useSftpStore } from '@/stores/sftp';
+import { CONNECTION_STATE_NAMES, ConnectionType, ConnectionState } from '@qserial/shared';
 
 export const StatusBar: React.FC = () => {
   const { tabs, activeTabId, sessions } = useTerminalStore();
   const { running: tftpRunning, transfers } = useTftpStore();
+  const { panelVisible, setPanelVisible, createSession, sessions: sftpSessions } = useSftpStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeSession = activeTab?.activeSessionId
     ? sessions[activeTab.activeSessionId]
     : null;
+
+  // 判断当前活动会话是否为 SSH 且已连接
+  const isSshConnected = activeSession?.connectionType === ConnectionType.SSH &&
+    activeSession.connectionState === ConnectionState.CONNECTED;
+
+  // 打开 SFTP 面板
+  const handleOpenSftp = async () => {
+    if (!activeSession) return;
+
+    // 检查是否已有该连接的 SFTP 会话
+    const existingSession = Object.values(sftpSessions).find(
+      (s) => s.connectionId === activeSession.connectionId
+    );
+
+    if (existingSession) {
+      setPanelVisible(true);
+      useSftpStore.getState().setActiveSession(existingSession.sftpId);
+    } else {
+      await createSession(activeSession.connectionId);
+    }
+  };
 
   // 获取正在进行的传输
   const activeTransfer = transfers.find(
@@ -60,7 +83,11 @@ export const StatusBar: React.FC = () => {
           <div className="flex items-center gap-2 flex-shrink-0 ml-4 pl-4 border-l border-border">
             <span className="text-text-secondary text-xs">TFTP</span>
             <span className="flex-shrink-0">
-              {activeTransfer.direction === 'download' ? '⬇️' : '⬆️'}
+              {activeTransfer.direction === 'download' ? (
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v8M3 6l3 3 3-3" stroke="var(--color-primary)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 9V1M3 4l3-3 3 3" stroke="var(--color-primary)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              )}
             </span>
             <span className="truncate max-w-[100px]" title={activeTransfer.file}>
               {activeTransfer.file.split('/').pop()?.split('\\').pop() || activeTransfer.file}
@@ -92,6 +119,21 @@ export const StatusBar: React.FC = () => {
 
       {/* 右侧信息 */}
       <div className="flex items-center gap-4 flex-shrink-0">
+        {/* SFTP 文件浏览器按钮 */}
+        {isSshConnected && (
+          <button
+            onClick={handleOpenSftp}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-hover transition-colors ${
+              panelVisible ? 'bg-hover text-primary' : 'text-text-secondary'
+            }`}
+            title="打开 SFTP 文件浏览器"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
+              <path d="M2 3h5l1 1h6v9H2V3z" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round" />
+            </svg>
+            <span className="text-xs">SFTP</span>
+          </button>
+        )}
         <span className="text-text-secondary">UTF-8</span>
         <span className="text-text-secondary">v0.1.0</span>
       </div>

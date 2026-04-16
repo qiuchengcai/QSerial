@@ -30,6 +30,7 @@ interface QuickButtonsState {
   removeButton: (groupId: string, buttonId: string) => void;
   reorderGroups: (fromIndex: number, toIndex: number) => void;
   moveButton: (fromGroupId: string, toGroupId: string, buttonId: string, toIndex?: number) => void;
+  importGroups: (groups: ButtonGroup[]) => void;
 }
 
 export const useQuickButtonsStore = create<QuickButtonsState>()(
@@ -124,6 +125,10 @@ export const useQuickButtonsStore = create<QuickButtonsState>()(
 
           return { groups: newGroups };
         });
+      },
+
+      importGroups: (groups) => {
+        set({ groups });
       },
     }),
     {

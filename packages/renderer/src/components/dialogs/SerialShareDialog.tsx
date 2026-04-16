@@ -229,19 +229,39 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-surface border border-border rounded-lg p-4 w-[520px] max-h-[85vh] flex flex-col overflow-hidden">
-        <h3 className="text-lg font-medium mb-4 flex-shrink-0">串口共享</h3>
+    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog-content bg-surface rounded-xl w-[540px] max-h-[85vh] flex flex-col overflow-hidden border border-white/5">
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            <h3 className="text-base font-semibold">串口共享</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="dialog-close w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 1l12 12M13 1L1 13"/>
+            </svg>
+          </button>
+        </div>
 
-        <div className="space-y-4 flex-1 overflow-y-auto min-h-0">
+        <div className="space-y-4 flex-1 overflow-y-auto min-h-0 p-5">
           {/* 串口选择 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">本地串口</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">本地串口</label>
             <select
               value={selectedPort}
               onChange={(e) => setSelectedPort(e.target.value)}
               disabled={isRunning}
-              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+              className="dialog-select"
             >
               <option value="">选择串口...</option>
               {ports.map((port) => (
@@ -260,19 +280,19 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                   : '未检测到现有连接'}
               </span>
             </div>
-            <p className="text-xs text-text-secondary/70 mt-1 ml-4">
+            <p className="text-xs text-text-secondary/50 mt-1 ml-4">
               共享服务会自动检测并复用该串口的现有连接
             </p>
           </div>
 
           {/* 波特率 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">波特率</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">波特率</label>
             <select
               value={baudRate}
               onChange={(e) => setBaudRate(Number(e.target.value))}
               disabled={isRunning}
-              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+              className="dialog-select"
             >
               {BAUD_RATES.map((rate) => (
                 <option key={rate} value={rate}>
@@ -284,93 +304,91 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
 
           {/* 本地监听端口 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">本地监听端口</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">本地监听端口</label>
             <input
               type="number"
               value={localPort}
               onChange={(e) => setLocalPort(Number(e.target.value))}
               disabled={isRunning}
-              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+              className="dialog-input"
               min={1}
               max={65535}
             />
           </div>
 
           {/* SSH反向隧道 */}
-          <div className="border-t border-border pt-4">
-            <div className="flex items-center gap-2 mb-3">
+          <div className="border-t border-border/50 pt-4">
+            <label className="flex items-center gap-2.5 cursor-pointer mb-3">
               <input
                 type="checkbox"
                 id="sshTunnel"
                 checked={enableSshTunnel}
                 onChange={(e) => setEnableSshTunnel(e.target.checked)}
                 disabled={isRunning}
-                className="rounded"
+                className="dialog-checkbox"
               />
-              <label htmlFor="sshTunnel" className="text-sm font-medium">
-                启用SSH反向隧道
-              </label>
-            </div>
+              <span className="text-sm font-medium">启用SSH反向隧道</span>
+            </label>
 
             {enableSshTunnel && (
               <div className="space-y-3 ml-6">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
-                    <label className="block text-xs text-text-secondary mb-1">远程服务器</label>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">远程服务器</label>
                     <input
                       type="text"
                       value={sshConfig.host}
                       onChange={(e) => setSshConfig((p) => ({ ...p, host: e.target.value }))}
                       disabled={isRunning}
-                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                      className="dialog-input text-sm"
                       placeholder="192.168.1.100"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-text-secondary mb-1">SSH端口</label>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">SSH端口</label>
                     <input
                       type="number"
                       value={sshConfig.port}
                       onChange={(e) => setSshConfig((p) => ({ ...p, port: Number(e.target.value) }))}
                       disabled={isRunning}
-                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                      className="dialog-input text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs text-text-secondary mb-1">用户名</label>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">用户名</label>
                     <input
                       type="text"
                       value={sshConfig.username}
                       onChange={(e) => setSshConfig((p) => ({ ...p, username: e.target.value }))}
                       disabled={isRunning}
-                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                      className="dialog-input text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-text-secondary mb-1">远程端口</label>
+                    <label className="block text-xs font-medium text-text-secondary mb-1.5">远程端口</label>
                     <input
                       type="number"
                       value={sshConfig.remotePort}
                       onChange={(e) => setSshConfig((p) => ({ ...p, remotePort: Number(e.target.value) }))}
                       disabled={isRunning}
-                      className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                      className="dialog-input text-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs text-text-secondary mb-1">
-                    密码 <span className="text-text-secondary/60">(可选，留空使用本地密钥)</span>
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                    密码 <span className="text-text-secondary/50 font-normal">(可选)</span>
                   </label>
                   <input
                     type="password"
                     value={sshConfig.password || ''}
                     onChange={(e) => setSshConfig((p) => ({ ...p, password: e.target.value }))}
                     disabled={isRunning}
-                    className="w-full px-3 py-1.5 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text text-sm"
+                    className="dialog-input text-sm"
                     placeholder="留空则使用 ~/.ssh 下的默认密钥"
                   />
                 </div>
@@ -390,7 +408,10 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
 
           {/* 错误信息 */}
           {error && (
-            <div className="text-sm text-error bg-error/10 px-3 py-2 rounded">
+            <div className="flex items-center gap-2 text-sm text-error bg-error/10 border-l-2 border-error px-3 py-2.5 rounded-r-lg">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="flex-shrink-0">
+                <path d="M7 0a7 7 0 100 14A7 7 0 007 0zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.75 4v3.5a.75.75 0 01-1.5 0V4a.75.75 0 011.5 0z"/>
+              </svg>
               {error}
             </div>
           )}
@@ -400,7 +421,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
             {isRunning ? (
               <button
                 onClick={handleStop}
-                className="flex-1 px-4 py-2 bg-error text-white rounded hover:bg-error/80"
+                className="dialog-btn flex-1 bg-error text-white hover:bg-error/80 rounded-md"
               >
                 停止共享
               </button>
@@ -408,7 +429,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
               <button
                 onClick={handleStart}
                 disabled={!selectedPort || isStarting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80 disabled:opacity-50"
+                className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50"
               >
                 {isStarting ? '启动中...' : '启动共享'}
               </button>
@@ -416,8 +437,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
           </div>
 
           {/* 使用说明 */}
-          <div className="text-xs text-text-secondary bg-background/50 rounded p-3 space-y-1">
-            <p className="font-medium">使用方式：</p>
+          <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3 space-y-1">
+            <p className="font-medium text-text-secondary/80">使用方式：</p>
             <p>1. 远程Linux服务器执行: nc localhost {'{远程端口}'} 即可操作串口</p>
             <p>2. 如启用SSH隧道，远程服务器需安装ssh并监听</p>
             <p>3. 也可使用 socat - localhost:{'{远程端口}'} 交互操作</p>
@@ -425,8 +446,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
         </div>
 
         {/* 关闭按钮 */}
-        <div className="flex justify-end mt-4 pt-4 border-t border-border flex-shrink-0 bg-surface">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded hover:bg-hover">
+        <div className="flex justify-end px-5 py-4 border-t border-border bg-background/30 flex-shrink-0">
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary">
             关闭
           </button>
         </div>
@@ -434,9 +455,14 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
 
       {/* 启动成功提示对话框 */}
       {showSuccessDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-surface border border-border rounded-lg p-5 w-[480px] max-h-[80vh] flex flex-col">
-            <h3 className="text-lg font-medium mb-4 text-green-500">✓ 串口共享已启动</h3>
+        <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-[60]">
+          <div className="dialog-content bg-surface rounded-xl p-5 w-[480px] max-h-[80vh] flex flex-col border border-white/5">
+            <h3 className="text-base font-semibold mb-4 flex items-center gap-2 text-success">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              串口共享已启动
+            </h3>
 
             <div className="space-y-4 flex-1 overflow-y-auto">
               <div className="bg-background/50 rounded p-3">
@@ -453,30 +479,30 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
 
               {enableSshTunnel && sshConfig.host ? (
                 <>
-                  <div className="bg-primary/10 border border-primary/30 rounded p-3">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
                     <p className="text-sm font-medium mb-2">在远程服务器 {sshConfig.host} 上执行：</p>
-                    <div className="bg-background rounded p-2 font-mono text-sm">
+                    <div className="bg-background rounded-md p-2 font-mono text-sm">
                       nc localhost {sshConfig.remotePort}
                     </div>
                     <button
                       onClick={() => navigator.clipboard.writeText(`nc localhost ${sshConfig.remotePort}`)}
-                      className="mt-2 px-3 py-1 text-sm bg-primary/20 hover:bg-primary/30 rounded transition-colors"
+                      className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
                     >
                       复制命令
                     </button>
                   </div>
 
-                  <div className="text-xs text-text-secondary bg-background/50 rounded p-3">
-                    <p className="font-medium mb-1">SSH反向隧道说明：</p>
+                  <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
+                    <p className="font-medium text-text-secondary/80 mb-1">SSH反向隧道说明：</p>
                     <p>已建立从远程服务器端口 {sshConfig.remotePort} 到本地端口 {localPort} 的反向隧道。</p>
                     <p className="mt-1">在远程服务器上执行上述命令即可操作本地串口。</p>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="bg-primary/10 border border-primary/30 rounded p-3">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
                     <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
-                    <div className="bg-background rounded p-2 font-mono text-sm">
+                    <div className="bg-background rounded-md p-2 font-mono text-sm">
                       nc {'<本机IP>'} {localPort}
                     </div>
                     <p className="text-xs text-text-secondary mt-2">
@@ -484,8 +510,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                     </p>
                   </div>
 
-                  <div className="text-xs text-text-secondary bg-background/50 rounded p-3">
-                    <p className="font-medium mb-1">本地局域网连接说明：</p>
+                  <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
+                    <p className="font-medium text-text-secondary/80 mb-1">本地局域网连接说明：</p>
                     <p>同一局域网内的其他设备可通过上述命令连接串口。</p>
                     <p className="mt-1">可在命令行执行 <code className="bg-background px-1 rounded">ipconfig</code> (Windows) 或 <code className="bg-background px-1 rounded">ifconfig</code> (Linux/Mac) 查看本机 IP。</p>
                   </div>
@@ -496,7 +522,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
             <div className="flex justify-end mt-4 pt-4 border-t border-border">
               <button
                 onClick={() => setShowSuccessDialog(false)}
-                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+                className="dialog-btn dialog-btn-primary"
               >
                 知道了
               </button>

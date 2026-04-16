@@ -109,20 +109,37 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-surface border border-border rounded-lg p-4 w-[480px] max-h-[80vh] flex flex-col">
-        <h3 className="text-lg font-medium mb-4">TFTP 服务器</h3>
+    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog-content bg-surface rounded-xl w-[480px] max-h-[80vh] flex flex-col border border-white/5">
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+              <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+            <h3 className="text-base font-semibold">TFTP 服务器</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="dialog-close w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 1l12 12M13 1L1 13"/>
+            </svg>
+          </button>
+        </div>
 
-        <div className="space-y-4 flex-shrink-0">
+        <div className="space-y-4 flex-shrink-0 p-5">
           {/* 端口 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">端口</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">端口</label>
             <input
               type="number"
               value={localPort}
               onChange={(e) => handlePortChange(e.target.value)}
               disabled={running}
-              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+              className="dialog-input"
               min={1}
               max={65535}
             />
@@ -130,20 +147,20 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
 
           {/* 共享目录 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">共享目录</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">共享目录</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={localRootDir}
                 onChange={(e) => setLocalRootDir(e.target.value)}
                 disabled={running}
-                className="flex-1 px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary disabled:opacity-50 text-text"
+                className="dialog-input flex-1"
                 placeholder="选择或输入目录路径"
               />
               <button
                 onClick={handlePickDir}
                 disabled={running}
-                className="px-3 py-2 bg-surface border border-border rounded hover:bg-hover disabled:opacity-50 text-text"
+                className="dialog-btn dialog-btn-secondary px-3 disabled:opacity-50"
               >
                 浏览
               </button>
@@ -162,7 +179,10 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
 
           {/* 错误信息 */}
           {error && (
-            <div className="text-sm text-error bg-error/10 px-3 py-2 rounded">
+            <div className="flex items-center gap-2 text-sm text-error bg-error/10 border-l-2 border-error px-3 py-2.5 rounded-r-lg">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="flex-shrink-0">
+                <path d="M7 0a7 7 0 100 14A7 7 0 007 0zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.75 4v3.5a.75.75 0 01-1.5 0V4a.75.75 0 011.5 0z"/>
+              </svg>
               {error}
             </div>
           )}
@@ -172,7 +192,7 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
             {running ? (
               <button
                 onClick={handleStop}
-                className="flex-1 px-4 py-2 bg-error text-white rounded hover:bg-error/80"
+                className="dialog-btn flex-1 bg-error text-white hover:bg-error/80 rounded-md"
               >
                 停止
               </button>
@@ -180,7 +200,7 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
               <button
                 onClick={handleStart}
                 disabled={!localRootDir}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80 disabled:opacity-50"
+                className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50"
               >
                 启动
               </button>
@@ -190,32 +210,35 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
 
         {/* 传输列表 */}
         {running && (
-          <div className="mt-4 flex-1 min-h-0 flex flex-col">
+          <div className="px-5 pb-3 flex-1 min-h-0 flex flex-col">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium">传输记录</h4>
+              <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">传输记录</h4>
               {transfers.length > 0 && (
                 <button
                   onClick={clearTransfers}
-                  className="text-xs text-text-secondary hover:text-text"
+                  className="text-xs text-text-secondary hover:text-text transition-colors"
                 >
                   清空
                 </button>
               )}
             </div>
-            <div className="flex-1 overflow-y-auto border border-border rounded bg-background/50 max-h-48">
+            <div className="flex-1 overflow-y-auto border border-border/50 rounded-lg bg-background/50 max-h-48">
               {transfers.length === 0 ? (
-                <div className="text-sm text-text-secondary p-4 text-center">
+                <div className="text-sm text-text-secondary/50 p-4 text-center">
                   暂无传输记录
                 </div>
               ) : (
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-border/50">
                   {transfers.map((transfer) => (
-                    <div key={transfer.id} className="p-2 text-sm">
+                    <div key={transfer.id} className="p-2.5 text-sm">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="flex-shrink-0">
-                            {transfer.direction === 'download' ? '⬇️' : '⬆️'}
-                          </span>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 text-text-secondary">
+                            {transfer.direction === 'download'
+                              ? <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>
+                              : <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>
+                            }
+                          </svg>
                           <span className="truncate" title={transfer.file}>
                             {transfer.file.split('/').pop()?.split('\\').pop() || transfer.file}
                           </span>
@@ -228,20 +251,20 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
                         <span>{transfer.remoteAddress}</span>
                         {transfer.status === 'progress' && transfer.percent !== undefined && (
                           <>
-                            <span>•</span>
+                            <span>·</span>
                             <span className="text-primary font-medium">{transfer.percent.toFixed(0)}%</span>
                             <span>({formatSize(transfer.transferred)}/{formatSize(transfer.fileSize)})</span>
                           </>
                         )}
                         {transfer.status === 'completed' && transfer.fileSize && (
                           <>
-                            <span>•</span>
+                            <span>·</span>
                             <span>{formatSize(transfer.fileSize)}</span>
                           </>
                         )}
                         {transfer.error && (
                           <>
-                            <span>•</span>
+                            <span>·</span>
                             <span className="text-red-400">{transfer.error}</span>
                           </>
                         )}
@@ -255,15 +278,15 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
         )}
 
         {/* 提示 */}
-        <div className="text-xs text-text-secondary mt-4 flex-shrink-0">
-          <p>• TFTP 用于简单的文件传输，常用于嵌入式设备固件升级</p>
-          <p>• 端口 69 需要 administrator 权限，可使用其他端口如 6969</p>
-          <p>• 传输进度显示在终端上方的状态栏中</p>
+        <div className="text-xs text-text-secondary/60 px-5 pb-2 flex-shrink-0 space-y-0.5">
+          <p>· TFTP 用于简单的文件传输，常用于嵌入式设备固件升级</p>
+          <p>· 端口 69 需要 administrator 权限，可使用其他端口如 6969</p>
+          <p>· 传输进度显示在终端上方的状态栏中</p>
         </div>
 
         {/* 关闭按钮 */}
-        <div className="flex justify-end mt-4 pt-4 border-t border-border flex-shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded hover:bg-hover">
+        <div className="flex justify-end px-5 py-4 border-t border-border bg-background/30 flex-shrink-0">
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary">
             关闭
           </button>
         </div>

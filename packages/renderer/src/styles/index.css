@@ -147,6 +147,157 @@ body,
   animation: slideIn 0.2s ease;
 }
 
+/* Dialog styles */
+.dialog-overlay {
+  animation: fadeIn 0.15s ease;
+}
+
+.dialog-content {
+  animation: slideIn 0.2s ease;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.dialog-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Custom checkbox */
+.dialog-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-background);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.dialog-checkbox:checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.dialog-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.dialog-checkbox:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.dialog-checkbox:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Input styles */
+.dialog-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 13px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dialog-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.15);
+}
+
+.dialog-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+
+.dialog-input:hover:not(:focus) {
+  border-color: var(--color-text-secondary);
+}
+
+/* Select styles */
+.dialog-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.dialog-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.15);
+}
+
+.dialog-select:hover:not(:focus) {
+  border-color: var(--color-text-secondary);
+}
+
+.dialog-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Button styles */
+.dialog-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  outline: none;
+}
+
+.dialog-btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.dialog-btn-primary:hover {
+  background: #1a86d8;
+}
+
+.dialog-btn-primary:active {
+  background: #006abc;
+}
+
+.dialog-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dialog-btn-secondary {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.dialog-btn-secondary:hover {
+  background: var(--color-hover);
+  border-color: var(--color-text-secondary);
+}
+
 /* Paper texture background */
 .has-texture {
   position: relative;

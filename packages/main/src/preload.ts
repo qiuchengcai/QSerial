@@ -149,6 +149,45 @@ const api = {
 
   // 文件操作
   readFile: (path: string) => ipcRenderer.invoke(IPC_CHANNELS.READ_FILE, { path }),
+
+  // SFTP 文件传输
+  sftp: {
+    create: (connectionId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_CREATE, { connectionId }),
+    destroy: (sftpId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_DESTROY, { sftpId }),
+    list: (sftpId: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_LIST, { sftpId, path }),
+    download: (sftpId: string, remotePath: string, localPath: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_DOWNLOAD, { sftpId, remotePath, localPath }),
+    upload: (sftpId: string, localPath: string, remotePath: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_UPLOAD, { sftpId, localPath, remotePath }),
+    mkdir: (sftpId: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_MKDIR, { sftpId, path }),
+    rmdir: (sftpId: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_RMDIR, { sftpId, path }),
+    rm: (sftpId: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_RM, { sftpId, path }),
+    rename: (sftpId: string, oldPath: string, newPath: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_RENAME, { sftpId, oldPath, newPath }),
+    stat: (sftpId: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_STAT, { sftpId, path }),
+    readlink: (sftpId: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_READLINK, { sftpId, path }),
+    symlink: (sftpId: string, target: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_SYMLINK, { sftpId, target, path }),
+    pickLocalFile: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_PICK_LOCAL),
+    pickLocalDir: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_PICK_LOCAL_DIR),
+    realpath: (sftpId: string, path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SFTP_REALPATH, { sftpId, path }),
+    onProgress: (callback: (event: unknown) => void) => {
+      const handler = (_: unknown, event: unknown) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.SFTP_PROGRESS_EVENT, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.SFTP_PROGRESS_EVENT, handler);
+    },
+  },
 };
 
 // 暴露 API

@@ -66,48 +66,57 @@ export const TelnetConnectDialog: React.FC<TelnetConnectDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-surface rounded-lg shadow-xl w-[400px] max-h-[90vh] overflow-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="text-lg font-medium">{editSession ? '编辑 Telnet 配置' : 'Telnet 连接'}</h2>
+    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog-content bg-surface rounded-xl w-[420px] max-h-[90vh] overflow-hidden border border-white/5">
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z"/>
+            </svg>
+            <h2 className="text-base font-semibold">{editSession ? '编辑 Telnet 配置' : 'Telnet 连接'}</h2>
+          </div>
           <button
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover"
+            className="dialog-close w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text transition-colors"
           >
-            ×
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 1l12 12M13 1L1 13"/>
+            </svg>
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-5 space-y-4">
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-sm text-text-secondary mb-1">主机</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">主机</label>
               <input
                 type="text"
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
-                placeholder="例如: 192.168.1.100"
-                className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+                placeholder="192.168.1.100"
+                className="dialog-input"
               />
             </div>
-            <div className="w-20">
-              <label className="block text-sm text-text-secondary mb-1">端口</label>
+            <div className="w-24">
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">端口</label>
               <input
                 type="number"
                 value={port}
                 onChange={(e) => setPort(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+                className="dialog-input"
               />
             </div>
           </div>
 
-          <div className="p-3 bg-surface rounded border border-border">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="p-3 bg-background/50 rounded-lg border border-border/50">
+            <label className="flex items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={saveConfig}
                 onChange={(e) => setSaveConfig(e.target.checked)}
-                className="w-4 h-4"
+                className="dialog-checkbox"
               />
               <span className="text-sm">保存此配置</span>
             </label>
@@ -116,27 +125,32 @@ export const TelnetConnectDialog: React.FC<TelnetConnectDialogProps> = ({
                 type="text"
                 value={configName}
                 onChange={(e) => setConfigName(e.target.value)}
-                placeholder="输入配置名称..."
-                className="w-full mt-2 px-3 py-2 bg-background border border-border rounded focus:outline-none focus:border-primary text-sm text-text"
+                placeholder="配置名称..."
+                className="dialog-input mt-2.5"
               />
             )}
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm">{error}</div>
+            <div className="flex items-center gap-2 text-sm text-error bg-error/10 border-l-2 border-error px-3 py-2.5 rounded-r-lg">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="flex-shrink-0">
+                <path d="M7 0a7 7 0 100 14A7 7 0 007 0zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.75 4v3.5a.75.75 0 01-1.5 0V4a.75.75 0 011.5 0z"/>
+              </svg>
+              {error}
+            </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <div className="flex justify-end gap-2.5 px-5 py-4 border-t border-border bg-background/30">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded hover:bg-hover"
+            className="dialog-btn dialog-btn-secondary"
           >
             取消
           </button>
           <button
             onClick={handleConnect}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
+            className="dialog-btn dialog-btn-primary"
           >
             {editSession ? '保存' : '连接'}
           </button>

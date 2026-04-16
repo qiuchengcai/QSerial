@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { ConnectionType, ConnectionState } from '@qserial/shared';
+import { useSftpStore } from './sftp';
 
 interface Session {
   id: string;
@@ -105,6 +106,10 @@ export const useTerminalStore = create<TerminalState>()(
             window.qserial.connection.destroy(session.connectionId).catch((err) => {
               console.error('Failed to destroy connection:', err);
             });
+            // 同步关闭对应的 SFTP 会话
+            useSftpStore.getState().destroySessionByConnection(session.connectionId).catch((err) => {
+              console.error('Failed to destroy SFTP session:', err);
+            });
           }
           delete state.sessions[sessionId];
         });
@@ -168,6 +173,10 @@ export const useTerminalStore = create<TerminalState>()(
           // 异步关闭连接
           window.qserial.connection.destroy(session.connectionId).catch((err) => {
             console.error('Failed to destroy connection:', err);
+          });
+          // 同步关闭对应的 SFTP 会话
+          useSftpStore.getState().destroySessionByConnection(session.connectionId).catch((err) => {
+            console.error('Failed to destroy SFTP session:', err);
           });
         }
         delete state.sessions[sessionId];
@@ -234,6 +243,10 @@ export const useTerminalStore = create<TerminalState>()(
           // 异步关闭连接
           window.qserial.connection.destroy(session.connectionId).catch((err) => {
             console.error('Failed to destroy connection:', err);
+          });
+          // 同步关闭对应的 SFTP 会话
+          useSftpStore.getState().destroySessionByConnection(session.connectionId).catch((err) => {
+            console.error('Failed to destroy SFTP session:', err);
           });
         }
         delete state.sessions[sessionId];

@@ -110,29 +110,39 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-surface rounded-lg shadow-xl w-[400px] max-h-[90vh] overflow-auto">
+    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog-content bg-surface rounded-xl w-[420px] max-h-[90vh] overflow-hidden border border-white/5">
         {/* 标题栏 */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="text-lg font-medium">{editSession ? '编辑串口配置' : '串口连接'}</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+              <path d="M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+              <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="8" y1="22" x2="16" y2="22"/>
+            </svg>
+            <h2 className="text-base font-semibold">{editSession ? '编辑串口配置' : '串口连接'}</h2>
+          </div>
           <button
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded hover:bg-hover"
+            className="dialog-close w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text transition-colors"
           >
-            ×
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 1l12 12M13 1L1 13"/>
+            </svg>
           </button>
         </div>
 
         {/* 内容 */}
-        <div className="p-4 space-y-4">
+        <div className="p-5 space-y-4">
           {/* 串口选择 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">串口</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">串口</label>
             <div className="flex gap-2">
               <select
                 value={selectedPort}
                 onChange={(e) => setSelectedPort(e.target.value)}
-                className="flex-1 px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+                className="dialog-select flex-1"
                 disabled={loading || ports.length === 0}
               >
                 {ports.length === 0 ? (
@@ -149,21 +159,24 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
               <button
                 onClick={loadPorts}
                 disabled={loading}
-                className="px-3 py-2 bg-primary text-white rounded hover:bg-primary/90 disabled:opacity-50"
-                title="刷新"
+                className="dialog-btn dialog-btn-secondary px-3 flex items-center gap-1.5 disabled:opacity-50"
+                title="刷新串口列表"
               >
-                {loading ? '...' : '刷新'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={loading ? 'animate-spin' : ''}>
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.3"/>
+                </svg>
+                {loading ? '' : '刷新'}
               </button>
             </div>
           </div>
 
           {/* 波特率 */}
           <div>
-            <label className="block text-sm text-text-secondary mb-1">波特率</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">波特率</label>
             <select
               value={baudRate}
               onChange={(e) => setBaudRate(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+              className="dialog-select"
             >
               {BAUD_RATES.map((rate) => (
                 <option key={rate} value={rate}>
@@ -176,11 +189,11 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
           {/* 数据位、停止位、校验位 */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm text-text-secondary mb-1">数据位</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">数据位</label>
               <select
                 value={dataBits}
                 onChange={(e) => setDataBits(Number(e.target.value) as 5 | 6 | 7 | 8)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+                className="dialog-select"
               >
                 {DATA_BITS.map((bits) => (
                   <option key={bits} value={bits}>
@@ -191,11 +204,11 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm text-text-secondary mb-1">停止位</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">停止位</label>
               <select
                 value={stopBits}
                 onChange={(e) => setStopBits(Number(e.target.value) as 1 | 2)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+                className="dialog-select"
               >
                 {STOP_BITS.map((bits) => (
                   <option key={bits} value={bits}>
@@ -206,11 +219,11 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm text-text-secondary mb-1">校验位</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">校验位</label>
               <select
                 value={parity}
                 onChange={(e) => setParity(e.target.value as typeof parity)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+                className="dialog-select"
               >
                 {PARITY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -222,13 +235,13 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
           </div>
 
           {/* 保存配置 */}
-          <div className="p-3 bg-surface rounded border border-border">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="p-3 bg-background/50 rounded-lg border border-border/50">
+            <label className="flex items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={saveConfig}
                 onChange={(e) => setSaveConfig(e.target.checked)}
-                className="w-4 h-4"
+                className="dialog-checkbox"
               />
               <span className="text-sm">保存此配置</span>
             </label>
@@ -237,48 +250,49 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
                 type="text"
                 value={configName}
                 onChange={(e) => setConfigName(e.target.value)}
-                placeholder="输入配置名称，如：Arduino、ESP32..."
-                className="w-full mt-2 px-3 py-2 bg-background border border-border rounded focus:outline-none focus:border-primary text-sm text-text"
+                placeholder="配置名称，如：Arduino、ESP32..."
+                className="dialog-input mt-2.5"
               />
             )}
           </div>
 
           {/* 错误提示 */}
           {error && (
-            <div className="text-red-500 text-sm">{error}</div>
+            <div className="flex items-center gap-2 text-sm text-error bg-error/10 border-l-2 border-error px-3 py-2.5 rounded-r-lg">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="flex-shrink-0">
+                <path d="M7 0a7 7 0 100 14A7 7 0 007 0zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.75 4v3.5a.75.75 0 01-1.5 0V4a.75.75 0 011.5 0z"/>
+              </svg>
+              {error}
+            </div>
           )}
 
           {/* 选中串口信息 */}
-          {selectedPort && (
-            <div className="text-xs text-text-secondary p-2 bg-background rounded">
-              {(() => {
-                const port = ports.find(p => p.path === selectedPort);
-                if (!port) return null;
-                return (
-                  <>
-                    {port.manufacturer && <div>制造商: {port.manufacturer}</div>}
-                    {port.serialNumber && <div>序列号: {port.serialNumber}</div>}
-                    {port.vendorId && <div>VID: {port.vendorId}</div>}
-                    {port.productId && <div>PID: {port.productId}</div>}
-                  </>
-                );
-              })()}
-            </div>
-          )}
+          {selectedPort && (() => {
+            const port = ports.find(p => p.path === selectedPort);
+            if (!port) return null;
+            return (
+              <div className="text-xs text-text-secondary p-2.5 bg-background/50 rounded-lg space-y-0.5">
+                {port.manufacturer && <div>制造商: {port.manufacturer}</div>}
+                {port.serialNumber && <div>序列号: {port.serialNumber}</div>}
+                {port.vendorId && <div>VID: {port.vendorId}</div>}
+                {port.productId && <div>PID: {port.productId}</div>}
+              </div>
+            );
+          })()}
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <div className="flex justify-end gap-2.5 px-5 py-4 border-t border-border bg-background/30">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded hover:bg-hover"
+            className="dialog-btn dialog-btn-secondary"
           >
             取消
           </button>
           <button
             onClick={handleConnect}
             disabled={!selectedPort || loading}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 disabled:opacity-50"
+            className="dialog-btn dialog-btn-primary disabled:opacity-50"
           >
             {editSession ? '保存' : '连接'}
           </button>

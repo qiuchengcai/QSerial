@@ -72,6 +72,24 @@ export const IPC_CHANNELS = {
 
   // 文件操作
   READ_FILE: 'file:read',
+
+  // SFTP 文件传输
+  SFTP_CREATE: 'sftp:create',
+  SFTP_DESTROY: 'sftp:destroy',
+  SFTP_LIST: 'sftp:list',
+  SFTP_DOWNLOAD: 'sftp:download',
+  SFTP_UPLOAD: 'sftp:upload',
+  SFTP_MKDIR: 'sftp:mkdir',
+  SFTP_RMDIR: 'sftp:rmdir',
+  SFTP_RM: 'sftp:rm',
+  SFTP_RENAME: 'sftp:rename',
+  SFTP_STAT: 'sftp:stat',
+  SFTP_READLINK: 'sftp:readlink',
+  SFTP_SYMLINK: 'sftp:symlink',
+  SFTP_PICK_LOCAL: 'sftp:pickLocal',
+  SFTP_PICK_LOCAL_DIR: 'sftp:pickLocalDir',
+  SFTP_PROGRESS_EVENT: 'sftp:progressEvent',
+  SFTP_REALPATH: 'sftp:realpath',
 } as const;
 
 /**
@@ -121,6 +139,21 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.SERIAL_SERVER_STATUS]: { id: string };
   [IPC_CHANNELS.GET_LOCAL_IP]: void;
   [IPC_CHANNELS.READ_FILE]: { path: string };
+  [IPC_CHANNELS.SFTP_CREATE]: { connectionId: string };
+  [IPC_CHANNELS.SFTP_DESTROY]: { sftpId: string };
+  [IPC_CHANNELS.SFTP_LIST]: { sftpId: string; path: string };
+  [IPC_CHANNELS.SFTP_DOWNLOAD]: { sftpId: string; remotePath: string; localPath: string };
+  [IPC_CHANNELS.SFTP_UPLOAD]: { sftpId: string; localPath: string; remotePath: string };
+  [IPC_CHANNELS.SFTP_MKDIR]: { sftpId: string; path: string };
+  [IPC_CHANNELS.SFTP_RMDIR]: { sftpId: string; path: string };
+  [IPC_CHANNELS.SFTP_RM]: { sftpId: string; path: string };
+  [IPC_CHANNELS.SFTP_RENAME]: { sftpId: string; oldPath: string; newPath: string };
+  [IPC_CHANNELS.SFTP_STAT]: { sftpId: string; path: string };
+  [IPC_CHANNELS.SFTP_READLINK]: { sftpId: string; path: string };
+  [IPC_CHANNELS.SFTP_SYMLINK]: { sftpId: string; target: string; path: string };
+  [IPC_CHANNELS.SFTP_PICK_LOCAL]: void;
+  [IPC_CHANNELS.SFTP_PICK_LOCAL_DIR]: void;
+  [IPC_CHANNELS.SFTP_REALPATH]: { sftpId: string; path: string };
 }
 
 /**
@@ -156,6 +189,21 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.SERIAL_SERVER_STATUS]: SerialServerStatus;
   [IPC_CHANNELS.GET_LOCAL_IP]: string;
   [IPC_CHANNELS.READ_FILE]: string;
+  [IPC_CHANNELS.SFTP_CREATE]: { sftpId: string };
+  [IPC_CHANNELS.SFTP_DESTROY]: void;
+  [IPC_CHANNELS.SFTP_LIST]: SftpFileInfo[];
+  [IPC_CHANNELS.SFTP_DOWNLOAD]: void;
+  [IPC_CHANNELS.SFTP_UPLOAD]: void;
+  [IPC_CHANNELS.SFTP_MKDIR]: void;
+  [IPC_CHANNELS.SFTP_RMDIR]: void;
+  [IPC_CHANNELS.SFTP_RM]: void;
+  [IPC_CHANNELS.SFTP_RENAME]: void;
+  [IPC_CHANNELS.SFTP_STAT]: SftpFileStat;
+  [IPC_CHANNELS.SFTP_READLINK]: string;
+  [IPC_CHANNELS.SFTP_SYMLINK]: void;
+  [IPC_CHANNELS.SFTP_PICK_LOCAL]: string | null;
+  [IPC_CHANNELS.SFTP_PICK_LOCAL_DIR]: string | null;
+  [IPC_CHANNELS.SFTP_REALPATH]: string;
 }
 
 /**
@@ -245,4 +293,49 @@ export interface SerialServerStatus {
   localPort: number;
   clientCount: number;
   sshTunnelConnected: boolean;
+}
+
+/**
+ * SFTP 文件信息
+ */
+export interface SftpFileInfo {
+  name: string;
+  type: 'file' | 'directory' | 'symlink' | 'other';
+  size: number;
+  modifyTime: number;
+  accessTime: number;
+  rights?: {
+    user?: string;
+    group?: string;
+    other?: string;
+  };
+  owner?: number;
+  group?: number;
+  target?: string; // 符号链接目标
+}
+
+/**
+ * SFTP 文件状态
+ */
+export interface SftpFileStat {
+  size: number;
+  mode: number;
+  modifyTime: number;
+  accessTime: number;
+  isFile: boolean;
+  isDirectory: boolean;
+  isSymbolicLink: boolean;
+}
+
+/**
+ * SFTP 传输进度事件
+ */
+export interface SftpProgressEvent {
+  sftpId: string;
+  operation: 'download' | 'upload';
+  localPath: string;
+  remotePath: string;
+  total: number;
+  transferred: number;
+  percent: number;
 }

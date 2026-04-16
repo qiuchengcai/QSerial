@@ -189,7 +189,10 @@ module.exports = {
     ],
     icon: 'build/icon.ico',
     artifactName: '${productName}-${version}-${arch}-${os}.${ext}',
+    signAndEditExecutable: false,
   },
+
+  forceCodeSigning: false,
 
   mac: {
     target: [

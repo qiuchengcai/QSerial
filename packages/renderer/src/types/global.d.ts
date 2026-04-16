@@ -2,7 +2,7 @@
  * 全局类型声明
  */
 
-import type { SerialPortInfo, TftpTransferEvent } from '@qserial/shared';
+import type { SerialPortInfo, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent } from '@qserial/shared';
 
 interface QSerialAPI {
   connection: {
@@ -91,6 +91,26 @@ interface QSerialAPI {
 
   // 文件操作
   readFile: (path: string) => Promise<string>;
+
+  // SFTP 文件传输
+  sftp: {
+    create: (connectionId: string) => Promise<{ sftpId: string }>;
+    destroy: (sftpId: string) => Promise<void>;
+    list: (sftpId: string, path: string) => Promise<SftpFileInfo[]>;
+    download: (sftpId: string, remotePath: string, localPath: string) => Promise<void>;
+    upload: (sftpId: string, localPath: string, remotePath: string) => Promise<void>;
+    mkdir: (sftpId: string, path: string) => Promise<void>;
+    rmdir: (sftpId: string, path: string) => Promise<void>;
+    rm: (sftpId: string, path: string) => Promise<void>;
+    rename: (sftpId: string, oldPath: string, newPath: string) => Promise<void>;
+    stat: (sftpId: string, path: string) => Promise<SftpFileStat>;
+    readlink: (sftpId: string, path: string) => Promise<string>;
+    symlink: (sftpId: string, target: string, path: string) => Promise<void>;
+    pickLocalFile: () => Promise<string | null>;
+    pickLocalDir: () => Promise<string | null>;
+    realpath: (sftpId: string, path: string) => Promise<string>;
+    onProgress: (callback: (event: SftpProgressEvent) => void) => () => void;
+  };
 }
 
 declare global {

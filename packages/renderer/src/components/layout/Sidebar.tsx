@@ -497,51 +497,68 @@ export const Sidebar: React.FC = () => {
         {/* 展开按钮 */}
         <button
           onClick={() => setIsCollapsed(false)}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-hover mb-2"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover text-text-secondary transition-colors mb-2"
           title="展开侧边栏"
         >
-          ▶
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+            <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
 
         {/* 快捷操作图标 */}
         <button
           onClick={handleNewTerminal}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-hover disabled:opacity-50 mb-1"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
           title="本地终端"
         >
-          💻
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 4h12M2 4v8M2 4l4 4-4 4M14 4v8M14 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
         <button
           onClick={() => setShowSerialDialog(true)}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-hover disabled:opacity-50 mb-1"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
           title="串口连接"
         >
-          🔌
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M6 2v4a2 2 0 004 0V2M8 6v8M6 14h4" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
         <button
           onClick={handleNewSSH}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-hover disabled:opacity-50 mb-1"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
           title="SSH 连接"
         >
-          🌐
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" />
+            <ellipse cx="8" cy="8" rx="2.5" ry="6" stroke="currentColor" strokeWidth="1" fill="none" />
+            <path d="M2 8h12M2.5 5.5h11M2.5 10.5h11" stroke="currentColor" strokeWidth="0.8" fill="none" />
+          </svg>
         </button>
         <button
           onClick={() => setShowTelnetDialog(true)}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-hover disabled:opacity-50"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
           title="Telnet 连接"
         >
-          📡
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 14l4-4M8 8l3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+            <circle cx="13" cy="3" r="2" stroke="currentColor" strokeWidth="1.2" fill="none" />
+            <path d="M4 14h2M8 10l2 2" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+          </svg>
         </button>
         <button
           onClick={() => setShowTftpDialog(true)}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-hover mb-1"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover mb-1 text-text-secondary hover:text-text transition-colors"
           title="TFTP 服务器"
         >
-          📁
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 3h5l1 1h6v9H2V3z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinejoin="round" />
+            <path d="M6 7h4M6 9h4" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" />
+          </svg>
         </button>
 
         {/* 对话框 */}
@@ -611,69 +628,88 @@ export const Sidebar: React.FC = () => {
     <div className="w-[var(--sidebar-width)] bg-surface border-r border-border flex flex-col flex-shrink-0">
       {/* 快捷操作 */}
       <div className="p-2 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs text-text-secondary">新建连接</h3>
+        <div className="flex items-center justify-between mb-1.5 px-1">
+          <h3 className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">新建连接</h3>
           <button
             onClick={() => setIsCollapsed(true)}
-            className="w-5 h-5 flex items-center justify-center rounded hover:bg-hover text-text-secondary text-xs"
+            className="w-4 h-4 flex items-center justify-center rounded hover:bg-hover text-text-secondary transition-colors"
             title="折叠侧边栏"
           >
-            ◀
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M7 1L3 5L7 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         </div>
         <div className="flex flex-col gap-0.5">
           <button
             onClick={handleNewTerminal}
             disabled={isConnecting}
-            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-hover transition-colors text-left disabled:opacity-50"
+            className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="本地终端"
           >
-            <span>💻</span>
-            <span className="text-sm truncate">{isConnecting ? '连接中...' : '本地终端'}</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
+              <path d="M2 4h12M2 4v8M2 4l4 4-4 4M14 4v8M14 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-xs truncate">{isConnecting ? '连接中...' : '本地终端'}</span>
           </button>
           <button
             onClick={() => setShowSerialDialog(true)}
             disabled={isConnecting}
-            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-hover transition-colors text-left disabled:opacity-50"
+            className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="串口连接"
           >
-            <span>🔌</span>
-            <span className="text-sm truncate">串口连接</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
+              <path d="M6 2v4a2 2 0 004 0V2M8 6v8M6 14h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-xs truncate">串口连接</span>
           </button>
           <button
             onClick={handleNewSSH}
             disabled={isConnecting}
-            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-hover transition-colors text-left disabled:opacity-50"
+            className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="SSH 连接"
           >
-            <span>🌐</span>
-            <span className="text-sm truncate">SSH</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3" fill="none" />
+              <ellipse cx="8" cy="8" rx="2.5" ry="6" stroke="currentColor" strokeWidth="1" fill="none" />
+              <path d="M2 8h12M2.5 5.5h11M2.5 10.5h11" stroke="currentColor" strokeWidth="0.8" fill="none" />
+            </svg>
+            <span className="text-xs truncate">SSH</span>
           </button>
           <button
             onClick={() => setShowTelnetDialog(true)}
             disabled={isConnecting}
-            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-hover transition-colors text-left disabled:opacity-50"
+            className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="Telnet 连接"
           >
-            <span>📡</span>
-            <span className="text-sm truncate">Telnet</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
+              <path d="M2 14l4-4M8 8l3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="13" cy="3" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
+              <path d="M4 14h2M8 10l2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+            <span className="text-xs truncate">Telnet</span>
           </button>
           <button
             onClick={() => setShowTftpDialog(true)}
-            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-hover transition-colors text-left"
+            className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left group"
             title="TFTP 服务器"
           >
-            <span>📁</span>
-            <span className="text-sm truncate">TFTP</span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
+              <path d="M2 3h5l1 1h6v9H2V3z" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round" />
+              <path d="M6 7h4M6 9h4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+            </svg>
+            <span className="text-xs truncate">TFTP</span>
           </button>
         </div>
       </div>
 
       {/* 保存的会话列表 */}
       <div className="flex-1 overflow-y-auto p-2">
-        <h3 className="text-xs text-text-secondary mb-2">配置</h3>
+        <div className="flex items-center justify-between mb-1.5 px-1">
+          <h3 className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">配置</h3>
+        </div>
         {savedSessions.length === 0 ? (
-          <div className="text-sm text-text-secondary">暂无</div>
+          <div className="text-xs text-text-secondary px-2 py-3 text-center opacity-60">暂无保存的配置</div>
         ) : (
           <div className="flex flex-col gap-0.5">
             {savedSessions.map((session) => {
@@ -681,12 +717,24 @@ export const Sidebar: React.FC = () => {
               return (
                 <div
                   key={session.id}
-                  className="group flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-hover cursor-pointer"
+                  className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
+                    connected ? 'bg-green-500/10 hover:bg-green-500/15' : 'hover:bg-hover'
+                  }`}
                   onClick={() => handleQuickConnect(session)}
                   onContextMenu={(e) => handleContextMenu(e, session)}
                 >
-                  <span className="text-sm flex-shrink-0">{connected ? '🔌' : '○'}</span>
-                  <span className={`flex-1 text-sm truncate ${connected ? 'text-green-500' : ''}`}>
+                  <span className="flex-shrink-0">
+                    {connected ? (
+                      <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-green-500">
+                        <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                          <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                    ) : (
+                      <span className="block w-3.5 h-3.5 rounded-full border border-border" />
+                    )}
+                  </span>
+                  <span className={`flex-1 text-xs truncate ${connected ? 'text-green-400' : ''}`}>
                     {session.name}
                   </span>
                   <button
@@ -694,9 +742,11 @@ export const Sidebar: React.FC = () => {
                       e.stopPropagation();
                       removeSession(session.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-active text-text-secondary flex-shrink-0 text-xs"
+                    className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-active text-text-secondary flex-shrink-0 transition-opacity"
                   >
-                    ×
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
+                      <path d="M1 1L7 7M7 1L1 7" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                    </svg>
                   </button>
                 </div>
               );
