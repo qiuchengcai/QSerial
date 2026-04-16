@@ -52,3 +52,7 @@ nul
 *.bak
 package-lock.json
 package.json.override
+
+# Build artifacts
+*.tsbuildinfo
+node-v*-headers.tar.gz
