@@ -15,7 +15,7 @@ import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectD
 export const Sidebar: React.FC = () => {
   const { createTab, createSession, sessions, closeSessionAndTab } = useTerminalStore();
   const { sessions: savedSessions, addSession, removeSession, updateSession } = useSavedSessionsStore();
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectingType, setConnectingType] = useState<string | null>(null);
   const [showSerialDialog, setShowSerialDialog] = useState(false);
   const [showSshDialog, setShowSshDialog] = useState(false);
   const [showTelnetDialog, setShowTelnetDialog] = useState(false);
@@ -24,6 +24,24 @@ export const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingSession, setEditingSession] = useState<SavedSession | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SavedSession } | null>(null);
+
+  // 连接失败时自动清理 tab/session 的辅助函数
+  const connectWithCleanup = async (
+    connectionId: string,
+    tabName: string,
+    connectionType: ConnectionType,
+    serialPath?: string,
+    host?: string,
+  ) => {
+    createTab(tabName);
+    const sessionId = createSession(connectionId, connectionType, serialPath, host);
+    try {
+      await window.qserial.connection.open(connectionId);
+    } catch (error) {
+      closeSessionAndTab(sessionId);
+      throw error;
+    }
+  };
 
   // 查找使用指定串口路径的活动连接
   const findActiveSerialSession = (serialPath: string): string | null => {
@@ -43,7 +61,7 @@ export const Sidebar: React.FC = () => {
   };
 
   const handlePtyConnect = async (options: PtyConnectOptions & { saveConfig?: boolean; configName?: string }) => {
-    setIsConnecting(true);
+    setConnectingType('pty');
 
     try {
       const connectionId = crypto.randomUUID();
@@ -58,9 +76,7 @@ export const Sidebar: React.FC = () => {
         rows: 24,
       });
 
-      createTab('本地终端');
-      createSession(connectionId, ConnectionType.PTY);
-      await window.qserial.connection.open(connectionId);
+      await connectWithCleanup(connectionId, '本地终端', ConnectionType.PTY);
 
       if (options.saveConfig && options.configName) {
         addSession({
@@ -76,7 +92,7 @@ export const Sidebar: React.FC = () => {
       console.error('Failed to create terminal:', error);
       alert('创建终端失败: ' + (error as Error).message);
     } finally {
-      setIsConnecting(false);
+      setConnectingType(null);
     }
   };
 
@@ -89,7 +105,7 @@ export const Sidebar: React.FC = () => {
     saveConfig?: boolean;
     configName?: string;
   }) => {
-    setIsConnecting(true);
+    setConnectingType('serial');
 
     try {
       const connectionId = crypto.randomUUID();
@@ -108,9 +124,7 @@ export const Sidebar: React.FC = () => {
         reconnectAttempts: 5,
       });
 
-      createTab(`串口 ${options.path}`);
-      createSession(connectionId, ConnectionType.SERIAL, options.path);
-      await window.qserial.connection.open(connectionId);
+      await connectWithCleanup(connectionId, `串口 ${options.path}`, ConnectionType.SERIAL, options.path);
 
       if (options.saveConfig && options.configName) {
         addSession({
@@ -129,19 +143,19 @@ export const Sidebar: React.FC = () => {
       console.error('Failed to create serial connection:', error);
       alert('创建串口连接失败: ' + (error as Error).message);
     } finally {
-      setIsConnecting(false);
+      setConnectingType(null);
     }
   };
 
   const handleQuickConnect = async (savedSession: SavedSession) => {
-    if (isConnecting) return;
+    if (connectingType) return;
 
     if (savedSession.type === 'serial' && savedSession.serialConfig) {
       const config = savedSession.serialConfig;
       const activeSessionId = findActiveSerialSession(config.path);
 
       if (activeSessionId) {
-        setIsConnecting(true);
+        setConnectingType('serial');
         try {
           const session = sessions[activeSessionId];
           if (session) {
@@ -152,12 +166,12 @@ export const Sidebar: React.FC = () => {
         } catch (err) {
           console.error('Failed to close connection:', err);
         } finally {
-          setIsConnecting(false);
+          setConnectingType(null);
         }
         return;
       }
 
-      setIsConnecting(true);
+      setConnectingType('serial');
 
       try {
         const connectionId = crypto.randomUUID();
@@ -176,21 +190,19 @@ export const Sidebar: React.FC = () => {
           reconnectAttempts: 5,
         });
 
-        createTab(savedSession.name);
-        createSession(connectionId, ConnectionType.SERIAL, config.path);
-        await window.qserial.connection.open(connectionId);
+        await connectWithCleanup(connectionId, savedSession.name, ConnectionType.SERIAL, config.path);
       } catch (error) {
         console.error('Failed to quick connect:', error);
         alert('快速连接失败: ' + (error as Error).message);
       } finally {
-        setIsConnecting(false);
+        setConnectingType(null);
       }
       return;
     }
 
     if (savedSession.type === 'ssh' && savedSession.sshConfig) {
       const config = savedSession.sshConfig;
-      setIsConnecting(true);
+      setConnectingType('ssh');
 
       try {
         const connectionId = crypto.randomUUID();
@@ -205,21 +217,19 @@ export const Sidebar: React.FC = () => {
           password: config.password,
         });
 
-        createTab(savedSession.name);
-        createSession(connectionId, ConnectionType.SSH, undefined, config.host);
-        await window.qserial.connection.open(connectionId);
+        await connectWithCleanup(connectionId, savedSession.name, ConnectionType.SSH, undefined, config.host);
       } catch (error) {
         console.error('Failed to quick connect SSH:', error);
         alert('SSH 快速连接失败: ' + (error as Error).message);
       } finally {
-        setIsConnecting(false);
+        setConnectingType(null);
       }
       return;
     }
 
     if (savedSession.type === 'telnet' && savedSession.telnetConfig) {
       const config = savedSession.telnetConfig;
-      setIsConnecting(true);
+      setConnectingType('telnet');
 
       try {
         const connectionId = crypto.randomUUID();
@@ -232,21 +242,19 @@ export const Sidebar: React.FC = () => {
           port: config.port,
         });
 
-        createTab(savedSession.name);
-        createSession(connectionId, ConnectionType.TELNET, undefined, config.host);
-        await window.qserial.connection.open(connectionId);
+        await connectWithCleanup(connectionId, savedSession.name, ConnectionType.TELNET, undefined, config.host);
       } catch (error) {
         console.error('Failed to quick connect Telnet:', error);
         alert('Telnet 快速连接失败: ' + (error as Error).message);
       } finally {
-        setIsConnecting(false);
+        setConnectingType(null);
       }
       return;
     }
 
     if (savedSession.type === 'pty' && savedSession.ptyConfig) {
       const config = savedSession.ptyConfig;
-      setIsConnecting(true);
+      setConnectingType('pty');
 
       try {
         const connectionId = crypto.randomUUID();
@@ -261,14 +269,12 @@ export const Sidebar: React.FC = () => {
           rows: 24,
         });
 
-        createTab(savedSession.name);
-        createSession(connectionId, ConnectionType.PTY);
-        await window.qserial.connection.open(connectionId);
+        await connectWithCleanup(connectionId, savedSession.name, ConnectionType.PTY);
       } catch (error) {
         console.error('Failed to quick connect PTY:', error);
         alert('本地终端快速连接失败: ' + (error as Error).message);
       } finally {
-        setIsConnecting(false);
+        setConnectingType(null);
       }
       return;
     }
@@ -316,7 +322,7 @@ export const Sidebar: React.FC = () => {
     saveConfig?: boolean;
     configName?: string;
   }) => {
-    setIsConnecting(true);
+    setConnectingType('ssh');
 
     try {
       const connectionId = crypto.randomUUID();
@@ -331,9 +337,7 @@ export const Sidebar: React.FC = () => {
         password: options.password,
       });
 
-      createTab(`SSH ${options.host}`);
-      createSession(connectionId, ConnectionType.SSH, undefined, options.host);
-      await window.qserial.connection.open(connectionId);
+      await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
 
       if (options.saveConfig && options.configName) {
         addSession({
@@ -351,7 +355,7 @@ export const Sidebar: React.FC = () => {
       console.error('Failed to create SSH connection:', error);
       alert('SSH 连接失败: ' + (error as Error).message);
     } finally {
-      setIsConnecting(false);
+      setConnectingType(null);
     }
   };
 
@@ -361,7 +365,7 @@ export const Sidebar: React.FC = () => {
     saveConfig?: boolean;
     configName?: string;
   }) => {
-    setIsConnecting(true);
+    setConnectingType('telnet');
 
     try {
       const connectionId = crypto.randomUUID();
@@ -374,9 +378,7 @@ export const Sidebar: React.FC = () => {
         port: options.port,
       });
 
-      createTab(`Telnet ${options.host}`);
-      createSession(connectionId, ConnectionType.TELNET, undefined, options.host);
-      await window.qserial.connection.open(connectionId);
+      await connectWithCleanup(connectionId, `Telnet ${options.host}`, ConnectionType.TELNET, undefined, options.host);
 
       if (options.saveConfig && options.configName) {
         addSession({
@@ -392,7 +394,7 @@ export const Sidebar: React.FC = () => {
       console.error('Failed to create Telnet connection:', error);
       alert('Telnet 连接失败: ' + (error as Error).message);
     } finally {
-      setIsConnecting(false);
+      setConnectingType(null);
     }
   };
 
@@ -531,7 +533,7 @@ export const Sidebar: React.FC = () => {
         {/* 快捷操作图标 */}
         <button
           onClick={handleNewTerminal}
-          disabled={isConnecting}
+          disabled={connectingType === 'pty'}
           className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="本地终端"
         >
@@ -539,7 +541,7 @@ export const Sidebar: React.FC = () => {
         </button>
         <button
           onClick={() => setShowSerialDialog(true)}
-          disabled={isConnecting}
+          disabled={connectingType === 'serial'}
           className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="串口连接"
         >
@@ -547,7 +549,7 @@ export const Sidebar: React.FC = () => {
         </button>
         <button
           onClick={handleNewSSH}
-          disabled={isConnecting}
+          disabled={connectingType === 'ssh'}
           className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="SSH 连接"
         >
@@ -555,7 +557,7 @@ export const Sidebar: React.FC = () => {
         </button>
         <button
           onClick={() => setShowTelnetDialog(true)}
-          disabled={isConnecting}
+          disabled={connectingType === 'telnet'}
           className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="Telnet 连接"
         >
@@ -651,16 +653,16 @@ export const Sidebar: React.FC = () => {
         <div className="flex flex-col gap-0.5">
           <button
             onClick={handleNewTerminal}
-            disabled={isConnecting}
+            disabled={connectingType === 'pty'}
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="本地终端"
           >
             <span className="text-sm flex-shrink-0">💻</span>
-            <span className="text-xs truncate">{isConnecting ? '连接中...' : '本地终端'}</span>
+            <span className="text-xs truncate">{connectingType === 'pty' ? '连接中...' : '本地终端'}</span>
           </button>
           <button
             onClick={() => setShowSerialDialog(true)}
-            disabled={isConnecting}
+            disabled={connectingType === 'serial'}
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="串口连接"
           >
@@ -669,7 +671,7 @@ export const Sidebar: React.FC = () => {
           </button>
           <button
             onClick={handleNewSSH}
-            disabled={isConnecting}
+            disabled={connectingType === 'ssh'}
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="SSH 连接"
           >
@@ -678,7 +680,7 @@ export const Sidebar: React.FC = () => {
           </button>
           <button
             onClick={() => setShowTelnetDialog(true)}
-            disabled={isConnecting}
+            disabled={connectingType === 'telnet'}
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="Telnet 连接"
           >
