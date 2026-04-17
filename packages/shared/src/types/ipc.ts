@@ -127,6 +127,8 @@ export interface IpcRequestMap {
     stopBits: 1 | 1.5 | 2;
     parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
     localPort: number;
+    listenAddress?: string;
+    accessPassword?: string;
     sshTunnel?: {
       host: string;
       port: number;
@@ -291,8 +293,11 @@ export interface SerialServerStatus {
   running: boolean;
   serialPath: string;
   localPort: number;
+  listenAddress: string;
   clientCount: number;
+  clients: string[];
   sshTunnelConnected: boolean;
+  hasPassword: boolean;
 }
 
 /**

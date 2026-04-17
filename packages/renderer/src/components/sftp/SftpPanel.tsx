@@ -333,12 +333,12 @@ export const SftpPanel: React.FC = () => {
       (s) => s.connectionId === connectionId
     );
     if (terminalSession) {
-      const tab = tabs.find((t) => t.id === activeTabId);
+      const tab = tabs.find((t) => t.sessions.includes(terminalSession.id));
       if (tab) return tab.name;
     }
     // 从 connectionId 尝试提取 host
     return connectionId.length > 8 ? connectionId.slice(0, 8) + '...' : connectionId;
-  }, [terminalSessions, tabs, activeTabId]);
+  }, [terminalSessions, tabs]);
 
   // 排序后的文件列表
   const sortedFiles = useMemo(() => {

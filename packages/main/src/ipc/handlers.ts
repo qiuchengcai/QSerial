@@ -90,15 +90,12 @@ export function setupIpcHandlers(): void {
 function setupConnectionHandlers(): void {
   // 创建连接
   ipcMain.handle(IPC_CHANNELS.CONNECTION_CREATE, async (_, { options }) => {
-    console.log('Creating connection:', options.type, options.id);
     try {
       const connection = await ConnectionFactory.create(options);
-      console.log('Connection created:', connection.id);
 
       // 设置事件转发
       connection.onData((data) => {
         const base64Data = bufferToBase64(data);
-        console.log('Data received for', connection.id, ':', base64Data.length, 'bytes');
         safeSend(IPC_CHANNELS.CONNECTION_DATA, {
           id: connection.id,
           data: base64Data,
@@ -106,7 +103,6 @@ function setupConnectionHandlers(): void {
       });
 
       connection.onStateChange((state) => {
-        console.log('Connection state changed:', connection.id, state);
         safeSend(IPC_CHANNELS.CONNECTION_STATE, {
           id: connection.id,
           state,
@@ -114,7 +110,6 @@ function setupConnectionHandlers(): void {
       });
 
       connection.onError((error) => {
-        console.error('Connection error:', connection.id, error);
         safeSend(IPC_CHANNELS.CONNECTION_ERROR, {
           id: connection.id,
           error: error.message,
@@ -123,14 +118,12 @@ function setupConnectionHandlers(): void {
 
       return { id: connection.id };
     } catch (error) {
-      console.error('Failed to create connection:', error);
       throw error;
     }
   });
 
   // 打开连接
   ipcMain.handle(IPC_CHANNELS.CONNECTION_OPEN, async (_, { id }) => {
-    console.log('Opening connection:', id);
     const connection = ConnectionFactory.get(id);
     if (!connection) throw new Error(`Connection ${id} not found`);
     try {
@@ -159,14 +152,12 @@ function setupConnectionHandlers(): void {
             const hasSharedConnection = !!server.sharedConnection;
 
             if (hasOwnPort || hasSharedConnection) {
-              console.log(`[Connection] Found SerialServerConnection for ${serialPath}, will share connection`);
               // 获取服务器的底层连接用于共享
               const sharedConn = hasSharedConnection
                 ? server.sharedConnection
                 : serverConnection;
               // 调用 SerialConnection 的 openWithShared 方法
               await (connection as unknown as { openWithShared: (shared: IConnection) => Promise<void> }).openWithShared(sharedConn as IConnection);
-              console.log('Connection opened with shared serial:', id);
               return;
             }
           }
@@ -174,16 +165,13 @@ function setupConnectionHandlers(): void {
       }
 
       await connection.open();
-      console.log('Connection opened:', id);
     } catch (error) {
-      console.error('Failed to open connection:', id, error);
       throw error;
     }
   });
 
   // 关闭连接
   ipcMain.handle(IPC_CHANNELS.CONNECTION_CLOSE, async (_, { id }) => {
-    console.log('Closing connection:', id);
     const connection = ConnectionFactory.get(id);
     if (!connection) throw new Error(`Connection ${id} not found`);
     await connection.close();
@@ -217,9 +205,7 @@ function setupConnectionHandlers(): void {
 
   // 获取串口列表
   ipcMain.handle(IPC_CHANNELS.SERIAL_LIST, async () => {
-    console.log('Listing serial ports...');
     const ports = await SerialConnection.listPorts();
-    console.log('Found ports:', ports.length);
     return ports;
   });
 }
@@ -297,18 +283,15 @@ function setupTftpHandlers(): void {
 
   // 启动 TFTP 服务器
   ipcMain.handle(IPC_CHANNELS.TFTP_START, async (_, { port, rootDir }) => {
-    console.log('Starting TFTP server on port', port, 'root:', rootDir);
     try {
       startTftpServer(port, rootDir);
     } catch (error) {
-      console.error('Failed to start TFTP server:', error);
       throw error;
     }
   });
 
   // 停止 TFTP 服务器
   ipcMain.handle(IPC_CHANNELS.TFTP_STOP, () => {
-    console.log('Stopping TFTP server');
     stopTftpServer();
   });
 
@@ -377,9 +360,7 @@ function setupLogHandlers(): void {
       const timestamp = new Date().toLocaleString();
       stream.write(`\n========== 日志开始 [${timestamp}] ==========\n`);
 
-      console.log('Log started for session:', sessionId, 'file:', filePath);
     } catch (error) {
-      console.error('Failed to start log:', error);
       throw error;
     }
   });
@@ -393,7 +374,6 @@ function setupLogHandlers(): void {
       stream.write(`\n========== 日志结束 [${timestamp}] ==========\n`);
       stream.end();
       logStreams.delete(sessionId);
-      console.log('Log stopped for session:', sessionId);
     }
   });
 
@@ -424,58 +404,24 @@ function setupLogHandlers(): void {
  * 串口共享服务相关处理器
  */
 function setupSerialServerHandlers(): void {
-  // 调试日志发送到渲染进程（使用模块级的 mainWindow）
-  const sendDebugLog = (msg: string) => {
-    console.log(msg);
-    // 使用 safeSend 的方式发送到渲染进程
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(IPC_CHANNELS.DEBUG_LOG, { message: msg, timestamp: Date.now() });
-    }
-  };
-
   ipcMain.handle(IPC_CHANNELS.SERIAL_SERVER_START, async (_, options) => {
-    // 最开始就输出原始参数
-    console.log('[SerialShare] RAW OPTIONS RECEIVED:', JSON.stringify(options, null, 2));
-
     const { ConnectionType } = await import('@qserial/shared');
-    const { id, serialPath, baudRate, dataBits, stopBits, parity, localPort, sshTunnel } = options;
-
-    const log = sendDebugLog;
-
-    log(`[SerialShare] ========== START REQUEST ==========`);
+    const { id, serialPath, baudRate, dataBits, stopBits, parity, localPort, listenAddress, accessPassword, sshTunnel } = options;
 
     // 如果相同ID的服务器已存在，先销毁它
     const existingServer = ConnectionFactory.get(id);
     if (existingServer) {
-      console.log(`[SerialShare] Destroying existing server: ${id}`);
       await ConnectionFactory.destroy(id);
     }
 
-    // 始终查找是否已有该串口的连接（自动检测，不依赖前端参数）
+    // 查找该串口的现有连接（自动检测复用）
     const allConnections = ConnectionFactory.getAll();
-    log(`[SerialShare] Looking for existing connection on ${serialPath}`);
-    log(`[SerialShare] Total connections in factory: ${allConnections.length}`);
-    allConnections.forEach((c, i) => {
+    const existingConnection = allConnections.find((c) => {
       const opts = c.options as { path?: string; serialPath?: string };
-      log(`[SerialShare] Connection ${i}: type=${c.type}, path=${opts.path}, serialPath=${opts.serialPath}, id=${c.id}`);
+      const matchPath = opts.path?.toLowerCase() === serialPath.toLowerCase();
+      const matchSerialPath = opts.serialPath?.toLowerCase() === serialPath.toLowerCase();
+      return c.type === ConnectionType.SERIAL && (matchPath || matchSerialPath);
     });
-
-    // 查找该串口的现有连接
-    const existingConnection = allConnections.find(
-      (c) => {
-        const opts = c.options as { path?: string; serialPath?: string };
-        const matchPath = opts.path?.toLowerCase() === serialPath.toLowerCase();
-        const matchSerialPath = opts.serialPath?.toLowerCase() === serialPath.toLowerCase();
-        log(`[SerialShare] Checking connection ${c.id}: path=${opts.path}, matchPath=${matchPath}, matchSerialPath=${matchSerialPath}`);
-        return c.type === ConnectionType.SERIAL && (matchPath || matchSerialPath);
-      }
-    );
-
-    if (existingConnection) {
-      log(`[SerialShare] ✓ Found existing connection for ${serialPath}, id=${existingConnection.id}, will reuse`);
-    } else {
-      log(`[SerialShare] ✗ No existing connection found for ${serialPath}, will create new serial connection`);
-    }
 
     const connection = await ConnectionFactory.create({
       id,
@@ -487,6 +433,8 @@ function setupSerialServerHandlers(): void {
       stopBits,
       parity,
       localPort,
+      listenAddress,
+      accessPassword,
       sshTunnel,
       autoReconnect: false,
     });
@@ -562,7 +510,6 @@ function setupFileHandlers(): void {
       const content = await fs.promises.readFile(filePath, 'utf-8');
       return content;
     } catch (error) {
-      console.error('Failed to read file:', filePath, error);
       throw error;
     }
   });

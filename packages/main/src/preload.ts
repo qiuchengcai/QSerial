@@ -116,6 +116,8 @@ const api = {
       stopBits: 1 | 1.5 | 2;
       parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
       localPort: number;
+      listenAddress?: string;
+      accessPassword?: string;
       sshTunnel?: {
         host: string;
         port: number;
@@ -124,8 +126,6 @@ const api = {
         password?: string; // 可选，留空使用 ~/.ssh 下的默认密钥
       };
     }) => {
-      console.log('[Preload] serialServer.start called');
-      console.log('[Preload] Full options:', JSON.stringify(options, null, 2));
       return ipcRenderer.invoke(IPC_CHANNELS.SERIAL_SERVER_START, options);
     },
     stop: (id: string) =>
@@ -137,7 +137,6 @@ const api = {
   // 调试日志
   onDebugLog: (callback: (event: { message: string; timestamp: number }) => void) => {
     const handler = (_: unknown, event: { message: string; timestamp: number }) => {
-      console.log('[Main]', event.message);
       callback(event);
     };
     ipcRenderer.on(IPC_CHANNELS.DEBUG_LOG, handler);

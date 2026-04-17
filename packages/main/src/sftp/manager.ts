@@ -515,6 +515,4 @@ export function setupSftpHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SFTP_REALPATH, async (_, { sftpId, path }) => {
     return realpath(sftpId, path);
   });
-
-  console.log('SFTP handlers registered');
 }

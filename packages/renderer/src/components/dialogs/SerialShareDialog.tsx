@@ -42,22 +42,19 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
     running: boolean;
     serialPath: string;
     localPort: number;
+    listenAddress: string;
     clientCount: number;
+    clients: string[];
     sshTunnelConnected: boolean;
+    hasPassword: boolean;
   } | null>(null);
-
-  // 监听主进程调试日志
-  useEffect(() => {
-    const unsubscribe = window.qserial.onDebugLog((event) => {
-      console.log('[Main Debug]', event.message);
-    });
-    return unsubscribe;
-  }, []);
 
   // 串口配置 - 使用配置文件中的默认值
   const [selectedPort, setSelectedPort] = useState(defaultSerialPath || '');
   const [baudRate, setBaudRate] = useState(defaultBaudRate || 115200);
   const [localPort, setLocalPort] = useState(config.serialShare?.defaultLocalPort || 8888);
+  const [listenAddress, setListenAddress] = useState(config.serialShare?.defaultListenAddress || '0.0.0.0');
+  const [accessPassword, setAccessPassword] = useState('');
 
   // 是否复用现有连接（由后端自动检测）
   const [shareExistingInfo, setShareExistingInfo] = useState<{ available: boolean; sessionName?: string }>({ available: false });
@@ -152,6 +149,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
         stopBits: 1 | 1.5 | 2;
         parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
         localPort: number;
+        listenAddress?: string;
+        accessPassword?: string;
         sshTunnel?: {
           host: string;
           port: number;
@@ -168,6 +167,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
         stopBits: 1,
         parity: 'none',
         localPort,
+        listenAddress,
+        ...(accessPassword ? { accessPassword } : {}),
       };
 
       if (enableSshTunnel && sshConfig.host) {
@@ -180,35 +181,25 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
         };
       }
 
-      // shareExisting 参数已废弃，后端会自动检测现有连接
-      console.log('[SerialShareDialog] shareExistingInfo:', shareExistingInfo);
-      console.log('[SerialShareDialog] sessions:', sessions);
+      // 后端会自动检测现有连接并复用
+      await window.qserial.serialServer.start(options);
 
-      console.log('[SerialShareDialog] Starting with options:', JSON.stringify(options, null, 2));
-      try {
-        const result = await window.qserial.serialServer.start(options);
-        console.log('[SerialShareDialog] Start result:', result);
+      // 保存配置到配置文件
+      updateConfig('serialShare', {
+        defaultLocalPort: localPort,
+        defaultListenAddress: listenAddress,
+        recentSshTunnel: enableSshTunnel && sshConfig.host ? {
+          host: sshConfig.host,
+          port: sshConfig.port,
+          username: sshConfig.username,
+          remotePort: sshConfig.remotePort,
+          savePassword: false, // 不保存密码到配置文件
+        } : undefined,
+      });
 
-        // 保存配置到配置文件
-        updateConfig('serialShare', {
-          defaultLocalPort: localPort,
-          recentSshTunnel: enableSshTunnel && sshConfig.host ? {
-            host: sshConfig.host,
-            port: sshConfig.port,
-            username: sshConfig.username,
-            remotePort: sshConfig.remotePort,
-            savePassword: false, // 不保存密码到配置文件
-          } : undefined,
-        });
-
-        // 启动成功，显示提示对话框
-        setShowSuccessDialog(true);
-      } catch (startErr) {
-        console.error('[SerialShareDialog] Start error:', startErr);
-        throw startErr;
-      }
+      // 启动成功，显示提示对话框
+      setShowSuccessDialog(true);
     } catch (err) {
-      console.error('[SerialShareDialog] handleStart error:', err);
       setError((err as Error).message);
     } finally {
       setIsStarting(false);
@@ -316,6 +307,41 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
             />
           </div>
 
+          {/* 监听地址 */}
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">监听地址</label>
+            <select
+              value={listenAddress}
+              onChange={(e) => setListenAddress(e.target.value)}
+              disabled={isRunning}
+              className="dialog-select"
+            >
+              <option value="0.0.0.0">0.0.0.0 (所有接口 - 局域网可访问)</option>
+              <option value="127.0.0.1">127.0.0.1 (仅本机)</option>
+            </select>
+            <p className="text-xs text-text-secondary/50 mt-1">
+              选择 0.0.0.0 允许局域网内其他设备连接；选择 127.0.0.1 仅限本机访问
+            </p>
+          </div>
+
+          {/* 访问密码 */}
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">
+              访问密码 <span className="text-text-secondary/50 font-normal">(可选，留空则无需认证)</span>
+            </label>
+            <input
+              type="password"
+              value={accessPassword}
+              onChange={(e) => setAccessPassword(e.target.value)}
+              disabled={isRunning}
+              className="dialog-input"
+              placeholder="留空则任何人可连接"
+            />
+            <p className="text-xs text-text-secondary/50 mt-1">
+              设置密码后，客户端需发送 PASSWORD:密码 进行认证
+            </p>
+          </div>
+
           {/* SSH反向隧道 */}
           <div className="border-t border-border/50 pt-4">
             <label className="flex items-center gap-2.5 cursor-pointer mb-3">
@@ -397,13 +423,28 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
           </div>
 
           {/* 状态 */}
-          <div className="flex items-center gap-2">
-            <span className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
-            <span className="text-sm">
-              {isRunning
-                ? `运行中 - ${selectedPort} -> :${localPort}${status?.sshTunnelConnected ? ` (SSH隧道已连接)` : ''}${status ? ` [${status.clientCount}个客户端]` : ''}`
-                : '已停止'}
-            </span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
+              <span className="text-sm">
+                {isRunning
+                  ? `运行中 - ${selectedPort} -> ${status?.listenAddress || '0.0.0.0'}:${localPort}${status?.sshTunnelConnected ? ` (SSH隧道已连接)` : ''}${status?.hasPassword ? ' [已设密码]' : ''}`
+                  : '已停止'}
+              </span>
+            </div>
+            {isRunning && status && status.clients.length > 0 && (
+              <div className="ml-5 text-xs text-text-secondary space-y-0.5">
+                <p className="font-medium text-text-secondary/80">已连接客户端 ({status.clientCount})：</p>
+                {status.clients.map((addr) => (
+                  <p key={addr} className="ml-2 font-mono">{addr}</p>
+                ))}
+              </div>
+            )}
+            {isRunning && status && status.clientCount > 1 && (
+              <p className="ml-5 text-xs text-yellow-500">
+                多客户端同时操作可能导致数据混乱，建议同时只有一个客户端发送指令
+              </p>
+            )}
           </div>
 
           {/* 错误信息 */}
@@ -470,7 +511,10 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                 <div className="space-y-1 text-sm">
                   <p><span className="text-text-secondary">串口：</span>{selectedPort}</p>
                   <p><span className="text-text-secondary">波特率：</span>{baudRate}</p>
-                  <p><span className="text-text-secondary">本地端口：</span>{localPort}</p>
+                  <p><span className="text-text-secondary">监听地址：</span>{listenAddress}:{localPort}</p>
+                  {accessPassword && (
+                    <p><span className="text-text-secondary">访问密码：</span>已设置</p>
+                  )}
                   {enableSshTunnel && sshConfig.host && (
                     <p><span className="text-text-secondary">远程服务器：</span>{sshConfig.host}</p>
                   )}
@@ -482,10 +526,16 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                   <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
                     <p className="text-sm font-medium mb-2">在远程服务器 {sshConfig.host} 上执行：</p>
                     <div className="bg-background rounded-md p-2 font-mono text-sm">
-                      nc localhost {sshConfig.remotePort}
+                      {accessPassword
+                        ? `(echo "PASSWORD:${accessPassword}"; cat) | nc localhost ${sshConfig.remotePort}`
+                        : `nc localhost ${sshConfig.remotePort}`}
                     </div>
                     <button
-                      onClick={() => navigator.clipboard.writeText(`nc localhost ${sshConfig.remotePort}`)}
+                      onClick={() => navigator.clipboard.writeText(
+                        accessPassword
+                          ? `(echo "PASSWORD:${accessPassword}"; cat) | nc localhost ${sshConfig.remotePort}`
+                          : `nc localhost ${sshConfig.remotePort}`
+                      )}
                       className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
                     >
                       复制命令
@@ -503,11 +553,32 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                   <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
                     <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
                     <div className="bg-background rounded-md p-2 font-mono text-sm">
-                      nc {'<本机IP>'} {localPort}
+                      {accessPassword
+                        ? `(echo "PASSWORD:${accessPassword}"; cat) | nc {'<本机IP>'} ${localPort}`
+                        : `nc {'<本机IP>'} ${localPort}`}
                     </div>
                     <p className="text-xs text-text-secondary mt-2">
                       请将 {'<本机IP>'} 替换为本机的局域网 IP 地址
                     </p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const ip = await window.qserial.getLocalIp();
+                          const cmd = accessPassword
+                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc ${ip} ${localPort}`
+                            : `nc ${ip} ${localPort}`;
+                          await navigator.clipboard.writeText(cmd);
+                        } catch {
+                          const cmd = accessPassword
+                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc <本机IP> ${localPort}`
+                            : `nc <本机IP> ${localPort}`;
+                          await navigator.clipboard.writeText(cmd);
+                        }
+                      }}
+                      className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
+                    >
+                      复制命令
+                    </button>
                   </div>
 
                   <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">

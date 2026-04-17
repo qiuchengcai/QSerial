@@ -2,7 +2,7 @@
  * QSerial Main Process Entry
  */
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { setupIpcHandlers } from './ipc/index.js';
@@ -66,8 +66,6 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../../renderer/dist/index.html'));
-    // 生产环境也打开开发者工具方便调试
-    mainWindow.webContents.openDevTools();
   }
 
   // 渲染进程重新加载时清理所有连接
@@ -137,6 +135,16 @@ app.whenReady().then(async () => {
   console.log('App ready');
   await initialize();
   createWindow();
+
+  // 注册 F12 快捷键切换开发者工具
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: app.name,
+      submenu: [
+        { role: 'toggleDevTools', accelerator: 'F12' },
+      ],
+    },
+  ]));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

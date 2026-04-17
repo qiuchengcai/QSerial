@@ -192,8 +192,6 @@ module.exports = {
     signAndEditExecutable: false,
   },
 
-  forceCodeSigning: false,
-
   mac: {
     target: [
       {

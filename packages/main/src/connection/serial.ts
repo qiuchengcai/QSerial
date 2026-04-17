@@ -39,7 +39,6 @@ export class SerialConnection implements IConnection {
       throw new Error('Connection already open');
     }
 
-    console.log('[SerialConnection] Opening connection:', this.options.path);
     this._state = ConnectionState.CONNECTING;
     this.emitStateChange();
 
@@ -56,10 +55,8 @@ export class SerialConnection implements IConnection {
       await new Promise<void>((resolve, reject) => {
         this.port!.open((err) => {
           if (err) {
-            console.error('[SerialConnection] Failed to open port:', err);
             reject(err);
           } else {
-            console.log('[SerialConnection] Port opened successfully');
             resolve();
           }
         });
@@ -72,7 +69,6 @@ export class SerialConnection implements IConnection {
 
       // 错误监听
       this.port.on('error', (error: Error) => {
-        console.error('[SerialConnection] Port error:', error);
         this._state = ConnectionState.ERROR;
         this.emitStateChange();
         this.eventEmitter.emit('error', error);
@@ -81,19 +77,16 @@ export class SerialConnection implements IConnection {
 
       // 关闭监听
       this.port.on('close', () => {
-        console.log('[SerialConnection] Port closed');
         this._state = ConnectionState.DISCONNECTED;
         this.emitStateChange();
         this.eventEmitter.emit('close');
         this.handleReconnect();
       });
 
-      console.log('[SerialConnection] Setting state to CONNECTED');
       this._state = ConnectionState.CONNECTED;
       this.reconnectCount = 0;
       this.emitStateChange();
     } catch (error) {
-      console.error('[SerialConnection] Open failed:', error);
       this._state = ConnectionState.ERROR;
       this.emitStateChange();
       this.eventEmitter.emit('error', error);
@@ -105,7 +98,6 @@ export class SerialConnection implements IConnection {
    * 使用共享连接打开（复用已有串口）
    */
   async openWithShared(sharedConnection: IConnection): Promise<void> {
-    console.log('[SerialConnection] Opening with shared connection:', sharedConnection.id);
     this.sharedConnection = sharedConnection;
     this._state = ConnectionState.CONNECTING;
     this.emitStateChange();
@@ -132,11 +124,9 @@ export class SerialConnection implements IConnection {
         this.eventEmitter.emit('error', err);
       });
 
-      console.log('[SerialConnection] Shared connection established');
       this._state = ConnectionState.CONNECTED;
       this.emitStateChange();
     } catch (error) {
-      console.error('[SerialConnection] Open with shared failed:', error);
       this._state = ConnectionState.ERROR;
       this.emitStateChange();
       this.eventEmitter.emit('error', error);

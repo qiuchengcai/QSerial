@@ -42,14 +42,26 @@ echo "  Node: $(node --version)"
 echo "  pnpm: $(pnpm --version)"
 echo ""
 
+# 检查 wine（用于在 Linux 上设置 exe 图标）
+if command -v wine &>/dev/null; then
+  echo "  Wine: 可用（将自动设置 exe 图标）"
+else
+  echo -e "${YELLOW}  警告: 未找到 wine，exe 图标可能无法正确设置${NC}"
+fi
+
 # 设置环境变量
 export CSC_IDENTITY_AUTO_DISCOVERY=false
 
 # 安装依赖
 echo -e "${YELLOW}[2/5] 安装依赖...${NC}"
-pnpm install
+pnpm install --engine-strict=false
 echo -e "${GREEN}  ✓ 依赖安装完成${NC}"
 echo ""
+
+# 生成 ICO 图标（32bpp，小尺寸 BMP + 大尺寸 PNG）
+echo -e "${YELLOW}  生成 ICO 图标...${NC}"
+python3 "$(dirname "$0")/scripts/gen_icon_ico.py"
+echo -e "${GREEN}  ✓ ICO 图标生成完成${NC}"
 
 # 构建 TypeScript
 echo -e "${YELLOW}[3/5] 构建项目...${NC}"
@@ -61,7 +73,17 @@ echo ""
 
 # 打包 Windows 免安装版
 echo -e "${YELLOW}[4/5] 打包 Windows 免安装版...${NC}"
-npx electron-builder --win dir --x64 -c electron-builder.config.cjs
+npx electron-builder --win dir --x64 -c electron-builder.config.cjs || true
+
+# 设置 exe 图标（交叉编译时 wine32 可能缺失，用 rcedit-x64 手动设置）
+if [ -f "release/win-unpacked/QSerial.exe" ]; then
+  echo -e "${YELLOW}  设置 exe 图标...${NC}"
+  RCEDIT="/root/.cache/electron-builder/winCodeSign/winCodeSign-2.6.0/rcedit-x64.exe"
+  if [ -f "$RCEDIT" ] && command -v wine &>/dev/null; then
+    DISPLAY= WINEDEBUG=-all wine "$RCEDIT" "$(pwd)/release/win-unpacked/QSerial.exe" --set-icon "$(pwd)/build/icon.ico" 2>/dev/null
+    echo -e "${GREEN}  ✓ 图标设置完成${NC}"
+  fi
+fi
 echo -e "${GREEN}  ✓ 打包完成${NC}"
 echo ""
 

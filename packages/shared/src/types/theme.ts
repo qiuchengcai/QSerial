@@ -143,7 +143,7 @@ const BASE_TRANSITIONS = {
  */
 export const DEFAULT_DARK_THEME: Theme = {
   id: 'default-dark',
-  name: '默认暗色',
+  name: 'Default Dark',
   type: 'dark',
   xterm: {
     foreground: '#D4D4D4',
@@ -200,7 +200,7 @@ export const DEFAULT_DARK_THEME: Theme = {
  */
 export const DEFAULT_LIGHT_THEME: Theme = {
   id: 'default-light',
-  name: '默认亮色',
+  name: 'Default Light',
   type: 'light',
   xterm: {
     foreground: '#333333',
@@ -257,7 +257,7 @@ export const DEFAULT_LIGHT_THEME: Theme = {
  */
 export const ONE_DARK_THEME: Theme = {
   id: 'one-dark',
-  name: '暗夜蓝',
+  name: 'One Dark',
   author: 'Atom',
   type: 'dark',
   xterm: {
@@ -315,7 +315,7 @@ export const ONE_DARK_THEME: Theme = {
  */
 export const DRACULA_THEME: Theme = {
   id: 'dracula',
-  name: '德古拉',
+  name: 'Dracula',
   author: 'Dracula Theme',
   type: 'dark',
   xterm: {
@@ -373,7 +373,7 @@ export const DRACULA_THEME: Theme = {
  */
 export const MONOKAI_THEME: Theme = {
   id: 'monokai',
-  name: '莫诺凯',
+  name: 'Monokai',
   author: 'Wimer Hazenberg',
   type: 'dark',
   xterm: {
@@ -431,7 +431,7 @@ export const MONOKAI_THEME: Theme = {
  */
 export const NORD_THEME: Theme = {
   id: 'nord',
-  name: '北欧极光',
+  name: 'Nord',
   author: 'Arctic Ice Studio',
   type: 'dark',
   xterm: {
@@ -489,7 +489,7 @@ export const NORD_THEME: Theme = {
  */
 export const SOLARIZED_DARK_THEME: Theme = {
   id: 'solarized-dark',
-  name: '日晒暗色',
+  name: 'Solarized Dark',
   author: 'Ethan Schoonover',
   type: 'dark',
   xterm: {
@@ -548,7 +548,7 @@ export const SOLARIZED_DARK_THEME: Theme = {
  */
 export const PAPER_BOOK_THEME: Theme = {
   id: 'paper-book',
-  name: '纸质书',
+  name: 'Paper Book',
   author: 'QSerial',
   type: 'light',
   xterm: {

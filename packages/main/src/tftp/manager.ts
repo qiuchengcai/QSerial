@@ -84,19 +84,16 @@ export function startTftpServer(port: number, rootDir: string): void {
     });
 
     server.on('error', (error: Error) => {
-      console.error('TFTP server error:', error);
       currentStatus.running = false;
       sendStatusEvent({ running: false, error: error.message });
     });
 
     server.on('listening', () => {
-      console.log(`TFTP server listening on port ${port}, root: ${rootDir}`);
       currentStatus = { running: true, port, rootDir };
       sendStatusEvent({ running: true });
     });
 
     server.on('close', () => {
-      console.log('TFTP server closed');
       currentStatus.running = false;
       sendStatusEvent({ running: false });
       activeTransfers.clear();
@@ -113,8 +110,6 @@ export function startTftpServer(port: number, rootDir: string): void {
       // PUT = 客户端上传 = 服务器接收文件
       const direction: TftpTransferDirection = method === 'GET' ? 'download' : 'upload';
       const fileSize = stats.size ?? undefined;
-
-      console.log(`TFTP ${direction} started: ${file} from ${remoteAddress}, size: ${fileSize}`);
 
       // 初始化传输跟踪
       activeTransfers.set(id, {
@@ -208,7 +203,6 @@ export function startTftpServer(port: number, rootDir: string): void {
         if (!transfer || transfer.completed) return;
         // 如果还没有完成，说明是正常结束
         transfer.completed = true;
-        console.log(`TFTP ${direction} completed (close): ${file}, transferred: ${transfer.transferred}`);
         sendTransferEvent({
           id,
           file,
@@ -227,7 +221,6 @@ export function startTftpServer(port: number, rootDir: string): void {
         const transfer = getTransfer();
         if (transfer && !transfer.completed) {
           transfer.completed = true;
-          console.log(`TFTP ${direction} aborted: ${file}`);
           sendTransferEvent({
             id,
             file,
@@ -244,7 +237,6 @@ export function startTftpServer(port: number, rootDir: string): void {
         const transfer = getTransfer();
         if (transfer && !transfer.completed) {
           transfer.completed = true;
-          console.error(`TFTP ${direction} error: ${file}`, error);
           sendTransferEvent({
             id,
             file,
@@ -260,7 +252,6 @@ export function startTftpServer(port: number, rootDir: string): void {
 
     server.listen();
   } catch (error) {
-    console.error('Failed to start TFTP server:', error);
     throw error;
   }
 }
@@ -272,8 +263,8 @@ export function stopTftpServer(): void {
   if (server) {
     try {
       server.close();
-    } catch (error) {
-      console.error('Error closing TFTP server:', error);
+    } catch {
+      // ignore close errors
     }
     server = null;
     currentStatus.running = false;

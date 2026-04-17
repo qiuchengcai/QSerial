@@ -206,7 +206,7 @@ export const Sidebar: React.FC = () => {
         });
 
         createTab(savedSession.name);
-        createSession(connectionId, ConnectionType.SSH);
+        createSession(connectionId, ConnectionType.SSH, undefined, config.host);
         await window.qserial.connection.open(connectionId);
       } catch (error) {
         console.error('Failed to quick connect SSH:', error);
@@ -233,7 +233,7 @@ export const Sidebar: React.FC = () => {
         });
 
         createTab(savedSession.name);
-        createSession(connectionId, ConnectionType.TELNET);
+        createSession(connectionId, ConnectionType.TELNET, undefined, config.host);
         await window.qserial.connection.open(connectionId);
       } catch (error) {
         console.error('Failed to quick connect Telnet:', error);
@@ -275,8 +275,31 @@ export const Sidebar: React.FC = () => {
   };
 
   const isSessionConnected = (savedSession: SavedSession): boolean => {
-    if (savedSession.type === 'serial' && savedSession.serialConfig) {
-      return findActiveSerialSession(savedSession.serialConfig.path) !== null;
+    for (const session of Object.values(sessions)) {
+      if (session.connectionState !== ConnectionState.CONNECTED &&
+          session.connectionState !== ConnectionState.CONNECTING) {
+        continue;
+      }
+      if (savedSession.type === 'serial' && savedSession.serialConfig) {
+        if (session.connectionType === ConnectionType.SERIAL &&
+            session.serialPath === savedSession.serialConfig.path) {
+          return true;
+        }
+      } else if (savedSession.type === 'ssh' && savedSession.sshConfig) {
+        if (session.connectionType === ConnectionType.SSH &&
+            session.host === savedSession.sshConfig.host) {
+          return true;
+        }
+      } else if (savedSession.type === 'telnet' && savedSession.telnetConfig) {
+        if (session.connectionType === ConnectionType.TELNET &&
+            session.host === savedSession.telnetConfig.host) {
+          return true;
+        }
+      } else if (savedSession.type === 'pty' && savedSession.ptyConfig) {
+        if (session.connectionType === ConnectionType.PTY) {
+          return true;
+        }
+      }
     }
     return false;
   };
@@ -309,7 +332,7 @@ export const Sidebar: React.FC = () => {
       });
 
       createTab(`SSH ${options.host}`);
-      createSession(connectionId, ConnectionType.SSH);
+      createSession(connectionId, ConnectionType.SSH, undefined, options.host);
       await window.qserial.connection.open(connectionId);
 
       if (options.saveConfig && options.configName) {
@@ -352,7 +375,7 @@ export const Sidebar: React.FC = () => {
       });
 
       createTab(`Telnet ${options.host}`);
-      createSession(connectionId, ConnectionType.TELNET);
+      createSession(connectionId, ConnectionType.TELNET, undefined, options.host);
       await window.qserial.connection.open(connectionId);
 
       if (options.saveConfig && options.configName) {
@@ -509,56 +532,41 @@ export const Sidebar: React.FC = () => {
         <button
           onClick={handleNewTerminal}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="本地终端"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 4h12M2 4v8M2 4l4 4-4 4M14 4v8M14 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          💻
         </button>
         <button
           onClick={() => setShowSerialDialog(true)}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="串口连接"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M6 2v4a2 2 0 004 0V2M8 6v8M6 14h4" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          🔌
         </button>
         <button
           onClick={handleNewSSH}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="SSH 连接"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2" fill="none" />
-            <ellipse cx="8" cy="8" rx="2.5" ry="6" stroke="currentColor" strokeWidth="1" fill="none" />
-            <path d="M2 8h12M2.5 5.5h11M2.5 10.5h11" stroke="currentColor" strokeWidth="0.8" fill="none" />
-          </svg>
+          🌐
         </button>
         <button
           onClick={() => setShowTelnetDialog(true)}
           disabled={isConnecting}
-          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="Telnet 连接"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 14l4-4M8 8l3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            <circle cx="13" cy="3" r="2" stroke="currentColor" strokeWidth="1.2" fill="none" />
-            <path d="M4 14h2M8 10l2 2" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
-          </svg>
+          📡
         </button>
         <button
           onClick={() => setShowTftpDialog(true)}
-          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover mb-1 text-text-secondary hover:text-text transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover mb-1 text-text-secondary hover:text-text transition-colors text-sm"
           title="TFTP 服务器"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 3h5l1 1h6v9H2V3z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinejoin="round" />
-            <path d="M6 7h4M6 9h4" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" />
-          </svg>
+          📁
         </button>
 
         {/* 对话框 */}
@@ -647,9 +655,7 @@ export const Sidebar: React.FC = () => {
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="本地终端"
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
-              <path d="M2 4h12M2 4v8M2 4l4 4-4 4M14 4v8M14 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <span className="text-sm flex-shrink-0">💻</span>
             <span className="text-xs truncate">{isConnecting ? '连接中...' : '本地终端'}</span>
           </button>
           <button
@@ -658,9 +664,7 @@ export const Sidebar: React.FC = () => {
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="串口连接"
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
-              <path d="M6 2v4a2 2 0 004 0V2M8 6v8M6 14h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <span className="text-sm flex-shrink-0">🔌</span>
             <span className="text-xs truncate">串口连接</span>
           </button>
           <button
@@ -669,11 +673,7 @@ export const Sidebar: React.FC = () => {
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="SSH 连接"
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3" fill="none" />
-              <ellipse cx="8" cy="8" rx="2.5" ry="6" stroke="currentColor" strokeWidth="1" fill="none" />
-              <path d="M2 8h12M2.5 5.5h11M2.5 10.5h11" stroke="currentColor" strokeWidth="0.8" fill="none" />
-            </svg>
+            <span className="text-sm flex-shrink-0">🌐</span>
             <span className="text-xs truncate">SSH</span>
           </button>
           <button
@@ -682,11 +682,7 @@ export const Sidebar: React.FC = () => {
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left disabled:opacity-50 group"
             title="Telnet 连接"
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
-              <path d="M2 14l4-4M8 8l3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              <circle cx="13" cy="3" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
-              <path d="M4 14h2M8 10l2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
+            <span className="text-sm flex-shrink-0">📡</span>
             <span className="text-xs truncate">Telnet</span>
           </button>
           <button
@@ -694,10 +690,7 @@ export const Sidebar: React.FC = () => {
             className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left group"
             title="TFTP 服务器"
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
-              <path d="M2 3h5l1 1h6v9H2V3z" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round" />
-              <path d="M6 7h4M6 9h4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-            </svg>
+            <span className="text-sm flex-shrink-0">📁</span>
             <span className="text-xs truncate">TFTP</span>
           </button>
         </div>

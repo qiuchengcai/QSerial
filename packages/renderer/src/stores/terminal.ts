@@ -19,14 +19,12 @@ interface Session {
   lastActiveAt: Date;
   // 串口路径（用于判断是否已连接）
   serialPath?: string;
+  // 主机地址（SSH/Telnet 用于判断是否已连接）
+  host?: string;
   // 日志文件路径
   logFilePath?: string;
   // 日志启用状态
   logEnabled: boolean;
-  // 串口共享启用状态
-  serialShareEnabled: boolean;
-  // 串口共享本地端口
-  serialSharePort?: number;
 }
 
 interface Tab {
@@ -49,7 +47,7 @@ interface TerminalState {
   renameTab: (tabId: string, name: string) => void;
 
   // Session 操作
-  createSession: (connectionId: string, type: ConnectionType, serialPath?: string) => string;
+  createSession: (connectionId: string, type: ConnectionType, serialPath?: string, host?: string) => string;
   closeSession: (sessionId: string) => void;
   updateSessionState: (sessionId: string, state: ConnectionState) => void;
   updateSessionSize: (sessionId: string, cols: number, rows: number) => void;
@@ -67,9 +65,6 @@ interface TerminalState {
   startLog: (sessionId: string, filePath: string) => void;
   stopLog: (sessionId: string) => void;
   setLogEnabled: (sessionId: string, enabled: boolean) => void;
-
-  // 串口共享操作
-  setSerialShareEnabled: (sessionId: string, enabled: boolean, localPort?: number) => void;
 }
 
 export const useTerminalStore = create<TerminalState>()(
@@ -139,7 +134,7 @@ export const useTerminalStore = create<TerminalState>()(
       });
     },
 
-    createSession: (connectionId, type, serialPath) => {
+    createSession: (connectionId, type, serialPath, host) => {
       const sessionId = crypto.randomUUID();
       set((state) => {
         const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
@@ -156,8 +151,8 @@ export const useTerminalStore = create<TerminalState>()(
           createdAt: new Date(),
           lastActiveAt: new Date(),
           serialPath,
+          host,
           logEnabled: false,
-          serialShareEnabled: false,
         };
 
         activeTab.sessions.push(sessionId);
@@ -218,7 +213,7 @@ export const useTerminalStore = create<TerminalState>()(
       if (!session) return sessionId;
 
       // 创建新的 Session (复用相同连接配置)
-      const newSessionId = state.createSession(session.connectionId, session.connectionType);
+      const newSessionId = state.createSession(session.connectionId, session.connectionType, session.serialPath, session.host);
 
       set((s) => {
         const tab = s.tabs.find((t) => t.sessions.includes(sessionId));
@@ -305,16 +300,6 @@ export const useTerminalStore = create<TerminalState>()(
         const session = state.sessions[sessionId];
         if (session) {
           session.logEnabled = enabled;
-        }
-      });
-    },
-
-    setSerialShareEnabled: (sessionId, enabled, localPort) => {
-      set((state) => {
-        const session = state.sessions[sessionId];
-        if (session) {
-          session.serialShareEnabled = enabled;
-          session.serialSharePort = localPort;
         }
       });
     },
