@@ -134,6 +134,32 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.SERIAL_SERVER_STATUS, { id }),
   },
 
+  // 连接共享服务（通用版，支持任意连接类型）
+  connectionServer: {
+    start: (options: {
+      id: string;
+      sourceType: 'existing' | 'new';
+      existingConnectionId?: string;
+      newConnectionOptions?: unknown;
+      localPort: number;
+      listenAddress?: string;
+      accessPassword?: string;
+      sshTunnel?: {
+        host: string;
+        port: number;
+        username: string;
+        remotePort: number;
+        password?: string;
+      };
+    }) => {
+      return ipcRenderer.invoke(IPC_CHANNELS.CONNECTION_SERVER_START, options);
+    },
+    stop: (id: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.CONNECTION_SERVER_STOP, { id }),
+    getStatus: (id: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.CONNECTION_SERVER_STATUS, { id }),
+  },
+
   // 调试日志
   onDebugLog: (callback: (event: { message: string; timestamp: number }) => void) => {
     const handler = (_: unknown, event: { message: string; timestamp: number }) => {

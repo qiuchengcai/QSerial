@@ -142,7 +142,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
       <div className="dialog-content bg-surface rounded-xl w-[520px] max-h-[90vh] overflow-hidden border border-white/5">
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">

@@ -2,7 +2,7 @@
  * 全局类型声明
  */
 
-import type { SerialPortInfo, SerialServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent } from '@qserial/shared';
+import type { SerialPortInfo, SerialServerStatus, ConnectionServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent } from '@qserial/shared';
 
 interface QSerialAPI {
   connection: {
@@ -78,6 +78,28 @@ interface QSerialAPI {
     }) => Promise<void>;
     stop: (id: string) => Promise<void>;
     getStatus: (id: string) => Promise<SerialServerStatus>;
+  };
+
+  // 连接共享服务（通用版）
+  connectionServer: {
+    start: (options: {
+      id: string;
+      sourceType: 'existing' | 'new';
+      existingConnectionId?: string;
+      newConnectionOptions?: unknown;
+      localPort: number;
+      listenAddress?: string;
+      accessPassword?: string;
+      sshTunnel?: {
+        host: string;
+        port: number;
+        username: string;
+        remotePort: number;
+        password?: string;
+      };
+    }) => Promise<void>;
+    stop: (id: string) => Promise<void>;
+    getStatus: (id: string) => Promise<ConnectionServerStatus>;
   };
 
   onDebugLog: (callback: (event: { message: string; timestamp: number }) => void) => () => void;

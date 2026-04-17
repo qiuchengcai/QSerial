@@ -1,18 +1,17 @@
 /**
- * 串口共享对话框
+ * 连接共享对话框
+ * 支持共享任意类型的活跃连接（串口、SSH、Telnet、PTY）
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import type { SerialPortInfo } from '@qserial/shared';
+import React, { useState, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useConfigStore } from '@/stores/config';
 import { ConnectionType, ConnectionState } from '@qserial/shared';
 
-interface SerialShareDialogProps {
+interface ConnectionShareDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultSerialPath?: string;
-  defaultBaudRate?: number;
+  defaultSessionId?: string;
 }
 
 interface SshTunnelConfig {
@@ -20,27 +19,50 @@ interface SshTunnelConfig {
   port: number;
   username: string;
   remotePort: number;
-  password?: string; // 可选，留空使用 ~/.ssh 下的默认密钥
+  password?: string;
 }
 
-const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
+interface ActiveSession {
+  sessionId: string;
+  connectionId: string;
+  connectionType: ConnectionType;
+  name: string;
+  description: string;
+  state: ConnectionState;
+}
 
-export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
+interface SessionInfo {
+  connectionId: string;
+  connectionType: ConnectionType;
+  connectionState: ConnectionState;
+  name: string;
+  serialPath?: string;
+  host?: string;
+}
+
+const CONNECTION_TYPE_LABELS: Record<ConnectionType, string> = {
+  [ConnectionType.SERIAL]: '串口',
+  [ConnectionType.SSH]: 'SSH',
+  [ConnectionType.TELNET]: 'Telnet',
+  [ConnectionType.PTY]: '本地终端',
+  [ConnectionType.SERIAL_SERVER]: '串口共享',
+  [ConnectionType.CONNECTION_SERVER]: '连接共享',
+};
+
+export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
   isOpen,
   onClose,
-  defaultSerialPath,
-  defaultBaudRate,
+  defaultSessionId,
 }) => {
   const { sessions } = useTerminalStore();
   const { config, updateConfig } = useConfigStore();
-  const [ports, setPorts] = useState<SerialPortInfo[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [status, setStatus] = useState<{
     running: boolean;
-    serialPath: string;
+    sourceType: 'existing' | 'new';
+    sourceDescription: string;
     localPort: number;
     listenAddress: string;
     clientCount: number;
@@ -49,79 +71,88 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
     hasPassword: boolean;
   } | null>(null);
 
-  // 串口配置 - 使用配置文件中的默认值
-  const [selectedPort, setSelectedPort] = useState(defaultSerialPath || '');
-  const [baudRate, setBaudRate] = useState(defaultBaudRate || 115200);
-  const [localPort, setLocalPort] = useState(config.serialShare?.defaultLocalPort || 8888);
-  const [listenAddress, setListenAddress] = useState(config.serialShare?.defaultListenAddress || '0.0.0.0');
+  // 获取活跃会话列表
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+
+  // 服务配置
+  const localPort = config.connectionShare?.defaultLocalPort || config.serialShare?.defaultLocalPort || 8888;
+  const [localPortValue, setLocalPortValue] = useState(localPort);
+  const [listenAddress, setListenAddress] = useState(
+    config.connectionShare?.defaultListenAddress || config.serialShare?.defaultListenAddress || '0.0.0.0'
+  );
   const [accessPassword, setAccessPassword] = useState('');
 
-  // 是否复用现有连接（由后端自动检测）
-  const [shareExistingInfo, setShareExistingInfo] = useState<{ available: boolean; sessionName?: string }>({ available: false });
-
-  // 自动检测是否有现有连接
-  useEffect(() => {
-    if (!selectedPort) {
-      setShareExistingInfo({ available: false });
-      return;
-    }
-
-    // 查找使用该串口的活跃会话
-    const existingSession = Object.values(sessions).find(
-      (s) => s.connectionType === ConnectionType.SERIAL &&
-             s.serialPath?.toLowerCase() === selectedPort.toLowerCase() &&
-             (s.connectionState === ConnectionState.CONNECTED ||
-              s.connectionState === ConnectionState.CONNECTING)
-    );
-
-    if (existingSession) {
-      setShareExistingInfo({
-        available: true,
-        sessionName: existingSession.name || existingSession.serialPath
-      });
-    } else {
-      setShareExistingInfo({ available: false });
-    }
-  }, [selectedPort, sessions]);
-
-  // SSH隧道配置 - 从配置文件加载最近使用的值
+  // SSH隧道配置
   const [enableSshTunnel, setEnableSshTunnel] = useState(false);
+  const recentTunnel = config.connectionShare?.recentSshTunnel || config.serialShare?.recentSshTunnel;
   const [sshConfig, setSshConfig] = useState<SshTunnelConfig>({
-    host: config.serialShare?.recentSshTunnel?.host || '',
-    port: config.serialShare?.recentSshTunnel?.port || 22,
-    username: config.serialShare?.recentSshTunnel?.username || 'root',
-    remotePort: config.serialShare?.recentSshTunnel?.remotePort || 8888,
+    host: recentTunnel?.host || '',
+    port: recentTunnel?.port || 22,
+    username: recentTunnel?.username || 'root',
+    remotePort: recentTunnel?.remotePort || 8888,
     password: '',
   });
 
-  // 根据选中的串口生成唯一的服务ID
-  const serverId = selectedPort ? `serial-server-${selectedPort.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
+  // 服务ID
+  const serverId = selectedSessionId
+    ? `conn-server-${selectedSessionId.slice(0, 8)}`
+    : '';
 
-  // 加载串口列表
-  const loadPorts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const portList = await window.qserial.serial.list();
-      setPorts(portList);
-    } catch (err) {
-      setError(`加载串口列表失败: ${(err as Error).message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // 计算活跃会话
   useEffect(() => {
-    if (isOpen) {
-      loadPorts();
+    const active: ActiveSession[] = [];
+    for (const [sessionId, session] of Object.entries(sessions) as [string, SessionInfo][]) {
+      if (session.connectionState === ConnectionState.CONNECTED) {
+        let description = '';
+        switch (session.connectionType) {
+          case ConnectionType.SERIAL:
+            description = session.serialPath || '串口';
+            break;
+          case ConnectionType.SSH:
+            description = session.host || 'SSH';
+            break;
+          case ConnectionType.TELNET:
+            description = session.host || 'Telnet';
+            break;
+          case ConnectionType.PTY:
+            description = '本地终端';
+            break;
+          default:
+            description = CONNECTION_TYPE_LABELS[session.connectionType] || '未知';
+        }
+
+        active.push({
+          sessionId,
+          connectionId: session.connectionId,
+          connectionType: session.connectionType,
+          name: session.name,
+          description,
+          state: session.connectionState,
+        });
+      }
     }
-  }, [isOpen, loadPorts]);
+    setActiveSessions(active);
+
+    // 自动选择默认会话
+    if (!selectedSessionId && defaultSessionId) {
+      const found = active.find((s) => s.sessionId === defaultSessionId);
+      if (found) {
+        setSelectedSessionId(found.sessionId);
+      }
+    }
+    // 如果当前选中的会话不再活跃，清除选择
+    if (selectedSessionId && !active.find((s) => s.sessionId === selectedSessionId)) {
+      setSelectedSessionId('');
+    }
+  }, [sessions, defaultSessionId]);
 
   // 轮询状态
   useEffect(() => {
     if (!isOpen || !serverId) return;
     const pollStatus = async () => {
       try {
-        const s = await window.qserial.serialServer.getStatus(serverId);
+        const s = await window.qserial.connectionServer.getStatus(serverId);
         setStatus(s);
       } catch {
         setStatus(null);
@@ -135,69 +166,54 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
   const handleStart = async () => {
     setError(null);
     setIsStarting(true);
-    if (!serverId) {
-      setError('请选择一个串口');
+
+    if (!selectedSessionId) {
+      setError('请选择一个活跃连接');
       setIsStarting(false);
       return;
     }
+
+    const session = activeSessions.find((s) => s.sessionId === selectedSessionId);
+    if (!session) {
+      setError('所选会话不存在');
+      setIsStarting(false);
+      return;
+    }
+
     try {
-      const options: {
-        id: string;
-        serialPath: string;
-        baudRate: number;
-        dataBits: 5 | 6 | 7 | 8;
-        stopBits: 1 | 1.5 | 2;
-        parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
-        localPort: number;
-        listenAddress?: string;
-        accessPassword?: string;
-        sshTunnel?: {
-          host: string;
-          port: number;
-          username: string;
-          remotePort: number;
-          privateKey?: string;
-          password?: string;
-        };
-      } = {
+      const options = {
         id: serverId,
-        serialPath: selectedPort,
-        baudRate,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'none',
-        localPort,
+        sourceType: 'existing' as const,
+        existingConnectionId: session.connectionId,
+        localPort: localPortValue,
         listenAddress,
         ...(accessPassword ? { accessPassword } : {}),
+        ...(enableSshTunnel && sshConfig.host ? {
+          sshTunnel: {
+            host: sshConfig.host,
+            port: sshConfig.port,
+            username: sshConfig.username,
+            remotePort: sshConfig.remotePort,
+            ...(sshConfig.password ? { password: sshConfig.password } : {}),
+          },
+        } : {}),
       };
 
-      if (enableSshTunnel && sshConfig.host) {
-        options.sshTunnel = {
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          remotePort: sshConfig.remotePort,
-          ...(sshConfig.password ? { password: sshConfig.password } : {}),
-        };
-      }
+      await window.qserial.connectionServer.start(options);
 
-      // 后端会自动检测现有连接并复用
-      await window.qserial.serialServer.start(options);
-
-      // 保存配置到配置文件
-      updateConfig('serialShare', {
-        defaultLocalPort: localPort,
+      // 保存配置
+      updateConfig('connectionShare', {
+        defaultLocalPort: localPortValue,
         defaultListenAddress: listenAddress,
         recentSshTunnel: enableSshTunnel && sshConfig.host ? {
           host: sshConfig.host,
           port: sshConfig.port,
           username: sshConfig.username,
           remotePort: sshConfig.remotePort,
-          savePassword: false, // 不保存密码到配置文件
+          savePassword: false,
         } : undefined,
       });
 
-      // 启动成功，显示提示对话框
       setShowSuccessDialog(true);
     } catch (err) {
       setError((err as Error).message);
@@ -208,7 +224,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
 
   const handleStop = async () => {
     try {
-      await window.qserial.serialServer.stop(serverId);
+      await window.qserial.connectionServer.stop(serverId);
       setStatus(null);
     } catch (err) {
       setError((err as Error).message);
@@ -232,7 +248,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            <h3 className="text-base font-semibold">串口共享</h3>
+            <h3 className="text-base font-semibold">连接共享</h3>
           </div>
           <button
             onClick={onClose}
@@ -245,52 +261,37 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
         </div>
 
         <div className="space-y-4 flex-1 overflow-y-auto min-h-0 p-5">
-          {/* 串口选择 */}
+          {/* 数据源选择 */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1.5">本地串口</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">选择活跃连接</label>
             <select
-              value={selectedPort}
-              onChange={(e) => setSelectedPort(e.target.value)}
+              value={selectedSessionId}
+              onChange={(e) => setSelectedSessionId(e.target.value)}
               disabled={isRunning}
               className="dialog-select"
             >
-              <option value="">选择串口...</option>
-              {ports.map((port) => (
-                <option key={port.path} value={port.path}>
-                  {port.path} - {port.manufacturer || port.serialNumber || 'Unknown'}
+              <option value="">选择连接...</option>
+              {activeSessions.map((s) => (
+                <option key={s.sessionId} value={s.sessionId}>
+                  [{CONNECTION_TYPE_LABELS[s.connectionType]}] {s.description} - {s.name}
                 </option>
               ))}
             </select>
 
-            {/* 复用状态显示 */}
-            <div className="mt-2 flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${shareExistingInfo.available ? 'bg-green-500' : 'bg-yellow-500'}`} />
-              <span className="text-xs text-text-secondary">
-                {shareExistingInfo.available
-                  ? `检测到现有连接: ${shareExistingInfo.sessionName || selectedPort}`
-                  : '未检测到现有连接'}
-              </span>
-            </div>
-            <p className="text-xs text-text-secondary/50 mt-1 ml-4">
-              共享服务会自动检测并复用该串口的现有连接
-            </p>
-          </div>
+            {activeSessions.length === 0 && (
+              <p className="text-xs text-yellow-500 mt-1.5">
+                没有活跃连接。请先连接一个串口、SSH 或 Telnet 会话。
+              </p>
+            )}
 
-          {/* 波特率 */}
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1.5">波特率</label>
-            <select
-              value={baudRate}
-              onChange={(e) => setBaudRate(Number(e.target.value))}
-              disabled={isRunning}
-              className="dialog-select"
-            >
-              {BAUD_RATES.map((rate) => (
-                <option key={rate} value={rate}>
-                  {rate}
-                </option>
-              ))}
-            </select>
+            {selectedSessionId && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs text-text-secondary">
+                  已选择活跃连接，将共享该连接的数据流
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 本地监听端口 */}
@@ -298,8 +299,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
             <label className="block text-xs font-medium text-text-secondary mb-1.5">本地监听端口</label>
             <input
               type="number"
-              value={localPort}
-              onChange={(e) => setLocalPort(Number(e.target.value))}
+              value={localPortValue}
+              onChange={(e) => setLocalPortValue(Number(e.target.value))}
               disabled={isRunning}
               className="dialog-input"
               min={1}
@@ -428,7 +429,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
               <span className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
               <span className="text-sm">
                 {isRunning
-                  ? `运行中 - ${selectedPort} -> ${status?.listenAddress || '0.0.0.0'}:${localPort}${status?.sshTunnelConnected ? ` (SSH隧道已连接)` : ''}${status?.hasPassword ? ' [已设密码]' : ''}`
+                  ? `运行中 - ${status?.sourceDescription || ''} -> ${status?.listenAddress || '0.0.0.0'}:${localPortValue}${status?.sshTunnelConnected ? ' (SSH隧道已连接)' : ''}${status?.hasPassword ? ' [已设密码]' : ''}`
                   : '已停止'}
               </span>
             </div>
@@ -469,7 +470,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
             ) : (
               <button
                 onClick={handleStart}
-                disabled={!selectedPort || isStarting}
+                disabled={!selectedSessionId || isStarting || activeSessions.length === 0}
                 className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50"
               >
                 {isStarting ? '启动中...' : '启动共享'}
@@ -480,9 +481,9 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
           {/* 使用说明 */}
           <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3 space-y-1">
             <p className="font-medium text-text-secondary/80">使用方式：</p>
-            <p>1. 远程Linux服务器执行: nc localhost {'{远程端口}'} 即可操作串口</p>
-            <p>2. 如启用SSH隧道，远程服务器需安装ssh并监听</p>
-            <p>3. 也可使用 socat - localhost:{'{远程端口}'} 交互操作</p>
+            <p>1. 选择任意活跃连接（串口、SSH、Telnet等），点击启动共享</p>
+            <p>2. 远程设备执行: nc {'<IP>'} {'{端口}'} 即可操作</p>
+            <p>3. 如启用SSH隧道，远程服务器上执行: nc localhost {'{远程端口}'}</p>
           </div>
         </div>
 
@@ -502,16 +503,15 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M20 6L9 17l-5-5"/>
               </svg>
-              串口共享已启动
+              连接共享已启动
             </h3>
 
             <div className="space-y-4 flex-1 overflow-y-auto">
               <div className="bg-background/50 rounded p-3">
                 <p className="text-sm text-text-secondary mb-2">连接信息：</p>
                 <div className="space-y-1 text-sm">
-                  <p><span className="text-text-secondary">串口：</span>{selectedPort}</p>
-                  <p><span className="text-text-secondary">波特率：</span>{baudRate}</p>
-                  <p><span className="text-text-secondary">监听地址：</span>{listenAddress}:{localPort}</p>
+                  <p><span className="text-text-secondary">数据源：</span>{status?.sourceDescription || '未知'}</p>
+                  <p><span className="text-text-secondary">监听地址：</span>{listenAddress}:{localPortValue}</p>
                   {accessPassword && (
                     <p><span className="text-text-secondary">访问密码：</span>已设置</p>
                   )}
@@ -544,8 +544,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
 
                   <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
                     <p className="font-medium text-text-secondary/80 mb-1">SSH反向隧道说明：</p>
-                    <p>已建立从远程服务器端口 {sshConfig.remotePort} 到本地端口 {localPort} 的反向隧道。</p>
-                    <p className="mt-1">在远程服务器上执行上述命令即可操作本地串口。</p>
+                    <p>已建立从远程服务器端口 {sshConfig.remotePort} 到本地端口 {localPortValue} 的反向隧道。</p>
+                    <p className="mt-1">在远程服务器上执行上述命令即可操作本地连接。</p>
                   </div>
                 </>
               ) : (
@@ -554,8 +554,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                     <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
                     <div className="bg-background rounded-md p-2 font-mono text-sm">
                       {accessPassword
-                        ? `(echo "PASSWORD:${accessPassword}"; cat) | nc {'<本机IP>'} ${localPort}`
-                        : `nc {'<本机IP>'} ${localPort}`}
+                        ? `(echo "PASSWORD:${accessPassword}"; cat) | nc {'<本机IP>'} ${localPortValue}`
+                        : `nc {'<本机IP>'} ${localPortValue}`}
                     </div>
                     <p className="text-xs text-text-secondary mt-2">
                       请将 {'<本机IP>'} 替换为本机的局域网 IP 地址
@@ -565,13 +565,13 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                         try {
                           const ip = await window.qserial.getLocalIp();
                           const cmd = accessPassword
-                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc ${ip} ${localPort}`
-                            : `nc ${ip} ${localPort}`;
+                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc ${ip} ${localPortValue}`
+                            : `nc ${ip} ${localPortValue}`;
                           await navigator.clipboard.writeText(cmd);
                         } catch {
                           const cmd = accessPassword
-                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc <本机IP> ${localPort}`
-                            : `nc <本机IP> ${localPort}`;
+                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc <本机IP> ${localPortValue}`
+                            : `nc <本机IP> ${localPortValue}`;
                           await navigator.clipboard.writeText(cmd);
                         }
                       }}
@@ -583,8 +583,7 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
 
                   <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
                     <p className="font-medium text-text-secondary/80 mb-1">本地局域网连接说明：</p>
-                    <p>同一局域网内的其他设备可通过上述命令连接串口。</p>
-                    <p className="mt-1">可在命令行执行 <code className="bg-background px-1 rounded">ipconfig</code> (Windows) 或 <code className="bg-background px-1 rounded">ifconfig</code> (Linux/Mac) 查看本机 IP。</p>
+                    <p>同一局域网内的其他设备可通过上述命令连接。</p>
                   </div>
                 </>
               )}

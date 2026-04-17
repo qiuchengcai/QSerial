@@ -10,7 +10,8 @@ export enum ConnectionType {
   SERIAL = 'serial',
   SSH = 'ssh',
   TELNET = 'telnet',
-  SERIAL_SERVER = 'serial_server', // 串口服务端（TCP共享）
+  SERIAL_SERVER = 'serial_server', // @deprecated 使用 CONNECTION_SERVER
+  CONNECTION_SERVER = 'connection_server', // 连接共享服务端（TCP共享任意连接）
 }
 
 /**
@@ -88,6 +89,7 @@ export interface TelnetConnectionOptions extends BaseConnectionOptions {
 
 /**
  * 串口服务端选项（TCP共享串口）
+ * @deprecated 使用 ConnectionServerOptions 替代
  */
 export interface SerialServerOptions extends BaseConnectionOptions {
   type: ConnectionType.SERIAL_SERVER;
@@ -111,6 +113,36 @@ export interface SerialServerOptions extends BaseConnectionOptions {
 }
 
 /**
+ * 连接共享服务端选项（TCP共享任意连接）
+ */
+export interface ConnectionServerOptions extends BaseConnectionOptions {
+  type: ConnectionType.CONNECTION_SERVER;
+  // 数据源配置
+  sourceType: 'existing' | 'new';
+  existingConnectionId?: string; // 复用已有连接的ID
+  newConnectionOptions?: ConnectionOptions; // 新建连接的配置
+  // 串口参数（兼容旧配置，sourceType='new' 且连接类型为 serial 时使用）
+  serialPath?: string;
+  baudRate?: number;
+  dataBits?: 5 | 6 | 7 | 8;
+  stopBits?: 1 | 1.5 | 2;
+  parity?: 'none' | 'even' | 'odd' | 'mark' | 'space';
+  // 共享服务配置
+  localPort: number; // 本地TCP监听端口
+  listenAddress?: string; // 本地TCP监听地址，默认 '0.0.0.0'
+  accessPassword?: string; // 访问密码，为空则无需认证
+  // SSH反向隧道选项
+  sshTunnel?: {
+    host: string; // 远程服务器地址
+    port: number; // SSH端口
+    username: string;
+    remotePort: number; // 远程转发端口
+    privateKey?: string;
+    password?: string;
+  };
+}
+
+/**
  * 连接选项联合类型
  */
 export type ConnectionOptions =
@@ -118,7 +150,8 @@ export type ConnectionOptions =
   | SerialConnectionOptions
   | SshConnectionOptions
   | TelnetConnectionOptions
-  | SerialServerOptions;
+  | SerialServerOptions
+  | ConnectionServerOptions;
 
 /**
  * 连接信息

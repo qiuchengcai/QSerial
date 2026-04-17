@@ -10,7 +10,8 @@ export interface AppConfig {
   terminal: TerminalSettings;
   serial: SerialSettings;
   ssh: SshSettings;
-  serialShare: SerialShareSettings;
+  serialShare: SerialShareSettings; // @deprecated 使用 connectionShare
+  connectionShare: ConnectionShareSettings;
   window: WindowSettings;
 }
 
@@ -67,10 +68,26 @@ export interface SshSettings {
 
 /**
  * 串口共享设置
+ * @deprecated 使用 ConnectionShareSettings 替代
  */
 export interface SerialShareSettings {
   defaultLocalPort: number;
   // 最近使用的SSH隧道配置
+  recentSshTunnel?: {
+    host: string;
+    port: number;
+    username: string;
+    remotePort: number;
+    savePassword: boolean;
+  };
+}
+
+/**
+ * 连接共享设置
+ */
+export interface ConnectionShareSettings {
+  defaultLocalPort: number;
+  defaultListenAddress?: string;
   recentSshTunnel?: {
     host: string;
     port: number;
@@ -136,6 +153,11 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   serialShare: {
     defaultLocalPort: 8888,
+  },
+
+  connectionShare: {
+    defaultLocalPort: 8888,
+    defaultListenAddress: '0.0.0.0',
   },
 
   window: {

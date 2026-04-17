@@ -109,7 +109,7 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
       <div className="dialog-content bg-surface rounded-xl w-[480px] max-h-[80vh] flex flex-col border border-white/5">
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">

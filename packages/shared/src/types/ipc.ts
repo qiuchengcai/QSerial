@@ -59,10 +59,13 @@ export const IPC_CHANNELS = {
   LOG_WRITE: 'log:write',
   LOG_PICK_FILE: 'log:pickFile',
 
-  // 串口共享服务
+  // 连接共享服务
   SERIAL_SERVER_START: 'serialServer:start',
   SERIAL_SERVER_STOP: 'serialServer:stop',
   SERIAL_SERVER_STATUS: 'serialServer:status',
+  CONNECTION_SERVER_START: 'connectionServer:start',
+  CONNECTION_SERVER_STOP: 'connectionServer:stop',
+  CONNECTION_SERVER_STATUS: 'connectionServer:status',
 
   // 调试日志
   DEBUG_LOG: 'debug:log',
@@ -139,6 +142,30 @@ export interface IpcRequestMap {
   };
   [IPC_CHANNELS.SERIAL_SERVER_STOP]: { id: string };
   [IPC_CHANNELS.SERIAL_SERVER_STATUS]: { id: string };
+  [IPC_CHANNELS.CONNECTION_SERVER_START]: {
+    id: string;
+    sourceType: 'existing' | 'new';
+    existingConnectionId?: string;
+    newConnectionOptions?: ConnectionOptions;
+    // 串口参数（兼容旧配置）
+    serialPath?: string;
+    baudRate?: number;
+    dataBits?: 5 | 6 | 7 | 8;
+    stopBits?: 1 | 1.5 | 2;
+    parity?: 'none' | 'even' | 'odd' | 'mark' | 'space';
+    localPort: number;
+    listenAddress?: string;
+    accessPassword?: string;
+    sshTunnel?: {
+      host: string;
+      port: number;
+      username: string;
+      remotePort: number;
+      password?: string;
+    };
+  };
+  [IPC_CHANNELS.CONNECTION_SERVER_STOP]: { id: string };
+  [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: { id: string };
   [IPC_CHANNELS.GET_LOCAL_IP]: void;
   [IPC_CHANNELS.READ_FILE]: { path: string };
   [IPC_CHANNELS.SFTP_CREATE]: { connectionId: string };
@@ -189,6 +216,9 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.SERIAL_SERVER_START]: void;
   [IPC_CHANNELS.SERIAL_SERVER_STOP]: void;
   [IPC_CHANNELS.SERIAL_SERVER_STATUS]: SerialServerStatus;
+  [IPC_CHANNELS.CONNECTION_SERVER_START]: void;
+  [IPC_CHANNELS.CONNECTION_SERVER_STOP]: void;
+  [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: ConnectionServerStatus;
   [IPC_CHANNELS.GET_LOCAL_IP]: string;
   [IPC_CHANNELS.READ_FILE]: string;
   [IPC_CHANNELS.SFTP_CREATE]: { sftpId: string };
@@ -288,10 +318,26 @@ export interface TftpTransferEvent {
 
 /**
  * 串口服务端状态
+ * @deprecated 使用 ConnectionServerStatus 替代
  */
 export interface SerialServerStatus {
   running: boolean;
   serialPath: string;
+  localPort: number;
+  listenAddress: string;
+  clientCount: number;
+  clients: string[];
+  sshTunnelConnected: boolean;
+  hasPassword: boolean;
+}
+
+/**
+ * 连接共享服务端状态
+ */
+export interface ConnectionServerStatus {
+  running: boolean;
+  sourceType: 'existing' | 'new';
+  sourceDescription: string; // 数据源描述（如串口路径、SSH地址等）
   localPort: number;
   listenAddress: string;
   clientCount: number;

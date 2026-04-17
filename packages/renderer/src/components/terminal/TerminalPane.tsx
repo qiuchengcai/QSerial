@@ -11,7 +11,7 @@ import { useConfigStore } from '@/stores/config';
 import { base64ToUint8Array, ConnectionType, ConnectionState } from '@qserial/shared';
 import 'xterm/css/xterm.css';
 
-import { SerialShareDialog } from '../dialogs/SerialShareDialog';
+import { ConnectionShareDialog } from '../dialogs/ConnectionShareDialog';
 
 interface TerminalPaneProps {
   sessionId: string;
@@ -378,6 +378,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const isLogging = session?.logEnabled ?? false;
   const isConnected = session?.connectionState === ConnectionState.CONNECTED;
   const isSerialConnection = session?.connectionType === ConnectionType.SERIAL;
+  // 所有活跃连接都可共享（排除本身就是共享服务端的连接）
+  const canShare = isConnected && session?.connectionType !== ConnectionType.CONNECTION_SERVER && session?.connectionType !== ConnectionType.SERIAL_SERVER;
 
   return (
     <div
@@ -412,14 +414,14 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
             {logStarting ? '⏳ 启动中...' : isLogging ? '⏹ 停止日志' : '📝 开始日志'}
           </button>
 
-          {/* 串口共享按钮 - 仅串口连接显示 */}
-          {isSerialConnection && isConnected && (
+          {/* 连接共享按钮 - 所有活跃连接可共享 */}
+          {canShare && (
             <button
               onClick={() => setShowSerialShareDialog(true)}
               className="px-2 py-1 border rounded text-xs transition-colors bg-surface/80 border-border hover:bg-hover"
-              title="串口共享"
+              title="连接共享"
             >
-              🔗 串口共享
+              🔗 共享
             </button>
           )}
         </div>
@@ -432,10 +434,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       )}
 
       {/* 串口共享对话框 */}
-      <SerialShareDialog
+      <ConnectionShareDialog
         isOpen={showSerialShareDialog}
         onClose={() => setShowSerialShareDialog(false)}
-        defaultSerialPath={session?.serialPath}
+        defaultSessionId={sessionId}
       />
     </div>
   );

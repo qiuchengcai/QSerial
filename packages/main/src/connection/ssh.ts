@@ -214,7 +214,6 @@ export class SshConnection implements IConnection {
             'ssh-dss',
           ],
           cipher: [
-            'chacha20-poly1305@openssh.com',
             'aes128-gcm@openssh.com',
             'aes256-gcm@openssh.com',
             'aes128-ctr',

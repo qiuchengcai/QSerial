@@ -7,6 +7,7 @@ import { IPC_CHANNELS } from '@qserial/shared';
 import type { IConnection } from '@qserial/shared';
 import { ConnectionFactory } from '../connection/factory.js';
 import { SerialConnection } from '../connection/serial.js';
+import { ConnectionServerConnection } from '../connection/connectionServer.js';
 import { ConfigManager } from '../config/manager.js';
 import { bufferToBase64 } from '@qserial/shared';
 import {
@@ -65,6 +66,9 @@ export function setupIpcHandlers(): void {
 
   // 串口共享服务
   setupSerialServerHandlers();
+
+  // 连接共享服务（通用版）
+  setupConnectionServerHandlers();
 
   // 网络相关
   setupNetworkHandlers();
@@ -498,6 +502,109 @@ function setupNetworkHandlers(): void {
 
     // 返回第一个非内部 IPv4 地址，如果没有则返回 localhost
     return addresses.length > 0 ? addresses[0] : '127.0.0.1';
+  });
+}
+
+/**
+ * 连接共享服务相关处理器（通用版，支持任意连接类型）
+ */
+function setupConnectionServerHandlers(): void {
+  ipcMain.handle(IPC_CHANNELS.CONNECTION_SERVER_START, async (_, options) => {
+    const { ConnectionType } = await import('@qserial/shared');
+    const {
+      id,
+      sourceType,
+      existingConnectionId,
+      newConnectionOptions,
+      localPort,
+      listenAddress,
+      accessPassword,
+      sshTunnel,
+    } = options;
+
+    // 如果相同ID的服务器已存在，先销毁它
+    const existingServer = ConnectionFactory.get(id);
+    if (existingServer) {
+      await ConnectionFactory.destroy(id);
+    }
+
+    // 验证数据源
+    if (sourceType === 'existing' && !existingConnectionId) {
+      throw new Error('复用已有连接模式需要指定 existingConnectionId');
+    }
+    if (sourceType === 'new' && !newConnectionOptions) {
+      throw new Error('新建连接模式需要指定 newConnectionOptions');
+    }
+
+    // 验证已有连接是否存在且已连接
+    if (sourceType === 'existing') {
+      const existingConn = ConnectionFactory.get(existingConnectionId);
+      if (!existingConn) {
+        throw new Error(`找不到已有连接: ${existingConnectionId}`);
+      }
+      const { ConnectionState } = await import('@qserial/shared');
+      if (existingConn.state !== ConnectionState.CONNECTED) {
+        throw new Error(`已有连接未处于连接状态: ${existingConnectionId}`);
+      }
+    }
+
+    const connection = await ConnectionFactory.create({
+      id,
+      type: ConnectionType.CONNECTION_SERVER,
+      name: `连接共享-${id.slice(-8)}`,
+      sourceType,
+      existingConnectionId,
+      newConnectionOptions,
+      localPort,
+      listenAddress,
+      accessPassword,
+      sshTunnel,
+      autoReconnect: false,
+    });
+
+    await connection.open();
+
+    connection.onData((data) => {
+      safeSend(IPC_CHANNELS.CONNECTION_DATA, {
+        id: connection.id,
+        data: bufferToBase64(data),
+      });
+    });
+
+    connection.onStateChange((state) => {
+      safeSend(IPC_CHANNELS.CONNECTION_STATE, { id: connection.id, state });
+    });
+
+    connection.onError((error) => {
+      safeSend(IPC_CHANNELS.CONNECTION_ERROR, {
+        id: connection.id,
+        error: error.message,
+      });
+    });
+
+    return { id: connection.id };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CONNECTION_SERVER_STOP, async (_, { id }) => {
+    await ConnectionFactory.destroy(id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CONNECTION_SERVER_STATUS, async (_, { id }) => {
+    const connection = ConnectionFactory.get(id);
+    if (!connection) {
+      return {
+        running: false,
+        sourceType: 'existing',
+        sourceDescription: '',
+        localPort: 0,
+        listenAddress: '0.0.0.0',
+        clientCount: 0,
+        clients: [],
+        sshTunnelConnected: false,
+        hasPassword: false,
+      };
+    }
+    return (connection as ConnectionServerConnection).getStatus();
   });
 }
 

@@ -9,6 +9,7 @@ import { SerialConnection } from './serial.js';
 import { SshConnection } from './ssh.js';
 import { TelnetConnection } from './telnet.js';
 import { SerialServerConnection } from './serialServer.js';
+import { ConnectionServerConnection } from './connectionServer.js';
 import { EventEmitter } from 'events';
 
 type ConnectionEventCallback = (connection: IConnection) => void;
@@ -50,6 +51,9 @@ class ConnectionFactoryImpl {
         break;
       case 'serial_server':
         connection = new SerialServerConnection(options);
+        break;
+      case 'connection_server':
+        connection = new ConnectionServerConnection(options);
         break;
       default:
         throw new Error(`Unsupported connection type: ${options.type}`);
