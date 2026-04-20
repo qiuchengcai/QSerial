@@ -4,6 +4,12 @@
 > 日期: 2026-04-20
 > 作者: QSerial Team
 
+## 变更记录
+
+| 日期 | 版本 | 变更内容 |
+|------|------|----------|
+| 2026-04-20 | 3.0.0 | 新增 ConnectionServer、快捷按钮系统、TELNET 协议协商；标注 SerialServer 已废弃；校验位补充 mark/space |
+
 ---
 
 ## 目录
@@ -318,7 +324,7 @@ socat - localhost:8888
 ### 6.2 输入验证
 
 所有连接选项通过验证器（`packages/shared/src/utils/validation.ts`）校验：
-- 串口路径、波特率、数据位等参数验证
+- 串口路径、波特率、数据位、停止位、校验位（none/even/odd/mark/space）验证
 - SSH 主机、端口、认证方式验证
 - Telnet 主机、端口验证
 

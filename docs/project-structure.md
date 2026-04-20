@@ -3,6 +3,12 @@
 > 版本: 2.0.0
 > 更新日期: 2026-04-20
 
+## 变更记录
+
+| 日期 | 版本 | 变更内容 |
+|------|------|----------|
+| 2026-04-20 | 2.0.0 | 新增 connectionServer.ts、ConnectionShareDialog.tsx、QuickButtonBar.tsx；标注 serialServer.ts 已废弃 |
+
 ---
 
 ## 项目概述
