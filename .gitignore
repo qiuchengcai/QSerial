@@ -56,3 +56,4 @@ package.json.override
 # Build artifacts
 *.tsbuildinfo
 node-v*-headers.tar.gz
+__pycache__/
