@@ -16,6 +16,25 @@ import {
 } from '@qserial/shared';
 import type { IConnection } from '@qserial/shared';
 
+// ============== TELNET 协议常量 ==============
+const IAC = 255;   // Interpret As Command
+const WILL = 251;
+const WONT = 252;
+const DO = 253;
+const DONT = 254;
+const SB = 250;    // Subnegotiation Begin
+const SE = 240;    // Subnegotiation End
+const NOP = 241;
+
+// TELNET 选项
+const OPT_ECHO = 1;
+const OPT_SUPPRESS_GA = 3;
+const OPT_NAWS = 31;    // Negotiate About Window Size
+const OPT_TTYPE = 24;   // Terminal Type
+const OPT_LINEMODE = 34;
+
+// ============== 常规常量 ==============
+
 // 默认密钥文件名列表（按优先级）
 const DEFAULT_KEY_NAMES = [
   'id_ed25519',
@@ -30,6 +49,18 @@ const SSH_RECONNECT_BASE_DELAY = 3000; // 3s
 
 /** 客户端认证超时 */
 const AUTH_TIMEOUT = 10000; // 10s
+
+/**
+ * 在数据中查找 IAC SE 的位置（子协商结束标记）
+ */
+function findIACSE(data: Buffer, offset: number): number {
+  for (let i = offset; i < data.length - 1; i++) {
+    if (data[i] === IAC && data[i + 1] === SE) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 /**
  * 获取用户默认 SSH 密钥列表
@@ -57,6 +88,12 @@ interface ClientInfo {
   address: string;
   authenticated: boolean;
   authTimer: ReturnType<typeof setTimeout> | null;
+  telnetNegotiated: boolean;     // 是否完成 TELNET 协商
+  telnetBuf: Buffer;             // TELNET 子协商缓冲
+  terminalCols: number;          // 客户端终端列数
+  terminalRows: number;          // 客户端终端行数
+  authAttempts: number;          // 认证尝试次数
+  authBuffer: string;            // 认证输入缓冲（逐字符累加直到回车）
 }
 
 /**
@@ -237,13 +274,19 @@ export class SerialServerConnection implements IConnection {
           address,
           authenticated: !accessPassword, // 无密码则默认已认证
           authTimer: null,
+          telnetNegotiated: false,
+          telnetBuf: Buffer.alloc(0),
+          terminalCols: 80,
+          terminalRows: 24,
+          authAttempts: 0,
+          authBuffer: '',
         };
 
         // 有密码时设置认证超时
         if (accessPassword) {
           clientInfo.authTimer = setTimeout(() => {
             if (!clientInfo.authenticated) {
-              socket.write('AUTH_TIMEOUT\n');
+              socket.write('\r\nAUTH_TIMEOUT\r\n');
               socket.destroy();
               this.clients.delete(address);
             }
@@ -252,32 +295,80 @@ export class SerialServerConnection implements IConnection {
 
         this.clients.set(address, clientInfo);
 
-        // 客户端数据转发到串口或共享连接
+        // 主动 TELNET 协商：客户端连接后立即发送协商命令，使其尽快进入字符模式
+        // 避免协商完成前的本地回显导致双重回显（空行）
+        this._sendTelnetNegotiation(socket);
+        clientInfo.telnetNegotiated = true;
+
+        // 有密码时发送认证提示
+        if (accessPassword) {
+          socket.write('PASSWORD: ');
+        }
+
+        // 客户端数据处理
         socket.on('data', (data) => {
           // 未认证时处理密码验证
           if (accessPassword && !clientInfo.authenticated) {
-            const text = data.toString('utf-8').trim();
-            if (text.startsWith('PASSWORD:')) {
-              const pwd = text.slice('PASSWORD:'.length);
-              if (pwd === accessPassword) {
-                clientInfo.authenticated = true;
-                if (clientInfo.authTimer) {
-                  clearTimeout(clientInfo.authTimer);
-                  clientInfo.authTimer = null;
+            // 处理 TELNET 协议，提取纯用户数据
+            const userData = this._processTelnetData(data, clientInfo);
+            // 逐字符缓冲，等回车后再验证
+            for (const byte of userData) {
+              if (byte === 0x0D || byte === 0x0A) {
+                // 回车/换行：验证缓冲中的密码
+                const text = clientInfo.authBuffer.trim();
+                clientInfo.authBuffer = '';
+                if (!text) continue; // 空行忽略
+                // 支持 PASSWORD:xxx 前缀或直接输入密码
+                const pwd = text.startsWith('PASSWORD:') ? text.slice('PASSWORD:'.length) : text;
+                if (pwd === accessPassword) {
+                  clientInfo.authenticated = true;
+                  if (clientInfo.authTimer) {
+                    clearTimeout(clientInfo.authTimer);
+                    clientInfo.authTimer = null;
+                  }
+                  socket.write('\r\nOK\r\n');
+                } else {
+                  clientInfo.authAttempts++;
+                  if (clientInfo.authAttempts >= 3) {
+                    socket.write('\r\nAUTH_FAILED\r\n');
+                    socket.destroy();
+                    this.clients.delete(address);
+                  } else {
+                    // 重置超时计时器，给用户更多时间重试
+                    if (clientInfo.authTimer) {
+                      clearTimeout(clientInfo.authTimer);
+                    }
+                    clientInfo.authTimer = setTimeout(() => {
+                      if (!clientInfo.authenticated) {
+                        socket.write('\r\nAUTH_TIMEOUT\r\n');
+                        socket.destroy();
+                        this.clients.delete(address);
+                      }
+                    }, AUTH_TIMEOUT);
+                    socket.write('\r\nAUTH_FAILED, retry:\r\nPASSWORD: ');
+                  }
                 }
-                socket.write('OK\n');
-              } else {
-                socket.write('AUTH_FAILED\n');
-                socket.destroy();
-                this.clients.delete(address);
+              } else if (byte === 0x7F || byte === 0x08) {
+                // 退格/删除：删除最后一个字符，擦除屏幕上的 *
+                clientInfo.authBuffer = clientInfo.authBuffer.slice(0, -1);
+                socket.write('\b \b');
+              } else if (byte >= 32 && byte < 127) {
+                // 可打印字符：追加到缓冲，回显星号
+                clientInfo.authBuffer += String.fromCharCode(byte);
+                socket.write('*');
               }
+              // 其他控制字符忽略
             }
             return; // 未认证时忽略其他数据
           }
 
-          // 已认证：加入写入队列
-          this.writeQueue.push({ data, clientId: address });
-          this._processWriteQueue();
+          // 处理 TELNET 协议，提取纯用户数据
+          const userData = this._processTelnetData(data, clientInfo);
+          if (userData.length > 0) {
+            // 已认证：加入写入队列
+            this.writeQueue.push({ data: userData, clientId: address });
+            this._processWriteQueue();
+          }
         });
 
         socket.on('close', () => {
@@ -637,5 +728,124 @@ export class SerialServerConnection implements IConnection {
 
   private _notifyError(error: Error): void {
     this.errorCallbacks.forEach((cb) => cb(error));
+  }
+
+  // ============== TELNET 协商方法 ==============
+
+  /**
+   * 发送 TELNET 协商命令，使客户端进入字符模式
+   */
+  private _sendTelnetNegotiation(socket: net.Socket): void {
+    const cmds: number[] = [];
+    cmds.push(IAC, WILL, OPT_ECHO);
+    cmds.push(IAC, WILL, OPT_SUPPRESS_GA);
+    cmds.push(IAC, DO, OPT_SUPPRESS_GA);
+    cmds.push(IAC, DO, OPT_NAWS);
+    cmds.push(IAC, DO, OPT_TTYPE);
+    cmds.push(IAC, DONT, OPT_LINEMODE);
+    socket.write(Buffer.from(cmds));
+  }
+
+  /**
+   * 处理 TELNET 协议数据，提取纯用户输入数据
+   */
+  private _processTelnetData(data: Buffer, clientInfo: ClientInfo, isReentry = false): Buffer {
+    const userData: number[] = [];
+    let i = 0;
+
+    while (i < data.length) {
+      if (data[i] !== IAC) {
+        // TELNET 规范：CR 后必须跟 LF 或 NUL，PTY 只需要 CR，过滤掉多余字节
+        if (data[i] === 0x0D && i + 1 < data.length && (data[i + 1] === 0x0A || data[i + 1] === 0x00)) {
+          userData.push(0x0D);
+          i += 2;
+          continue;
+        }
+        userData.push(data[i]);
+        i++;
+        continue;
+      }
+
+      if (!clientInfo.telnetNegotiated) {
+        clientInfo.telnetNegotiated = true;
+        this._sendTelnetNegotiation(clientInfo.socket);
+      }
+
+      if (i + 1 >= data.length) break;
+
+      const cmd = data[i + 1];
+
+      if (cmd === IAC) {
+        userData.push(255);
+        i += 2;
+        continue;
+      }
+
+      if (cmd === NOP || cmd === SE) {
+        i += 2;
+        continue;
+      }
+
+      if (cmd === WILL || cmd === WONT || cmd === DO || cmd === DONT) {
+        if (i + 2 >= data.length) break;
+        const opt = data[i + 2];
+        this._handleTelnetCommand(clientInfo.socket, cmd, opt);
+        i += 3;
+        continue;
+      }
+
+      if (cmd === SB) {
+        if (i + 2 >= data.length) break;
+        const opt = data[i + 2];
+        const sePos = findIACSE(data, i + 3);
+        if (sePos === -1) {
+          clientInfo.telnetBuf = Buffer.concat([clientInfo.telnetBuf, data.slice(i)]);
+          break;
+        }
+        const subData = data.slice(i + 3, sePos);
+        this._handleTelnetSubnegotiation(clientInfo, opt, subData);
+        i = sePos + 2;
+        continue;
+      }
+
+      i += 2;
+    }
+
+    if (clientInfo.telnetBuf.length > 0 && !isReentry) {
+      const combined = Buffer.concat([clientInfo.telnetBuf, data]);
+      clientInfo.telnetBuf = Buffer.alloc(0);
+      return this._processTelnetData(combined, clientInfo, true);
+    }
+
+    return Buffer.from(userData);
+  }
+
+  private _handleTelnetCommand(socket: net.Socket, cmd: number, opt: number): void {
+    if (cmd === WILL) {
+      if (opt === OPT_NAWS || opt === OPT_TTYPE || opt === OPT_SUPPRESS_GA) {
+        socket.write(Buffer.from([IAC, DO, opt]));
+      } else {
+        socket.write(Buffer.from([IAC, DONT, opt]));
+      }
+    } else if (cmd === WONT) {
+      socket.write(Buffer.from([IAC, DONT, opt]));
+    } else if (cmd === DO) {
+      if (opt === OPT_ECHO || opt === OPT_SUPPRESS_GA) {
+        socket.write(Buffer.from([IAC, WILL, opt]));
+      } else {
+        socket.write(Buffer.from([IAC, WONT, opt]));
+      }
+    } else if (cmd === DONT) {
+      socket.write(Buffer.from([IAC, WONT, opt]));
+    }
+  }
+
+  private _handleTelnetSubnegotiation(clientInfo: ClientInfo, opt: number, subData: Buffer): void {
+    if (opt === OPT_NAWS) {
+      if (subData.length >= 4) {
+        clientInfo.terminalCols = (subData[0] << 8) | subData[1];
+        clientInfo.terminalRows = (subData[2] << 8) | subData[3];
+      }
+    }
   }
 }

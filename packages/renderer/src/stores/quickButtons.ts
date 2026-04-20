@@ -9,6 +9,8 @@ export interface QuickButton {
   id: string;
   name: string;
   command: string;
+  commands?: string[]; // 多行命令，优先于 command 使用
+  delay?: number; // 多行命令之间的延迟(ms)，默认 100
   description?: string;
   color?: string; // 按钮颜色
   textColor?: string; // 文字颜色

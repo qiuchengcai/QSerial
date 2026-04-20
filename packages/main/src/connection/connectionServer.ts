@@ -93,6 +93,8 @@ interface ClientInfo {
   telnetBuf: Buffer;             // TELNET 子协商缓冲
   terminalCols: number;          // 客户端终端列数
   terminalRows: number;          // 客户端终端行数
+  authAttempts: number;          // 认证尝试次数
+  authBuffer: string;            // 认证输入缓冲（逐字符累加直到回车）
 }
 
 /**
@@ -280,13 +282,15 @@ export class ConnectionServerConnection implements IConnection {
           telnetBuf: Buffer.alloc(0),
           terminalCols: 80,
           terminalRows: 24,
+          authAttempts: 0,
+          authBuffer: '',
         };
 
         // 有密码时设置认证超时
         if (accessPassword) {
           clientInfo.authTimer = setTimeout(() => {
             if (!clientInfo.authenticated) {
-              socket.write('AUTH_TIMEOUT\n');
+              socket.write('\r\nAUTH_TIMEOUT\r\n');
               socket.destroy();
               this.clients.delete(address);
             }
@@ -295,29 +299,69 @@ export class ConnectionServerConnection implements IConnection {
 
         this.clients.set(address, clientInfo);
 
-        // 不主动发送 TELNET 协商，等客户端先发 IAC 命令再响应
-        // nc 等原始 TCP 客户端不理解 TELNET 协议，主动协商会导致乱码
-        // telnet 客户端会主动发送协商请求，此时再响应即可
+        // 主动 TELNET 协商：客户端连接后立即发送协商命令，使其尽快进入字符模式
+        // 避免协商完成前的本地回显导致双重回显（空行）
+        this._sendTelnetNegotiation(socket);
+        clientInfo.telnetNegotiated = true;
+
+        // 有密码时发送认证提示
+        if (accessPassword) {
+          socket.write('PASSWORD: ');
+        }
 
         // 客户端数据处理
         socket.on('data', (data) => {
           // 未认证时处理密码验证
           if (accessPassword && !clientInfo.authenticated) {
-            const text = data.toString('utf-8').trim();
-            if (text.startsWith('PASSWORD:')) {
-              const pwd = text.slice('PASSWORD:'.length);
-              if (pwd === accessPassword) {
-                clientInfo.authenticated = true;
-                if (clientInfo.authTimer) {
-                  clearTimeout(clientInfo.authTimer);
-                  clientInfo.authTimer = null;
+            // 处理 TELNET 协议，提取纯用户数据
+            const userData = this._processTelnetData(data, clientInfo);
+            // 逐字符缓冲，等回车后再验证
+            for (const byte of userData) {
+              if (byte === 0x0D || byte === 0x0A) {
+                // 回车/换行：验证缓冲中的密码
+                const text = clientInfo.authBuffer.trim();
+                clientInfo.authBuffer = '';
+                if (!text) continue; // 空行忽略
+                // 支持 PASSWORD:xxx 前缀或直接输入密码
+                const pwd = text.startsWith('PASSWORD:') ? text.slice('PASSWORD:'.length) : text;
+                if (pwd === accessPassword) {
+                  clientInfo.authenticated = true;
+                  if (clientInfo.authTimer) {
+                    clearTimeout(clientInfo.authTimer);
+                    clientInfo.authTimer = null;
+                  }
+                  socket.write('\r\nOK\r\n');
+                } else {
+                  clientInfo.authAttempts++;
+                  if (clientInfo.authAttempts >= 3) {
+                    socket.write('\r\nAUTH_FAILED\r\n');
+                    socket.destroy();
+                    this.clients.delete(address);
+                  } else {
+                    // 重置超时计时器，给用户更多时间重试
+                    if (clientInfo.authTimer) {
+                      clearTimeout(clientInfo.authTimer);
+                    }
+                    clientInfo.authTimer = setTimeout(() => {
+                      if (!clientInfo.authenticated) {
+                        socket.write('\r\nAUTH_TIMEOUT\r\n');
+                        socket.destroy();
+                        this.clients.delete(address);
+                      }
+                    }, AUTH_TIMEOUT);
+                    socket.write('\r\nAUTH_FAILED, retry:\r\nPASSWORD: ');
+                  }
                 }
-                socket.write('OK\n');
-              } else {
-                socket.write('AUTH_FAILED\n');
-                socket.destroy();
-                this.clients.delete(address);
+              } else if (byte === 0x7F || byte === 0x08) {
+                // 退格/删除：删除最后一个字符，擦除屏幕上的 *
+                clientInfo.authBuffer = clientInfo.authBuffer.slice(0, -1);
+                socket.write('\b \b');
+              } else if (byte >= 32 && byte < 127) {
+                // 可打印字符：追加到缓冲，回显星号
+                clientInfo.authBuffer += String.fromCharCode(byte);
+                socket.write('*');
               }
+              // 其他控制字符忽略
             }
             return; // 未认证时忽略其他数据
           }
@@ -393,6 +437,12 @@ export class ConnectionServerConnection implements IConnection {
 
     while (i < data.length) {
       if (data[i] !== IAC) {
+        // TELNET 规范：CR 后必须跟 LF 或 NUL，PTTY 只需要 CR，过滤掉多余字节
+        if (data[i] === 0x0D && i + 1 < data.length && (data[i + 1] === 0x0A || data[i + 1] === 0x00)) {
+          userData.push(0x0D);
+          i += 2;
+          continue;
+        }
         // 普通数据
         userData.push(data[i]);
         i++;

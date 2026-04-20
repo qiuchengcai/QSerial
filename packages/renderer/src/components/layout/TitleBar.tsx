@@ -31,10 +31,10 @@ export const TitleBar: React.FC = () => {
         <span className="text-sm font-medium">QSerial</span>
       </div>
 
-      {/* 中间：标题 */}
-      <div className="flex-1 flex items-center justify-center app-no-drag">
+      {/* 中间：标题 - 整体可拖动，文字不可拖动以支持选中 */}
+      <div className="flex-1 flex items-center justify-center">
         {activeTab && (
-          <span className="text-sm">{activeTab.name}</span>
+          <span className="text-sm app-no-drag">{activeTab.name}</span>
         )}
       </div>
 

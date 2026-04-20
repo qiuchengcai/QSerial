@@ -339,7 +339,7 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
               placeholder="留空则任何人可连接"
             />
             <p className="text-xs text-text-secondary/50 mt-1">
-              设置密码后，客户端需发送 PASSWORD:密码 进行认证
+              设置密码后，客户端连接时需输入密码进行认证
             </p>
           </div>
 
@@ -482,8 +482,9 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
           <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3 space-y-1">
             <p className="font-medium text-text-secondary/80">使用方式：</p>
             <p>1. 选择任意活跃连接（串口、SSH、Telnet等），点击启动共享</p>
-            <p>2. 远程设备执行: nc {'<IP>'} {'{端口}'} 即可操作</p>
-            <p>3. 如启用SSH隧道，远程服务器上执行: nc localhost {'{远程端口}'}</p>
+            <p>2. 远程设备执行: telnet {'<IP>'} {'{端口}'} 即可操作</p>
+            <p>3. 如启用SSH隧道，远程服务器上执行: telnet localhost {'{远程端口}'}</p>
+            <p>4. Windows需先启用Telnet客户端: dism /online /Enable-Feature /FeatureName:TelnetClient</p>
           </div>
         </div>
 
@@ -526,26 +527,26 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                   <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
                     <p className="text-sm font-medium mb-2">在远程服务器 {sshConfig.host} 上执行：</p>
                     <div className="bg-background rounded-md p-2 font-mono text-sm">
-                      {accessPassword
-                        ? `(echo "PASSWORD:${accessPassword}"; cat) | nc localhost ${sshConfig.remotePort}`
-                        : `nc localhost ${sshConfig.remotePort}`}
+                      telnet localhost {sshConfig.remotePort}
                     </div>
                     <button
-                      onClick={() => navigator.clipboard.writeText(
-                        accessPassword
-                          ? `(echo "PASSWORD:${accessPassword}"; cat) | nc localhost ${sshConfig.remotePort}`
-                          : `nc localhost ${sshConfig.remotePort}`
-                      )}
+                      onClick={() => navigator.clipboard.writeText(`telnet localhost ${sshConfig.remotePort}`)}
                       className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
                     >
                       复制命令
                     </button>
+                    {accessPassword && (
+                      <p className="text-xs text-yellow-500 mt-2">
+                        连接后直接输入密码 {accessPassword} 回车即可认证
+                      </p>
+                    )}
                   </div>
 
                   <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
                     <p className="font-medium text-text-secondary/80 mb-1">SSH反向隧道说明：</p>
                     <p>已建立从远程服务器端口 {sshConfig.remotePort} 到本地端口 {localPortValue} 的反向隧道。</p>
                     <p className="mt-1">在远程服务器上执行上述命令即可操作本地连接。</p>
+                    <p className="mt-1 text-yellow-500">推荐使用 telnet 客户端连接，支持完整的终端交互功能。</p>
                   </div>
                 </>
               ) : (
@@ -553,9 +554,7 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                   <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
                     <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
                     <div className="bg-background rounded-md p-2 font-mono text-sm">
-                      {accessPassword
-                        ? `(echo "PASSWORD:${accessPassword}"; cat) | nc {'<本机IP>'} ${localPortValue}`
-                        : `nc {'<本机IP>'} ${localPortValue}`}
+                      telnet {'<本机IP>'} {localPortValue}
                     </div>
                     <p className="text-xs text-text-secondary mt-2">
                       请将 {'<本机IP>'} 替换为本机的局域网 IP 地址
@@ -564,26 +563,26 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                       onClick={async () => {
                         try {
                           const ip = await window.qserial.getLocalIp();
-                          const cmd = accessPassword
-                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc ${ip} ${localPortValue}`
-                            : `nc ${ip} ${localPortValue}`;
-                          await navigator.clipboard.writeText(cmd);
+                          await navigator.clipboard.writeText(`telnet ${ip} ${localPortValue}`);
                         } catch {
-                          const cmd = accessPassword
-                            ? `(echo "PASSWORD:${accessPassword}"; cat) | nc <本机IP> ${localPortValue}`
-                            : `nc <本机IP> ${localPortValue}`;
-                          await navigator.clipboard.writeText(cmd);
+                          await navigator.clipboard.writeText(`telnet <本机IP> ${localPortValue}`);
                         }
                       }}
                       className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
                     >
                       复制命令
                     </button>
+                    {accessPassword && (
+                      <p className="text-xs text-yellow-500 mt-2">
+                        连接后直接输入密码 {accessPassword} 回车即可认证
+                      </p>
+                    )}
                   </div>
 
                   <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
                     <p className="font-medium text-text-secondary/80 mb-1">本地局域网连接说明：</p>
                     <p>同一局域网内的其他设备可通过上述命令连接。</p>
+                    <p className="mt-1 text-yellow-500">推荐使用 telnet 客户端连接，支持完整的终端交互功能。Windows 需先启用: dism /online /Enable-Feature /FeatureName:TelnetClient</p>
                   </div>
                 </>
               )}

@@ -21,7 +21,8 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
   onSave,
 }) => {
   const [name, setName] = useState(editingButton?.name || '');
-  const [command, setCommand] = useState(editingButton?.command || '');
+  const [command, setCommand] = useState(editingButton?.commands?.join('\n') || editingButton?.command || '');
+  const [delay, setDelay] = useState(editingButton?.delay ?? 100);
   const [description, setDescription] = useState(editingButton?.description || '');
   const [color, setColor] = useState(editingButton?.color || '');
   const [textColor, setTextColor] = useState(editingButton?.textColor || '');
@@ -31,7 +32,8 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
   useEffect(() => {
     if (isOpen) {
       setName(editingButton?.name || '');
-      setCommand(editingButton?.command || '');
+      setCommand(editingButton?.commands?.join('\n') || editingButton?.command || '');
+      setDelay(editingButton?.delay ?? 100);
       setDescription(editingButton?.description || '');
       setColor(editingButton?.color || '');
       setTextColor(editingButton?.textColor || '');
@@ -41,9 +43,12 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
 
   const handleSave = () => {
     if (!name.trim() || !command.trim()) return;
+    const lines = command.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     onSave({
       name: name.trim(),
-      command: command.trim(),
+      command: lines[0] || '',
+      commands: lines.length > 1 ? lines : undefined,
+      delay: lines.length > 1 ? delay : undefined,
       description: description.trim() || undefined,
       color: customColor || color,
       textColor: customColor ? (isLightColor(customColor) ? '#000000' : '#FFFFFF') : textColor,
@@ -55,6 +60,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
   const resetForm = () => {
     setName('');
     setCommand('');
+    setDelay(100);
     setDescription('');
     setColor('');
     setTextColor('');
@@ -93,15 +99,28 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
             />
           </div>
           <div>
-            <label className="block text-xs text-text-secondary mb-1">命令</label>
-            <input
-              type="text"
+            <label className="block text-xs text-text-secondary mb-1">命令（每行一条，支持多行）</label>
+            <textarea
               value={command}
               onChange={(e) => setCommand(e.target.value)}
-              className="dialog-input"
-              placeholder="要发送的命令"
+              className="dialog-input min-h-[60px] resize-y"
+              placeholder={"要发送的命令\n多行时逐条发送"}
+              rows={3}
             />
           </div>
+          {command.includes('\n') && (
+            <div>
+              <label className="block text-xs text-text-secondary mb-1">行间延迟 (ms)</label>
+              <input
+                type="number"
+                value={delay}
+                onChange={(e) => setDelay(Number(e.target.value) || 100)}
+                className="dialog-input w-20"
+                min={0}
+                step={50}
+              />
+            </div>
+          )}
           <div>
             <label className="block text-xs text-text-secondary mb-1">描述 (可选)</label>
             <input
@@ -262,9 +281,17 @@ export const QuickButtonBar: React.FC = () => {
     });
   };
 
-  const handleSendCommand = (command: string) => {
+  const handleSendCommand = (button: QuickButton) => {
     if (!isConnected || !connectionId) return;
-    window.qserial.connection.write(connectionId, command + '\r\n');
+    const commands = button.commands || [button.command];
+    const delay = button.delay ?? 100;
+    commands.forEach((cmd, i) => {
+      setTimeout(() => {
+        if (isConnected && connectionId) {
+          window.qserial.connection.write(connectionId, cmd + '\r\n');
+        }
+      }, i * delay);
+    });
   };
 
   const handleContextMenu = (e: React.MouseEvent, type: 'button' | 'group', groupId: string, buttonId?: string) => {
@@ -351,7 +378,7 @@ export const QuickButtonBar: React.FC = () => {
             {groups[activeGroupIndex].buttons.map((button) => (
               <button
                 key={button.id}
-                onClick={() => handleSendCommand(button.command)}
+                onClick={() => handleSendCommand(button)}
                 onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id)}
                 disabled={!isConnected}
                 className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all"
@@ -359,7 +386,7 @@ export const QuickButtonBar: React.FC = () => {
                   backgroundColor: button.color || undefined,
                   color: button.textColor || undefined,
                 }}
-                title={button.description || `发送: ${button.command}`}
+                title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
               >
                 {button.name}
               </button>
