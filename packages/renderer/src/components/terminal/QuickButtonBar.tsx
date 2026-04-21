@@ -27,6 +27,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
   const [color, setColor] = useState(editingButton?.color || '');
   const [textColor, setTextColor] = useState(editingButton?.textColor || '');
   const [customColor, setCustomColor] = useState(editingButton?.color || '');
+  const [noNewline, setNoNewline] = useState(editingButton?.noNewline ?? false);
 
   // 编辑时同步已有数据
   useEffect(() => {
@@ -38,6 +39,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
       setColor(editingButton?.color || '');
       setTextColor(editingButton?.textColor || '');
       setCustomColor(editingButton?.color || '');
+      setNoNewline(editingButton?.noNewline ?? false);
     }
   }, [isOpen, editingButton]);
 
@@ -49,6 +51,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
       command: lines[0] || '',
       commands: lines.length > 1 ? lines : undefined,
       delay: lines.length > 1 ? delay : undefined,
+      noNewline: noNewline || undefined,
       description: description.trim() || undefined,
       color: customColor || color,
       textColor: customColor ? (isLightColor(customColor) ? '#000000' : '#FFFFFF') : textColor,
@@ -65,6 +68,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
     setColor('');
     setTextColor('');
     setCustomColor('');
+    setNoNewline(false);
   };
 
   const isLightColor = (hex: string): boolean => {
@@ -104,10 +108,19 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               className="dialog-input min-h-[60px] resize-y"
-              placeholder={"要发送的命令\n多行时逐条发送"}
+              placeholder={"要发送的命令\n支持 \\xHH \\n \\r 转义序列"}
               rows={3}
             />
           </div>
+          <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={noNewline}
+              onChange={(e) => setNoNewline(e.target.checked)}
+              className="w-3.5 h-3.5 accent-primary"
+            />
+            <span>不自动追加换行（手动用 \n 控制换行）</span>
+          </label>
           {command.includes('\n') && (
             <div>
               <label className="block text-xs text-text-secondary mb-1">行间延迟 (ms)</label>
@@ -252,8 +265,18 @@ const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup
 };
 
 export const QuickButtonBar: React.FC = () => {
-  const { tabs, activeTabId, sessions } = useTerminalStore();
-  const { groups, addGroup, updateGroup, removeGroup, addButton, updateButton, removeButton } = useQuickButtonsStore();
+  const terminalState = useTerminalStore();
+  const tabs = terminalState?.tabs || [];
+  const activeTabId = terminalState?.activeTabId;
+  const sessions = terminalState?.sessions || {};
+  const quickButtonsState = useQuickButtonsStore();
+  const groups = quickButtonsState?.groups || [];
+  const addGroup = quickButtonsState?.addGroup;
+  const updateGroup = quickButtonsState?.updateGroup;
+  const removeGroup = quickButtonsState?.removeGroup;
+  const addButton = quickButtonsState?.addButton;
+  const updateButton = quickButtonsState?.updateButton;
+  const removeButton = quickButtonsState?.removeButton;
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
@@ -281,14 +304,33 @@ export const QuickButtonBar: React.FC = () => {
     });
   };
 
+  const parseEscapeSequences = (cmd: string): string => {
+    return cmd
+      // \xHH -> 实际字节（如 \x02 = Ctrl+B）
+      .replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) =>
+        String.fromCharCode(parseInt(hex, 16))
+      )
+      // \n -> 换行符
+      .replace(/\\n/g, '\n')
+      // \r -> 回车符
+      .replace(/\\r/g, '\r')
+      // \0 -> NUL
+      .replace(/\\0/g, '\0')
+      // \\ -> 反斜杠
+      .replace(/\\\\/g, '\\');
+  };
+
   const handleSendCommand = (button: QuickButton) => {
     if (!isConnected || !connectionId) return;
     const commands = button.commands || [button.command];
     const delay = button.delay ?? 100;
+    const noNewline = button.noNewline ?? false;
     commands.forEach((cmd, i) => {
       setTimeout(() => {
         if (isConnected && connectionId) {
-          window.qserial.connection.write(connectionId, cmd + '\r\n');
+          const parsed = parseEscapeSequences(cmd);
+          const suffix = noNewline ? '' : '\r\n';
+          window.qserial.connection.write(connectionId, parsed + suffix);
         }
       }, i * delay);
     });

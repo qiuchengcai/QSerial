@@ -56,6 +56,9 @@ interface SavedSessionsState {
   // 更新最后使用时间
   touchSession: (id: string) => void;
 
+  // 导入会话（合并，跳过重复）
+  importSessions: (sessions: SavedSession[]) => void;
+
   // 加载保存的会话
   loadSessions: () => void;
 
@@ -77,8 +80,10 @@ export const useSavedSessionsStore = create<SavedSessionsState>()(
         const id = crypto.randomUUID();
         const now = new Date();
 
+        const currentSessions = get().sessions || [];
+
         // 检查是否已存在相同名称或相同串口路径的配置
-        const existingIndex = get().sessions.findIndex((s) => {
+        const existingIndex = currentSessions.findIndex((s) => {
           if (session.type === 'serial' && s.type === 'serial' &&
               session.serialConfig && s.serialConfig) {
             return s.serialConfig.path === session.serialConfig.path;
@@ -89,18 +94,20 @@ export const useSavedSessionsStore = create<SavedSessionsState>()(
         // 如果已存在，更新而不是添加
         if (existingIndex !== -1) {
           set((state) => {
-            state.sessions[existingIndex] = {
-              ...state.sessions[existingIndex],
+            const sessions = [...(state.sessions || [])];
+            sessions[existingIndex] = {
+              ...sessions[existingIndex],
               ...session,
               lastUsedAt: now,
             };
+            return { sessions };
           });
-          return get().sessions[existingIndex].id;
+          return (get().sessions || [])[existingIndex]?.id || id;
         }
 
         set((state) => ({
           sessions: [
-            ...state.sessions,
+            ...(state.sessions || []),
             {
               ...session,
               id,
@@ -115,13 +122,13 @@ export const useSavedSessionsStore = create<SavedSessionsState>()(
 
       removeSession: (id) => {
         set((state) => ({
-          sessions: state.sessions.filter((s) => s.id !== id),
+          sessions: (state.sessions || []).filter((s) => s.id !== id),
         }));
       },
 
       updateSession: (id, updates) => {
         set((state) => ({
-          sessions: state.sessions.map((s) =>
+          sessions: (state.sessions || []).map((s) =>
             s.id === id ? { ...s, ...updates } : s
           ),
         }));
@@ -129,10 +136,29 @@ export const useSavedSessionsStore = create<SavedSessionsState>()(
 
       touchSession: (id) => {
         set((state) => ({
-          sessions: state.sessions.map((s) =>
+          sessions: (state.sessions || []).map((s) =>
             s.id === id ? { ...s, lastUsedAt: new Date() } : s
           ),
         }));
+      },
+
+      importSessions: (importedSessions) => {
+        if (!Array.isArray(importedSessions)) return;
+        set((state) => {
+          const currentSessions = state.sessions || [];
+          const existingKeys = new Set(
+            currentSessions.map((s) =>
+              s.type === 'serial' && s.serialConfig ? s.serialConfig.path : s.name
+            )
+          );
+          const newSessions = importedSessions.filter((s) => {
+            const key = s.type === 'serial' && s.serialConfig ? s.serialConfig.path : s.name;
+            return !existingKeys.has(key);
+          });
+          return {
+            sessions: [...currentSessions, ...newSessions],
+          };
+        });
       },
 
       loadSessions: () => {
@@ -145,6 +171,17 @@ export const useSavedSessionsStore = create<SavedSessionsState>()(
     }),
     {
       name: STORAGE_KEY,
+      merge: (persisted, current) => {
+        const persistedState = persisted as Partial<SavedSessionsState> | null | undefined;
+        if (!persistedState || typeof persistedState !== 'object') {
+          return current;
+        }
+        return {
+          ...current,
+          ...persistedState,
+          sessions: Array.isArray(persistedState.sessions) ? persistedState.sessions : current.sessions,
+        };
+      },
     }
   )
 );

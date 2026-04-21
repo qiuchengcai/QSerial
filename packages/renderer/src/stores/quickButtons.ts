@@ -11,6 +11,7 @@ export interface QuickButton {
   command: string;
   commands?: string[]; // 多行命令，优先于 command 使用
   delay?: number; // 多行命令之间的延迟(ms)，默认 100
+  noNewline?: boolean; // 为 true 时不自动追加 \r\n，需在命令中用 \n 显式换行
   description?: string;
   color?: string; // 按钮颜色
   textColor?: string; // 文字颜色
@@ -135,6 +136,17 @@ export const useQuickButtonsStore = create<QuickButtonsState>()(
     }),
     {
       name: 'qserial-quick-buttons',
+      merge: (persisted, current) => {
+        const persistedState = persisted as Record<string, unknown> | null | undefined;
+        if (!persistedState || typeof persistedState !== 'object') {
+          return current;
+        }
+        return {
+          ...current,
+          ...persistedState,
+          groups: Array.isArray(persistedState.groups) ? persistedState.groups : current.groups,
+        };
+      },
     }
   )
 );

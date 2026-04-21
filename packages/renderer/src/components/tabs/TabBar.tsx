@@ -14,7 +14,11 @@ interface ContextMenuState {
 }
 
 export const TabBar: React.FC = () => {
-  const { tabs, activeTabId, setActiveTab, closeTab } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const tabs = terminalState?.tabs || [];
+  const activeTabId = terminalState?.activeTabId;
+  const setActiveTab = terminalState?.setActiveTab;
+  const closeTab = terminalState?.closeTab;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 

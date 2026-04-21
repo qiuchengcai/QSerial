@@ -54,7 +54,8 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
   onClose,
   defaultSessionId,
 }) => {
-  const { sessions } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const sessions = terminalState?.sessions || {};
   const { config, updateConfig } = useConfigStore();
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);

@@ -35,7 +35,12 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const initializedRef = useRef(false);
   const [showSerialShareDialog, setShowSerialShareDialog] = useState(false);
 
-  const { updateSessionSize, updateSessionState, sessions, startLog, stopLog } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const updateSessionSize = terminalState?.updateSessionSize;
+  const updateSessionState = terminalState?.updateSessionState;
+  const sessions = terminalState?.sessions || {};
+  const startLog = terminalState?.startLog;
+  const stopLog = terminalState?.stopLog;
   const { currentTheme } = useThemeStore();
   const { config } = useConfigStore();
 

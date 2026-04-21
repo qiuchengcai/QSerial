@@ -293,7 +293,10 @@ export const SftpPanel: React.FC = () => {
     uploadFile,
   } = useSftpStore();
 
-  const { sessions: terminalSessions, tabs, activeTabId } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const terminalSessions = terminalState?.sessions || {};
+  const tabs = terminalState?.tabs || [];
+  const activeTabId = terminalState?.activeTabId;
 
   const [isResizing, setIsResizing] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');

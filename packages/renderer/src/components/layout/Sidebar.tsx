@@ -13,8 +13,16 @@ import { TftpDialog } from '../dialogs/TftpDialog';
 import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectDialog';
 
 export const Sidebar: React.FC = () => {
-  const { createTab, createSession, sessions, closeSessionAndTab } = useTerminalStore();
-  const { sessions: savedSessions, addSession, removeSession, updateSession } = useSavedSessionsStore();
+  const terminalState = useTerminalStore();
+  const createTab = terminalState?.createTab;
+  const createSession = terminalState?.createSession;
+  const sessions = terminalState?.sessions || {};
+  const closeSessionAndTab = terminalState?.closeSessionAndTab;
+  const savedSessionsState = useSavedSessionsStore();
+  const savedSessions = savedSessionsState?.sessions || [];
+  const addSession = savedSessionsState?.addSession;
+  const removeSession = savedSessionsState?.removeSession;
+  const updateSession = savedSessionsState?.updateSession;
   const [connectingType, setConnectingType] = useState<string | null>(null);
   const [showSerialDialog, setShowSerialDialog] = useState(false);
   const [showSshDialog, setShowSshDialog] = useState(false);

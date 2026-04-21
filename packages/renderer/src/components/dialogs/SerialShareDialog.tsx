@@ -31,7 +31,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
   defaultSerialPath,
   defaultBaudRate,
 }) => {
-  const { sessions } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const sessions = terminalState?.sessions || {};
   const { config, updateConfig } = useConfigStore();
   const [ports, setPorts] = useState<SerialPortInfo[]>([]);
   const [loading, setLoading] = useState(false);

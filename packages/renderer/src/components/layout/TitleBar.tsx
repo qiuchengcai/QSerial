@@ -6,7 +6,9 @@ import React from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 
 export const TitleBar: React.FC = () => {
-  const { tabs, activeTabId } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const tabs = terminalState?.tabs || [];
+  const activeTabId = terminalState?.activeTabId;
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   const handleMinimize = () => {

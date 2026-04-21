@@ -9,7 +9,10 @@ import { useSftpStore } from '@/stores/sftp';
 import { CONNECTION_STATE_NAMES, ConnectionType, ConnectionState } from '@qserial/shared';
 
 export const StatusBar: React.FC = () => {
-  const { tabs, activeTabId, sessions } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const tabs = terminalState?.tabs || [];
+  const activeTabId = terminalState?.activeTabId;
+  const sessions = terminalState?.sessions || {};
   const { running: tftpRunning, transfers } = useTftpStore();
   const { panelVisible, setPanelVisible, createSession, sessions: sftpSessions } = useSftpStore();
 

@@ -11,7 +11,10 @@ import { SftpPanel } from '../sftp';
 import { useSftpStore } from '@/stores/sftp';
 
 export const MainContent: React.FC = () => {
-  const { tabs, activeTabId, sessions } = useTerminalStore();
+  const terminalState = useTerminalStore();
+  const tabs = terminalState?.tabs || [];
+  const activeTabId = terminalState?.activeTabId;
+  const sessions = terminalState?.sessions || {};
   const { panelVisible } = useSftpStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);

@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useThemeStore } from '@/stores/theme';
 import { useConfigStore } from '@/stores/config';
-import { useSavedSessionsStore } from '@/stores/sessions';
+import { useSavedSessionsStore, type SavedSession } from '@/stores/sessions';
 import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useTftpStore } from '@/stores/tftp';
 
@@ -44,8 +44,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 }) => {
   const { currentTheme, themes, setTheme } = useThemeStore();
   const { config, updateConfig } = useConfigStore();
-  const { sessions } = useSavedSessionsStore();
-  const { groups } = useQuickButtonsStore();
+  const savedSessionsState = useSavedSessionsStore();
+  const sessions = savedSessionsState?.sessions || [];
+  const quickButtonsState = useQuickButtonsStore();
+  const groups = quickButtonsState?.groups || [];
   const { config: tftpConfig, updateConfig: updateTftpConfig } = useTftpStore();
 
   const [fontSize, setFontSize] = useState(config.terminal.fontSize);
@@ -129,6 +131,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         }
         if (data.quickButtons && Array.isArray(data.quickButtons)) {
           useQuickButtonsStore.getState().importGroups(data.quickButtons);
+        }
+        if (data.sessions && Array.isArray(data.sessions)) {
+          useSavedSessionsStore.getState().importSessions(data.sessions as SavedSession[]);
         }
         if (data.tftp) {
           updateTftpConfig({ port: data.tftp.port, rootDir: data.tftp.rootDir });
