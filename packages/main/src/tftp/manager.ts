@@ -81,6 +81,10 @@ export function startTftpServer(port: number, rootDir: string): void {
       root: rootDir,
       denyPUT: false, // 允许上传
       denyGET: false, // 允许下载
+      blockSize: 65464, // 最大块大小，减少ACK开销
+      windowSize: 64, // 增大窗口，减少等待ACK次数
+      timeout: 5000, // 超时时间5s
+      retries: 5, // 重试次数
     });
 
     server.on('error', (error: Error) => {
