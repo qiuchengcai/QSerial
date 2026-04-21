@@ -24,6 +24,8 @@ export interface SavedSession {
     port: number;
     username: string;
     password?: string;
+    privateKey?: string;
+    passphrase?: string;
   };
 
   // Telnet 配置

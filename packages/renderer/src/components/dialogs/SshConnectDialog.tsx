@@ -17,6 +17,8 @@ export interface SshConnectOptions {
   port: number;
   username: string;
   password?: string;
+  privateKey?: string;
+  passphrase?: string;
 }
 
 export const SshConnectDialog: React.FC<SshConnectDialogProps> = ({
@@ -29,6 +31,8 @@ export const SshConnectDialog: React.FC<SshConnectDialogProps> = ({
   const [port, setPort] = useState(22);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [privateKey, setPrivateKey] = useState('');
+  const [passphrase, setPassphrase] = useState('');
   const [saveConfig, setSaveConfig] = useState(false);
   const [configName, setConfigName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +44,8 @@ export const SshConnectDialog: React.FC<SshConnectDialogProps> = ({
       setPort(editSession.sshConfig.port);
       setUsername(editSession.sshConfig.username);
       setPassword(editSession.sshConfig.password || '');
+      setPrivateKey(editSession.sshConfig.privateKey || '');
+      setPassphrase(editSession.sshConfig.passphrase || '');
       setConfigName(editSession.name);
       setSaveConfig(true);
     }
@@ -64,6 +70,8 @@ export const SshConnectDialog: React.FC<SshConnectDialogProps> = ({
       port,
       username: username.trim(),
       password: password || undefined,
+      privateKey: privateKey.trim() || undefined,
+      passphrase: passphrase || undefined,
       saveConfig,
       configName: configName.trim() || undefined,
     });
@@ -72,6 +80,8 @@ export const SshConnectDialog: React.FC<SshConnectDialogProps> = ({
     setHost('');
     setUsername('');
     setPassword('');
+    setPrivateKey('');
+    setPassphrase('');
     setSaveConfig(false);
     setConfigName('');
     setError(null);
@@ -150,10 +160,40 @@ export const SshConnectDialog: React.FC<SshConnectDialogProps> = ({
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="留空则使用 ~/.ssh 下的默认密钥"
+              placeholder="留空则使用密钥认证"
               className="dialog-input"
             />
           </div>
+
+          {/* 私钥文件（可选） */}
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">
+              私钥文件 <span className="text-text-secondary/50 font-normal">(可选)</span>
+            </label>
+            <input
+              type="text"
+              value={privateKey}
+              onChange={(e) => setPrivateKey(e.target.value)}
+              placeholder="如 ~/.ssh/id_ed25519，留空则自动尝试默认密钥"
+              className="dialog-input"
+            />
+          </div>
+
+          {/* 密钥密码（可选） */}
+          {privateKey && (
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                密钥密码 <span className="text-text-secondary/50 font-normal">(可选)</span>
+              </label>
+              <input
+                type="password"
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                placeholder="加密私钥的密码"
+                className="dialog-input"
+              />
+            </div>
+          )}
 
           {/* 保存配置 */}
           <div className="p-3 bg-background/50 rounded-lg border border-border/50">

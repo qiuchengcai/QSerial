@@ -13,6 +13,10 @@ import { destroyTftpManager } from './tftp/manager.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 兼容旧设备：启用 OpenSSL legacy provider 以支持 SHA1 签名和短密钥
+// 必须在 app.ready 之前设置
+app.commandLine.appendSwitch('openssl-legacy-provider', '');
+
 let mainWindow: BrowserWindow | null = null;
 
 // 单实例锁 - 确保一次只能运行一个 QSerial 程序

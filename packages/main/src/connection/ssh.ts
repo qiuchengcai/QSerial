@@ -43,6 +43,85 @@ function getDefaultPrivateKeys(): Buffer[] {
   return keys;
 }
 
+/**
+ * 算法配置预设
+ * - full: 完整算法列表，优先兼容新设备
+ * - legacy: 仅使用最保守的算法，兼容旧设备
+ */
+const ALGORITHM_PRESETS = {
+  full: {
+    kex: [
+      'ecdh-sha2-nistp256',
+      'ecdh-sha2-nistp384',
+      'ecdh-sha2-nistp521',
+      'diffie-hellman-group-exchange-sha256',
+      'diffie-hellman-group14-sha256',
+      'diffie-hellman-group15-sha512',
+      'diffie-hellman-group16-sha512',
+      'diffie-hellman-group17-sha512',
+      'diffie-hellman-group18-sha512',
+      'diffie-hellman-group14-sha1',
+      'diffie-hellman-group-exchange-sha1',
+      'diffie-hellman-group1-sha1',
+    ],
+    serverHostKey: [
+      'ssh-rsa',
+      'ssh-ed25519',
+      'rsa-sha2-512',
+      'rsa-sha2-256',
+      'ecdsa-sha2-nistp256',
+      'ecdsa-sha2-nistp384',
+      'ecdsa-sha2-nistp521',
+      'ssh-dss',
+    ],
+    cipher: [
+      'aes128-gcm@openssh.com',
+      'aes256-gcm@openssh.com',
+      'aes128-ctr',
+      'aes192-ctr',
+      'aes256-ctr',
+      'aes128-cbc',
+      'aes256-cbc',
+      '3des-cbc',
+    ],
+    hmac: [
+      'hmac-sha2-512',
+      'hmac-sha2-256',
+      'hmac-sha1',
+      'hmac-sha1-96',
+    ],
+  },
+  legacy: {
+    kex: [
+      'diffie-hellman-group14-sha1',
+      'diffie-hellman-group1-sha1',
+      'diffie-hellman-group-exchange-sha1',
+      'ecdh-sha2-nistp256',
+      'ecdh-sha2-nistp384',
+      'ecdh-sha2-nistp521',
+    ],
+    serverHostKey: [
+      // 只保留 ssh-rsa 和 ssh-dss，避免 rsa-sha2-* 签名不匹配
+      'ssh-rsa',
+      'ssh-dss',
+    ],
+    cipher: [
+      'aes128-ctr',
+      'aes192-ctr',
+      'aes256-ctr',
+      'aes128-cbc',
+      'aes256-cbc',
+      '3des-cbc',
+    ],
+    hmac: [
+      'hmac-sha1',
+      'hmac-sha1-96',
+      'hmac-sha2-256',
+      'hmac-sha2-512',
+    ],
+  },
+};
+
 export class SshConnection implements IConnection {
   private client: Client | null = null;
   private stream: ClientChannel | null = null;
@@ -74,16 +153,29 @@ export class SshConnection implements IConnection {
     const defaultKeys = getDefaultPrivateKeys();
 
     // 收集所有可用的认证配置
-    const authMethods: { privateKey?: Buffer; password?: string }[] = [];
+    const authMethods: { privateKey?: Buffer; password?: string; passphrase?: string }[] = [];
 
-    // 1. 默认密钥
-    for (const key of defaultKeys) {
-      authMethods.push({ privateKey: key });
+    // 1. 用户指定的私钥（最高优先级）
+    if (this.options.privateKey) {
+      try {
+        const keyPath = this.options.privateKey.replace(/^~/, os.homedir());
+        const keyBuffer = fs.readFileSync(keyPath);
+        authMethods.push({ privateKey: keyBuffer, passphrase: this.options.passphrase });
+      } catch {
+        // 读取失败跳过
+      }
     }
 
-    // 2. 密码
+    // 2. 用户指定的密码
     if (this.options.password) {
       authMethods.push({ password: this.options.password });
+    }
+
+    // 3. 默认密钥（最低优先级，仅在用户未提供任何认证时使用）
+    if (!this.options.privateKey && !this.options.password) {
+      for (const key of defaultKeys) {
+        authMethods.push({ privateKey: key });
+      }
     }
 
     if (authMethods.length === 0) {
@@ -92,17 +184,32 @@ export class SshConnection implements IConnection {
       throw new Error('未找到 SSH 密钥 (~/.ssh/id_*) 且未提供密码');
     }
 
-    // 依次尝试每种认证方式
+    // 连接策略：先用完整算法列表，失败后回退到保守算法
+    const algorithmPresets = ['full', 'legacy'] as const;
     let lastError: Error | null = null;
 
-    for (let i = 0; i < authMethods.length; i++) {
-      const auth = authMethods[i];
-      try {
-        await this.tryConnect(auth);
-        return; // 连接成功
-      } catch (err) {
-        lastError = err as Error;
-        // 认证失败，尝试下一种方式
+    for (const preset of algorithmPresets) {
+      for (const auth of authMethods) {
+        try {
+          await this.tryConnect(auth, ALGORITHM_PRESETS[preset]);
+          return; // 连接成功
+        } catch (err) {
+          lastError = err as Error;
+          const errMsg = lastError.message || '';
+
+          // 签名验证失败时，立即切换到保守算法预设重试
+          if (errMsg.includes('signature verification failed') && preset === 'full') {
+            console.log('[SSH] signature verification failed with full algorithms, retrying with legacy preset...');
+            break; // 跳出 authMethods 循环，进入 legacy preset
+          }
+
+          // 其他错误（如认证失败），继续尝试下一个认证方式
+        }
+      }
+
+      // 如果已经是 legacy preset 且仍然签名验证失败，不再重试
+      if (lastError?.message?.includes('signature verification failed')) {
+        break;
       }
     }
 
@@ -112,7 +219,10 @@ export class SshConnection implements IConnection {
     throw lastError || new Error('All configured authentication methods failed');
   }
 
-  private tryConnect(auth: { privateKey?: Buffer; password?: string }): Promise<void> {
+  private tryConnect(
+    auth: { privateKey?: Buffer; password?: string; passphrase?: string },
+    algorithms: typeof ALGORITHM_PRESETS.full,
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       // 清理上一个客户端
       if (this.client) {
@@ -187,53 +297,19 @@ export class SshConnection implements IConnection {
         username: this.options.username,
         readyTimeout: 20000,
         keepaliveInterval: this.options.keepaliveInterval || 30000,
-        // 兼容旧设备：扩展支持的算法列表
-        algorithms: {
-          kex: [
-            'ecdh-sha2-nistp256',
-            'ecdh-sha2-nistp384',
-            'ecdh-sha2-nistp521',
-            'diffie-hellman-group-exchange-sha256',
-            'diffie-hellman-group14-sha256',
-            'diffie-hellman-group15-sha512',
-            'diffie-hellman-group16-sha512',
-            'diffie-hellman-group17-sha512',
-            'diffie-hellman-group18-sha512',
-            'diffie-hellman-group14-sha1',
-            'diffie-hellman-group-exchange-sha1',
-            'diffie-hellman-group1-sha1',
-          ],
-          serverHostKey: [
-            'ssh-ed25519',
-            'ecdsa-sha2-nistp256',
-            'ecdsa-sha2-nistp384',
-            'ecdsa-sha2-nistp521',
-            'rsa-sha2-512',
-            'rsa-sha2-256',
-            'ssh-rsa',
-            'ssh-dss',
-          ],
-          cipher: [
-            'aes128-gcm@openssh.com',
-            'aes256-gcm@openssh.com',
-            'aes128-ctr',
-            'aes192-ctr',
-            'aes256-ctr',
-            'aes128-cbc',
-            'aes256-cbc',
-            '3des-cbc',
-          ],
-          hmac: [
-            'hmac-sha2-512',
-            'hmac-sha2-256',
-            'hmac-sha1',
-            'hmac-sha1-96',
-          ],
+        // 跳过主机密钥验证（兼容旧设备，生产环境应改为严格验证）
+        hostVerifier: () => true,
+        algorithms,
+        debug: (msg: string) => {
+          console.log('[SSH]', msg);
         },
       };
 
       if (auth.privateKey) {
         config.privateKey = auth.privateKey;
+        if (auth.passphrase) {
+          config.passphrase = auth.passphrase;
+        }
       }
       if (auth.password) {
         config.password = auth.password;

@@ -215,6 +215,8 @@ export const Sidebar: React.FC = () => {
           port: config.port,
           username: config.username,
           password: config.password,
+          privateKey: config.privateKey,
+          passphrase: config.passphrase,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.SSH, undefined, config.host);
@@ -319,6 +321,8 @@ export const Sidebar: React.FC = () => {
     port: number;
     username: string;
     password?: string;
+    privateKey?: string;
+    passphrase?: string;
     saveConfig?: boolean;
     configName?: string;
   }) => {
@@ -335,6 +339,8 @@ export const Sidebar: React.FC = () => {
         port: options.port,
         username: options.username,
         password: options.password,
+        privateKey: options.privateKey,
+        passphrase: options.passphrase,
       });
 
       await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
@@ -348,6 +354,8 @@ export const Sidebar: React.FC = () => {
             port: options.port,
             username: options.username,
             password: options.password,
+            privateKey: options.privateKey,
+            passphrase: options.passphrase,
           },
         });
       }
