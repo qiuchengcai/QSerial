@@ -35,7 +35,7 @@ def get_serial_number(conn):
 
 def generate_password(serial_number):
     """Generate Layer 2 password using the 'a' tool."""
-    result = subprocess.run([A_TOOL, serial_number], capture_output=True, text=True)
+    result = subprocess.run([A_TOOL, serial_number], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     if result.returncode != 0:
         raise RuntimeError(f"Password generation failed: {result.stderr}")
 

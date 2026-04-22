@@ -9,6 +9,7 @@
 | 日期 | 版本 | 变更内容 |
 |------|------|----------|
 | 2026-04-20 | 3.0.0 | 新增 ConnectionServer、快捷按钮系统、TELNET 协议协商；标注 SerialServer 已废弃；校验位补充 mark/space |
+| 2026-04-21 | 3.1.0 | TFTP 传输参数优化；新增 AI 设备操控架构说明 |
 
 ---
 
@@ -41,11 +42,12 @@ QSerial 是一款现代化的跨平台终端工具，主要面向：
 | 多协议支持 | 本地 Shell、串口、SSH、Telnet |
 | 连接共享 | TCP 共享任意连接 + 密码认证 + SSH 隧道 |
 | 串口共享 | TCP 共享串口 + 密码认证 + SSH 隧道（已废弃，由连接共享替代） |
+| AI 设备操控 | 通过 Skill 方案直连设备，无需 MCP，单命令 2-3 秒 |
 | SFTP 文件传输 | SSH 连接内置文件浏览器 |
-| TFTP 服务器 | 内置 TFTP 服务器，支持上传下载 |
+| TFTP 服务器 | 内置 TFTP 服务器，传输参数优化（blockSize=65464、windowSize=64） |
 | 多标签管理 | 支持拖拽排序、分组管理 |
 | 主题定制 | 8 套预设主题，支持自定义 |
-| 快捷按钮 | 终端下方可配置快捷命令按钮 |
+| 快捷按钮 | 终端下方可配置快捷命令按钮，支持多行命令 + 行间延迟 |
 | 会话管理 | 保存连接配置，快速重连 |
 | 跨平台 | Windows、macOS、Linux |
 
@@ -378,3 +380,44 @@ pnpm rebuild node-pty @serialport/bindings-cpp
 | TFTP | 简单文件传输协议 (Trivial File Transfer Protocol) |
 | NAWS | Telnet 窗口大小协商 (Negotiate About Window Size) |
 | TTYPE | Telnet 终端类型 (Terminal Type) |
+| Skill | Codebuddy 技能模块，Markdown + Python 脚本实现 |
+| MCP | Model Context Protocol，AI 工具调用协议 |
+
+---
+
+## 8. AI 设备操控架构
+
+### 8.1 架构概述
+
+QSerial 的终端共享功能为 AI 操控设备提供了天然通道。采用 Skill 方案直连设备，无需 MCP 中间层。
+
+```
+AI → execute_command → Python脚本 → TELNET → QSerial共享 → 串口 → 设备
+```
+
+### 8.2 Skill 方案 vs MCP
+
+| 维度 | Skill 方案 | MCP |
+|------|-----------|-----|
+| 执行链路 | 最短，无中间层 | 多一层进程间通信 |
+| 响应速度 | 快，2-3 秒/命令 | 慢，JSON-RPC 封装/解析有额外耗时 |
+| 资源开销 | 按需执行，零常驻 | Server 长驻进程 |
+| Agent 搭建 | 即插即用，放入 skills 目录即可 | 需注册配置、启动参数 |
+| Skill 维护 | 修改即时生效 | 需重启 Server |
+| Skill 分发 | 随仓库提交，clone 即可用 | 每台机器单独配置 |
+
+### 8.3 Skill 实现
+
+Skill 由两部分组成：
+- **SKILL.md**：Markdown 描述触发规则和使用说明
+- **scripts/**：Python 脚本实现连接和命令执行逻辑
+
+```
+.codebuddy/skills/uniview-ipc-connect/
+├── SKILL.md              # 触发规则 + 使用说明
+└── scripts/
+    ├── shell.py          # Layer 1：CLI 命令执行
+    ├── root.py           # Layer 2：Root shell 命令执行
+    ├── connect.py        # 连接管理
+    └── status.py         # 连接状态查询
+```

@@ -6,6 +6,8 @@ import time
 import sys
 import re
 import struct
+import fcntl
+import os
 
 # TELNET protocol constants
 IAC = b'\xff'
@@ -28,6 +30,9 @@ QSERIAL_PASSWORD = 'Admin123.'
 
 DEVICE_USER = 'root'
 DEVICE_PASSWORD = 'Admin123.'
+
+# Lock file to prevent concurrent QSerial connections (single serial port)
+_LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.qserial.lock')
 
 
 def _respond_iac(sock, data):
@@ -123,9 +128,13 @@ class Connection:
         self.device_password = device_password
         self.target_layer = target_layer
         self.sock = None
+        self._lock_fd = None
 
     def connect(self):
         """Establish connection: TCP -> QSerial auth -> reach target layer.
+
+        Acquires an exclusive file lock to prevent concurrent QSerial connections,
+        which would corrupt the serial session and waste Layer 2 password attempts.
 
         After QSerial auth, detects current layer and navigates to target_layer:
         - If target_layer=1 and at L2: send 'exit' to go back to L1
@@ -133,24 +142,65 @@ class Connection:
         - If already at target layer: stay
         Close does NOT exit the shell, so device stays at whatever layer it's on.
         """
+        # Acquire exclusive lock to prevent concurrent QSerial access
+        self._lock_fd = open(_LOCK_FILE, 'w')
+        try:
+            fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (IOError, OSError):
+            print("ERROR: Another session is using the QSerial port. Waiting...",
+                  file=sys.stderr)
+            fcntl.flock(self._lock_fd, fcntl.LOCK_EX)  # Block until available
+            print("Lock acquired, proceeding...", file=sys.stderr)
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(10)
         self.sock.connect((self.host, self.port))
 
-        # Phase 1: Wait for PASSWORD prompt (do NOT respond to IAC yet)
-        text = recv_until(self.sock, r'PASSWORD', timeout=10, respond_iac=False)
-        if 'PASSWORD' not in text.upper():
-            raise ConnectionError(
-                f"Expected PASSWORD prompt, got: {clean_output(text)[:200]}")
+        # Phase 1: Wait for text prompt from QSerial
+        # QSerial may show PASSWORD prompt or directly show device login
+        # We need to handle IAC but avoid negotiation loops
+        # Strategy: read all data with timeout, don't respond to IAC during Phase 1
+        buf = b''
+        end_time = time.time() + 10
+        while time.time() < end_time:
+            try:
+                self.sock.settimeout(1)
+                data = self.sock.recv(4096)
+                if not data:
+                    break
+                buf += data
+            except socket.timeout:
+                # Check if we have enough text to identify prompt
+                text = buf.decode('utf-8', errors='replace')
+                clean = clean_output(text)
+                if 'PASSWORD' in clean.upper() or 'login' in clean.lower() or 'root@' in clean or 'User@' in clean:
+                    break
+                # If we have some text but no known prompt, try sending Enter
+                if len(clean.strip()) > 0 and time.time() > end_time - 5:
+                    self.sock.sendall(b'\r\n')
+                continue
 
-        # Send QSerial password
-        self.sock.sendall((self.qserial_password + '\r\n').encode())
-        time.sleep(1)
-
-        # Phase 2: After authentication, send Enter to trigger device prompt
-        self.sock.sendall(b'\r\n')
-        text = recv_until(self.sock, r'(login[:：]|User@|>|[#\$])', timeout=15, respond_iac=True)
+        text = buf.decode('utf-8', errors='replace')
         clean = clean_output(text)
+
+        if 'PASSWORD' in clean.upper():
+            # QSerial requires authentication
+            self.sock.sendall((self.qserial_password + '\r\n').encode())
+            time.sleep(1)
+
+            # After authentication, send Enter to trigger device prompt
+            self.sock.sendall(b'\r\n')
+            text = recv_until(self.sock, r'(login[:：]|User@|>|[#\$])', timeout=15, respond_iac=True)
+            clean = clean_output(text)
+        elif 'login' in clean.lower():
+            # QSerial already authenticated, directly at device login
+            pass
+        elif 'root@' in clean or 'User@' in clean:
+            # Already at device shell (Layer 1 or Layer 2)
+            pass
+        else:
+            raise ConnectionError(
+                f"Expected PASSWORD or login prompt, got: {clean[:200]}")
 
         # If login prompt, send credentials
         if 'login' in clean.lower():
@@ -195,6 +245,13 @@ class Connection:
             except Exception:
                 pass
             self.sock = None
+        if self._lock_fd:
+            try:
+                fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
+                self._lock_fd.close()
+            except Exception:
+                pass
+            self._lock_fd = None
 
     def __enter__(self):
         self.connect()

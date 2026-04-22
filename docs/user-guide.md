@@ -7,6 +7,7 @@
 | 日期 | 版本 | 变更内容 |
 |------|------|----------|
 | 2026-04-20 | 0.2.0 | 远程客户端连接方式 nc→telnet；串口共享标注已废弃；校验位补充 mark/space |
+| 2026-04-21 | 0.2.0 | TFTP 传输参数优化；快捷按钮支持多行命令；补充 AI 设备操控说明 |
 
 ## 概述
 
@@ -226,6 +227,7 @@ socat - localhost:8888
 
 - 文件上传（PUT）和下载（GET）
 - 传输进度监控（每 5% 更新一次）
+- 传输参数优化：blockSize=65464、windowSize=64，大幅提升传输速率
 - 传输事件：started / progress / completed / aborted / error
 
 ---
@@ -249,6 +251,51 @@ socat - localhost:8888
 - **预设颜色**：10 种预设 + 自定义颜色
 - **右键菜单**：编辑/删除按钮或分组
 - **持久化**：自动保存到本地
+
+### 多行命令
+
+按钮支持多行命令，点击后逐条发送：
+
+- 在编辑弹窗中使用 textarea 输入多行命令，每行一条
+- 可配置行间延迟（默认 100ms），适用于需要等待设备响应的场景
+- 示例：登录设备 → 输入密码 → 执行命令，三行分别填写，行间延迟 500ms
+
+---
+
+## AI 设备操控
+
+QSerial 的终端共享功能为 AI 操控设备提供了天然通道，通过 Skill 方案直连设备，无需 MCP 中间层。
+
+### 架构
+
+```
+AI → execute_command → Python脚本 → TELNET → QSerial共享 → 串口 → 设备
+```
+
+### 使用方式
+
+1. 将 `uniview-ipc-connect` Skill 放入项目 `.codebuddy/skills/` 目录
+2. 启动 QSerial，连接串口设备，开启终端共享服务
+3. AI 即可通过 Skill 直接操控设备
+
+### 示例
+
+```bash
+# AI 连接设备（Layer 1）
+python3 scripts/shell.py "manuinfotool"
+
+# AI 进入 root shell（Layer 2）
+python3 scripts/root.py "uname -a"
+```
+
+### Skill vs MCP
+
+Skill 方案相比 MCP 更快更轻：
+
+- **链路最短**：无中间层，端到端延迟低
+- **即插即用**：放入 skills 目录即可生效，无需配置
+- **修改即时生效**：无需重启或编译
+- **随仓库分发**：团队 clone 即可用
 
 ### 使用方式
 

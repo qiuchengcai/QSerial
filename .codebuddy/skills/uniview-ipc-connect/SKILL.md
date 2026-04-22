@@ -90,3 +90,10 @@ python3 scripts/root.py
 - Layer 2 password is generated using "打开调试因子+默认时间" mode based on the device serial number.
 - `_hide box` enters the **equipment test layer** (`<IPC-...-equipment>`), NOT Layer 2. Do not confuse the two.
 - Commands `en`, `shell`, `sh` are NOT supported on Layer 1.
+
+## Compatibility Notes
+
+- **Python 3.6**: The scripts must be compatible with Python 3.6 (device environment). Do NOT use `capture_output` parameter in `subprocess.run()` — use `stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True` instead.
+- **QSerial session reuse**: If a previous session was not properly closed, the next connection may skip the PASSWORD prompt and go directly to the device shell. The `connect.py` module handles this by detecting PASSWORD, login, or shell prompts.
+- **Device so file location**: `libdriver.so` is at `/program/lib/libdriver.so`, NOT `/usr/lib/libdriver.so`.
+- **Session cleanup**: Always `exit` from Layer 2 before closing the connection to avoid session residue on the QSerial port.

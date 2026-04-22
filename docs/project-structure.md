@@ -153,7 +153,7 @@ QSerial/
 
 | 文件 | 说明 |
 |------|------|
-| `manager.ts` | TFTP 服务器管理器，启动/停止/状态查询/传输事件监控 |
+| `manager.ts` | TFTP 服务器管理器，启动/停止/状态查询/传输事件监控（blockSize=65464、windowSize=64） |
 
 ---
 
