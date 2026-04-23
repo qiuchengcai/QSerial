@@ -512,10 +512,8 @@ export async function startNfsServer(exportDir: string, allowedClients: string, 
 
   sendStatusEvent({ running: true });
 
-  // Linux 启动客户端监控
-  if (!isWindows) {
-    startClientMonitor();
-  }
+  // 启动客户端监控
+  startClientMonitor();
 }
 
 /**
@@ -588,39 +586,61 @@ export function getMountHint(): { localIp: string; exportDir: string; mountCmd: 
 }
 
 /**
- * 获取 NFS 客户端连接信息 (Linux only)
+ * 获取 NFS 客户端连接信息
  */
 export function getNfsClients(): NfsClientEvent[] {
-  if (isWindows) return [];
-
   try {
-    const output = run('sudo nfsstat -l 2>/dev/null || ss -tn state established \'( dport = :2049 or sport = :2049 )\' 2>/dev/null');
-    const clients: NfsClientEvent[] = [];
-
-    const lines = output.split('\n');
-    for (const line of lines) {
-      const match = line.match(/(\d+\.\d+\.\d+\.\d+):(\d+)/);
-      if (match) {
-        clients.push({
-          address: match[1],
-          port: parseInt(match[2], 10),
-          mountedPath: currentStatus.exportDir,
-          action: 'connected',
-        });
+    if (isWindows) {
+      // Windows: 通过 netstat 检测 NFS 端口 2049 的 TCP 连接
+      const output = run('netstat -an -p tcp 2>nul');
+      const clients: NfsClientEvent[] = [];
+      const seen = new Set<string>();
+      const lines = output.split('\n');
+      for (const line of lines) {
+        // 匹配 ESTABLISHED 状态且本地端口为 2049 的连接
+        // 格式: TCP    0.0.0.0:2049    192.168.1.100:12345    ESTABLISHED
+        const match = line.match(/^\s*TCP\s+\S+:2049\s+(\d+\.\d+\.\d+\.\d+):(\d+)\s+ESTABLISHED/i);
+        if (match) {
+          const addr = match[1];
+          if (addr === '0.0.0.0' || addr === '127.0.0.1') continue;
+          if (seen.has(addr)) continue;
+          seen.add(addr);
+          clients.push({
+            address: addr,
+            port: parseInt(match[2], 10),
+            mountedPath: currentStatus.exportDir,
+            action: 'connected',
+          });
+        }
       }
+      return clients;
+    } else {
+      // Linux: 通过 nfsstat 或 ss 检测
+      const output = run('sudo nfsstat -l 2>/dev/null || ss -tn state established \'( dport = :2049 or sport = :2049 )\' 2>/dev/null');
+      const clients: NfsClientEvent[] = [];
+      const lines = output.split('\n');
+      for (const line of lines) {
+        const match = line.match(/(\d+\.\d+\.\d+\.\d+):(\d+)/);
+        if (match) {
+          clients.push({
+            address: match[1],
+            port: parseInt(match[2], 10),
+            mountedPath: currentStatus.exportDir,
+            action: 'connected',
+          });
+        }
+      }
+      return clients;
     }
-
-    return clients;
   } catch {
     return [];
   }
 }
 
 /**
- * 启动客户端监控 (Linux only)
+ * 启动客户端监控
  */
 function startClientMonitor(): void {
-  if (isWindows) return;
   stopClientMonitor();
   monitorTimer = setInterval(() => {
     if (!serverRunning) return;
