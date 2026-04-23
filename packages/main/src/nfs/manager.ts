@@ -640,18 +640,40 @@ export function getNfsClients(): NfsClientEvent[] {
 /**
  * 启动客户端监控
  */
+// 上一次检测到的客户端 IP 集合，用于检测新连接和断开
+let lastKnownClients = new Set<string>();
+
 function startClientMonitor(): void {
   stopClientMonitor();
+  lastKnownClients.clear();
   monitorTimer = setInterval(() => {
     if (!serverRunning) return;
 
     const clients = getNfsClients();
+    const currentIps = new Set(clients.map(c => c.address));
+
+    // 新连接：上次没有，这次有
     for (const client of clients) {
-      sendClientEvent({
-        ...client,
-        action: 'connected',
-      });
+      if (!lastKnownClients.has(client.address)) {
+        sendClientEvent({
+          ...client,
+          action: 'connected',
+        });
+      }
     }
+
+    // 断开连接：上次有，这次没有
+    for (const ip of lastKnownClients) {
+      if (!currentIps.has(ip)) {
+        sendClientEvent({
+          address: ip,
+          mountedPath: currentStatus.exportDir,
+          action: 'disconnected',
+        });
+      }
+    }
+
+    lastKnownClients = currentIps;
   }, 5000);
 }
 
