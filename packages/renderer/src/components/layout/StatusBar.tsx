@@ -5,6 +5,7 @@
 import React from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useTftpStore } from '@/stores/tftp';
+import { useNfsStore } from '@/stores/nfs';
 import { useSftpStore } from '@/stores/sftp';
 import { CONNECTION_STATE_NAMES, ConnectionType, ConnectionState } from '@qserial/shared';
 
@@ -14,6 +15,7 @@ export const StatusBar: React.FC = () => {
   const activeTabId = terminalState?.activeTabId;
   const sessions = terminalState?.sessions || {};
   const { running: tftpRunning, transfers } = useTftpStore();
+  const { running: nfsRunning } = useNfsStore();
   const { panelVisible, setPanelVisible, createSession, sessions: sftpSessions } = useSftpStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -116,6 +118,14 @@ export const StatusBar: React.FC = () => {
           <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
             <span className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-text-secondary">TFTP</span>
+          </div>
+        )}
+
+        {/* NFS 服务器状态 */}
+        {nfsRunning && (
+          <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-text-secondary">NFS</span>
           </div>
         )}
       </div>

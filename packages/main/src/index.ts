@@ -9,7 +9,7 @@ import { setupIpcHandlers } from './ipc/index.js';
 import { ConfigManager } from './config/manager.js';
 import { ConnectionFactory } from './connection/factory.js';
 import { destroyTftpManager } from './tftp/manager.js';
-import { destroyNfsManager } from './nfs/manager.js';
+import { initNfsManager, destroyNfsManager } from './nfs/manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -138,6 +138,10 @@ async function initialize(): Promise<void> {
   // 设置 IPC 处理器
   setupIpcHandlers();
   console.log('IPC handlers setup');
+
+  // 清理残留的 WinNFSd 进程（应用重启后可能仍有残留）
+  initNfsManager();
+  console.log('NFS manager initialized');
 }
 
 // 应用就绪
@@ -171,16 +175,23 @@ app.on('window-all-closed', () => {
 });
 
 // 应用退出前清理
-app.on('before-quit', async () => {
+app.on('before-quit', () => {
   try {
-    // 关闭所有连接
-    await ConnectionFactory.destroyAll();
+    // 停止 NFS 服务器（同步操作，确保 WinNFSd 进程被终止）
+    destroyNfsManager();
     // 停止 TFTP 服务器
     destroyTftpManager();
-    // 停止 NFS 服务器
-    destroyNfsManager();
   } catch (error) {
     console.error('Error during cleanup:', error);
+  }
+});
+
+// 异步清理（连接等）
+app.on('before-quit', async () => {
+  try {
+    await ConnectionFactory.destroyAll();
+  } catch (error) {
+    console.error('Error cleaning up connections:', error);
   }
 });
 

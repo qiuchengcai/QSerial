@@ -342,7 +342,7 @@ function setupNfsHandlers(): void {
   // 启动 NFS 服务器
   ipcMain.handle(IPC_CHANNELS.NFS_START, async (_, { exportDir, allowedClients, options }) => {
     try {
-      startNfsServer(exportDir, allowedClients, options);
+      await startNfsServer(exportDir, allowedClients, options);
     } catch (error) {
       throw error;
     }

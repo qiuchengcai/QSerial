@@ -23,6 +23,8 @@ interface NfsClient {
 interface NfsState {
   config: NfsConfig;
   running: boolean;
+  starting: boolean;
+  stopping: boolean;
   error?: string;
   clients: NfsClient[];
   mountHint?: {
@@ -55,6 +57,8 @@ export const useNfsStore = create<NfsState & NfsActions>()(
     (set, get) => ({
       config: DEFAULT_CONFIG,
       running: false,
+      starting: false,
+      stopping: false,
       error: undefined,
       clients: [],
       mountHint: undefined,
@@ -74,37 +78,46 @@ export const useNfsStore = create<NfsState & NfsActions>()(
       },
 
       startServer: async () => {
-        const { config } = get();
+        const { config, starting } = get();
+        if (starting) return;
         if (!config.exportDir) {
           set({ error: '请选择共享目录' });
           return;
         }
+        console.log('[NFS] startServer: calling IPC start');
+        set({ starting: true, stopping: false, error: undefined });
         try {
           await window.qserial.nfs.start(
             config.exportDir,
             config.allowedClients,
             config.options,
           );
-          set({ running: true, error: undefined });
-          // 加载挂载提示
+          console.log('[NFS] startServer: IPC start succeeded');
+          // 主进程已确认进程稳定运行（内部有 1 秒稳定性验证）
+          set({ running: true, starting: false, error: undefined });
           get().loadMountHint();
         } catch (error) {
-          set({ error: (error as Error).message, running: false });
+          console.log('[NFS] startServer: IPC start failed:', (error as Error).message);
+          set({ error: (error as Error).message, running: false, starting: false });
         }
       },
 
       stopServer: async () => {
+        set({ starting: false, stopping: true });
         try {
           await window.qserial.nfs.stop();
-          set({ running: false, error: undefined, mountHint: undefined });
+          set({ running: false, stopping: false, error: undefined, mountHint: undefined });
         } catch (error) {
-          set({ error: (error as Error).message });
+          set({ error: (error as Error).message, stopping: false });
         }
       },
 
       loadStatus: async () => {
         try {
           const status = await window.qserial.nfs.getStatus();
+          const { starting, stopping, running: currentRunning } = get();
+          // 启动/停止过程中不覆盖状态，避免竞态
+          if (starting || stopping) return;
           if (status.running) {
             set({
               running: true,
@@ -116,7 +129,13 @@ export const useNfsStore = create<NfsState & NfsActions>()(
             });
             get().loadMountHint();
           } else {
-            set({ running: false });
+            // 主进程认为未运行，但渲染进程认为运行中
+            // 可能是应用重启后主进程内存重置，或进程确实已退出
+            // 信任主进程的状态，同步为 false
+            if (currentRunning) {
+              console.log('[NFS] loadStatus: main process reports not running, syncing state to false');
+            }
+            set({ running: false, mountHint: undefined });
           }
         } catch (error) {
           console.error('Failed to load NFS status:', error);
@@ -154,3 +173,40 @@ export const useNfsStore = create<NfsState & NfsActions>()(
     }
   )
 );
+
+// 监听主进程的 NFS 状态变化事件，实时同步 store
+let listenersInitialized = false;
+
+export function initNfsListeners(): void {
+  if (listenersInitialized) return;
+  listenersInitialized = true;
+
+  // 监听服务状态变化（如 WinNFSd 进程意外退出）
+  window.qserial.nfs.onStatusChange((event) => {
+    const state = useNfsStore.getState();
+    console.log('[NFS] onStatusChange:', JSON.stringify(event), 'state:', { running: state.running, starting: state.starting, stopping: state.stopping });
+    if (!event.running) {
+      // 启动过程中收到停止事件：说明进程在主进程稳定性验证期间退出了
+      // 由 startServer catch 处理，此处不做额外操作
+      if (state.starting) return;
+      // 停止过程中忽略（由 stopServer 自行管理状态）
+      if (state.stopping) return;
+      // 只在服务确实处于运行状态时才处理停止事件
+      if (!state.running) return;
+      // 服务异常退出
+      console.log('[NFS] handling unexpected stop');
+      useNfsStore.setState({ running: false, starting: false, stopping: false, mountHint: undefined, error: event.error || 'NFS 服务已意外停止' });
+    } else {
+      // 收到 running:true 事件，同步状态
+      if (!state.running) {
+        useNfsStore.setState({ running: true, starting: false });
+        state.loadMountHint();
+      }
+    }
+  });
+
+  // 监听客户端连接/断开事件
+  window.qserial.nfs.onClient((event) => {
+    useNfsStore.getState().handleClientEvent(event as NfsClientEvent);
+  });
+}
