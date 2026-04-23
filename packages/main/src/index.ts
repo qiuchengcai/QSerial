@@ -9,6 +9,7 @@ import { setupIpcHandlers } from './ipc/index.js';
 import { ConfigManager } from './config/manager.js';
 import { ConnectionFactory } from './connection/factory.js';
 import { destroyTftpManager } from './tftp/manager.js';
+import { destroyNfsManager } from './nfs/manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -176,6 +177,8 @@ app.on('before-quit', async () => {
     await ConnectionFactory.destroyAll();
     // 停止 TFTP 服务器
     destroyTftpManager();
+    // 停止 NFS 服务器
+    destroyNfsManager();
   } catch (error) {
     console.error('Error during cleanup:', error);
   }

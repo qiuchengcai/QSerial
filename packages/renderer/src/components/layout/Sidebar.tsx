@@ -10,6 +10,7 @@ import { SerialConnectDialog } from '../dialogs/SerialConnectDialog';
 import { SshConnectDialog } from '../dialogs/SshConnectDialog';
 import { TelnetConnectDialog } from '../dialogs/TelnetConnectDialog';
 import { TftpDialog } from '../dialogs/TftpDialog';
+import { NfsDialog } from '../dialogs/NfsDialog';
 import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectDialog';
 
 const MIN_SIDEBAR_WIDTH = 120;
@@ -64,6 +65,7 @@ export const Sidebar: React.FC = () => {
   const [showSshDialog, setShowSshDialog] = useState(false);
   const [showTelnetDialog, setShowTelnetDialog] = useState(false);
   const [showTftpDialog, setShowTftpDialog] = useState(false);
+  const [showNfsDialog, setShowNfsDialog] = useState(false);
   const [showPtyDialog, setShowPtyDialog] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingSession, setEditingSession] = useState<SavedSession | null>(null);
@@ -634,6 +636,13 @@ export const Sidebar: React.FC = () => {
         >
           📁
         </button>
+        <button
+          onClick={() => setShowNfsDialog(true)}
+          className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover mb-1 text-text-secondary hover:text-text transition-colors text-sm"
+          title="NFS 服务器"
+        >
+          🗂️
+        </button>
 
         {/* 对话框 */}
         <SerialConnectDialog
@@ -657,6 +666,10 @@ export const Sidebar: React.FC = () => {
         <TftpDialog
           isOpen={showTftpDialog}
           onClose={() => setShowTftpDialog(false)}
+        />
+        <NfsDialog
+          isOpen={showNfsDialog}
+          onClose={() => setShowNfsDialog(false)}
         />
         <PtyConnectDialog
           isOpen={showPtyDialog}
@@ -759,6 +772,14 @@ export const Sidebar: React.FC = () => {
             <span className="text-sm flex-shrink-0">📁</span>
             <span className="text-xs truncate">TFTP</span>
           </button>
+          <button
+            onClick={() => setShowNfsDialog(true)}
+            className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left group"
+            title="NFS 服务器"
+          >
+            <span className="text-sm flex-shrink-0">🗂️</span>
+            <span className="text-xs truncate">NFS</span>
+          </button>
         </div>
       </div>
 
@@ -836,6 +857,10 @@ export const Sidebar: React.FC = () => {
       <TftpDialog
         isOpen={showTftpDialog}
         onClose={() => setShowTftpDialog(false)}
+      />
+      <NfsDialog
+        isOpen={showNfsDialog}
+        onClose={() => setShowNfsDialog(false)}
       />
       <PtyConnectDialog
         isOpen={showPtyDialog}

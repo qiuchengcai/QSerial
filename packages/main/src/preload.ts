@@ -94,6 +94,26 @@ const api = {
     },
   },
 
+  // NFS 服务器
+  nfs: {
+    start: (exportDir: string, allowedClients: string, options: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.NFS_START, { exportDir, allowedClients, options }),
+    stop: () => ipcRenderer.invoke(IPC_CHANNELS.NFS_STOP),
+    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.NFS_GET_STATUS),
+    pickDir: () => ipcRenderer.invoke(IPC_CHANNELS.NFS_PICK_DIR),
+    getMountHint: () => ipcRenderer.invoke(IPC_CHANNELS.NFS_GET_MOUNT_HINT),
+    onStatusChange: (callback: (event: { running: boolean; error?: string }) => void) => {
+      const handler = (_: unknown, event: { running: boolean; error?: string }) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.NFS_STATUS_EVENT, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.NFS_STATUS_EVENT, handler);
+    },
+    onClient: (callback: (event: unknown) => void) => {
+      const handler = (_: unknown, event: unknown) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.NFS_CLIENT_EVENT, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.NFS_CLIENT_EVENT, handler);
+    },
+  },
+
   // 日志保存
   log: {
     start: (sessionId: string, filePath: string) =>

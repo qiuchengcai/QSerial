@@ -2,7 +2,7 @@
  * 全局类型声明
  */
 
-import type { SerialPortInfo, SerialServerStatus, ConnectionServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent } from '@qserial/shared';
+import type { SerialPortInfo, SerialServerStatus, ConnectionServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent, NfsServerStatus, NfsMountHint } from '@qserial/shared';
 
 interface QSerialAPI {
   connection: {
@@ -48,6 +48,16 @@ interface QSerialAPI {
     pickDir: () => Promise<string | null>;
     onStatusChange: (callback: (event: { running: boolean; error?: string }) => void) => () => void;
     onTransfer: (callback: (event: TftpTransferEvent) => void) => () => void;
+  };
+
+  nfs: {
+    start: (exportDir: string, allowedClients: string, options: string) => Promise<void>;
+    stop: () => Promise<void>;
+    getStatus: () => Promise<NfsServerStatus>;
+    pickDir: () => Promise<string | null>;
+    getMountHint: () => Promise<NfsMountHint | null>;
+    onStatusChange: (callback: (event: { running: boolean; error?: string }) => void) => () => void;
+    onClient: (callback: (event: unknown) => void) => () => void;
   };
 
   log: {

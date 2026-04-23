@@ -17,6 +17,13 @@ import {
   setTftpMainWindow,
 } from '../tftp/manager.js';
 import {
+  startNfsServer,
+  stopNfsServer,
+  getNfsStatus,
+  setNfsMainWindow,
+  getMountHint,
+} from '../nfs/manager.js';
+import {
   setupSftpHandlers,
   setSftpMainWindow,
 } from '../sftp/manager.js';
@@ -60,6 +67,9 @@ export function setupIpcHandlers(): void {
 
   // TFTP 服务器
   setupTftpHandlers();
+
+  // NFS 服务器
+  setupNfsHandlers();
 
   // 日志保存
   setupLogHandlers();
@@ -314,6 +324,55 @@ function setupTftpHandlers(): void {
       return null;
     }
     return result.filePaths[0];
+  });
+}
+
+/**
+ * NFS 相关处理器
+ */
+function setupNfsHandlers(): void {
+  // 设置主窗口引用
+  setNfsMainWindow(mainWindow);
+  app.on('browser-window-created', (_, window) => {
+    if (window === mainWindow) {
+      setNfsMainWindow(window);
+    }
+  });
+
+  // 启动 NFS 服务器
+  ipcMain.handle(IPC_CHANNELS.NFS_START, async (_, { exportDir, allowedClients, options }) => {
+    try {
+      startNfsServer(exportDir, allowedClients, options);
+    } catch (error) {
+      throw error;
+    }
+  });
+
+  // 停止 NFS 服务器
+  ipcMain.handle(IPC_CHANNELS.NFS_STOP, () => {
+    stopNfsServer();
+  });
+
+  // 获取 NFS 状态
+  ipcMain.handle(IPC_CHANNELS.NFS_GET_STATUS, () => {
+    return getNfsStatus();
+  });
+
+  // 选择目录
+  ipcMain.handle(IPC_CHANNELS.NFS_PICK_DIR, async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+      title: '选择 NFS 共享目录',
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
+  // 获取挂载提示
+  ipcMain.handle(IPC_CHANNELS.NFS_GET_MOUNT_HINT, () => {
+    return getMountHint();
   });
 }
 

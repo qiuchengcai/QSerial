@@ -53,6 +53,15 @@ export const IPC_CHANNELS = {
   TFTP_STATUS_EVENT: 'tftp:statusEvent',
   TFTP_TRANSFER_EVENT: 'tftp:transferEvent',
 
+  // NFS 服务器
+  NFS_START: 'nfs:start',
+  NFS_STOP: 'nfs:stop',
+  NFS_GET_STATUS: 'nfs:getStatus',
+  NFS_PICK_DIR: 'nfs:pickDir',
+  NFS_STATUS_EVENT: 'nfs:statusEvent',
+  NFS_CLIENT_EVENT: 'nfs:clientEvent',
+  NFS_GET_MOUNT_HINT: 'nfs:getMountHint',
+
   // 日志保存
   LOG_START: 'log:start',
   LOG_STOP: 'log:stop',
@@ -118,6 +127,11 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.TFTP_STOP]: void;
   [IPC_CHANNELS.TFTP_GET_STATUS]: void;
   [IPC_CHANNELS.TFTP_PICK_DIR]: void;
+  [IPC_CHANNELS.NFS_START]: { exportDir: string; allowedClients: string; options: string };
+  [IPC_CHANNELS.NFS_STOP]: void;
+  [IPC_CHANNELS.NFS_GET_STATUS]: void;
+  [IPC_CHANNELS.NFS_PICK_DIR]: void;
+  [IPC_CHANNELS.NFS_GET_MOUNT_HINT]: void;
   [IPC_CHANNELS.LOG_START]: { sessionId: string; filePath: string };
   [IPC_CHANNELS.LOG_STOP]: { sessionId: string };
   [IPC_CHANNELS.LOG_WRITE]: { sessionId: string; data: string };
@@ -209,6 +223,11 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.TFTP_STOP]: void;
   [IPC_CHANNELS.TFTP_GET_STATUS]: TftpServerStatus;
   [IPC_CHANNELS.TFTP_PICK_DIR]: string | null;
+  [IPC_CHANNELS.NFS_START]: void;
+  [IPC_CHANNELS.NFS_STOP]: void;
+  [IPC_CHANNELS.NFS_GET_STATUS]: NfsServerStatus;
+  [IPC_CHANNELS.NFS_PICK_DIR]: string | null;
+  [IPC_CHANNELS.NFS_GET_MOUNT_HINT]: NfsMountHint | null;
   [IPC_CHANNELS.LOG_START]: void;
   [IPC_CHANNELS.LOG_STOP]: void;
   [IPC_CHANNELS.LOG_WRITE]: void;
@@ -314,6 +333,43 @@ export interface TftpTransferEvent {
   transferred?: number;
   percent?: number;
   error?: string;
+}
+
+/**
+ * NFS 服务器状态
+ */
+export interface NfsServerStatus {
+  running: boolean;
+  exportDir: string;
+  allowedClients: string;
+  options: string;
+}
+
+/**
+ * NFS 状态事件
+ */
+export interface NfsStatusEvent {
+  running: boolean;
+  error?: string;
+}
+
+/**
+ * NFS 客户端事件
+ */
+export interface NfsClientEvent {
+  address: string;
+  port?: number;
+  mountedPath?: string;
+  action: 'connected' | 'disconnected';
+}
+
+/**
+ * NFS 挂载提示
+ */
+export interface NfsMountHint {
+  localIp: string;
+  exportDir: string;
+  mountCmd: string;
 }
 
 /**
