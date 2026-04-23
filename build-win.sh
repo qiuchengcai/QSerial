@@ -75,9 +75,12 @@ echo ""
 echo -e "${YELLOW}[4/5] 打包 Windows 免安装版...${NC}"
 npx electron-builder --win dir --x64 -c electron-builder.config.cjs || true
 
-# 注意：不使用 rcedit 设置 exe 图标
-# rcedit 修改 PE 结构后会导致从 UNC 网络路径无法启动（SxS 配置错误）
-# 任务栏/窗口图标由 Electron 运行时自动加载，仅 exe 文件在资源管理器中显示默认图标
+# 设置 exe 图标（使用 resedit 纯 JS 方式，不破坏 PE 结构，兼容网络磁盘运行）
+if [ -f "release/win-unpacked/QSerial.exe" ]; then
+  echo -e "${YELLOW}  设置 exe 图标...${NC}"
+  node scripts/set-icon.cjs "$(pwd)/release/win-unpacked/QSerial.exe" "$(pwd)/build/icon.ico"
+  echo -e "${GREEN}  ✓ 图标设置完成${NC}"
+fi
 echo -e "${GREEN}  ✓ 打包完成${NC}"
 echo ""
 
