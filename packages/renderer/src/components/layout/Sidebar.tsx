@@ -2,7 +2,7 @@
  * 侧边栏组件
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useSavedSessionsStore, type SavedSession } from '@/stores/sessions';
 import { ConnectionType, ConnectionState } from '@qserial/shared';
@@ -12,7 +12,43 @@ import { TelnetConnectDialog } from '../dialogs/TelnetConnectDialog';
 import { TftpDialog } from '../dialogs/TftpDialog';
 import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectDialog';
 
+const MIN_SIDEBAR_WIDTH = 120;
+const MAX_SIDEBAR_WIDTH = 400;
+const DEFAULT_SIDEBAR_WIDTH = 160;
+
 export const Sidebar: React.FC = () => {
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    startXRef.current = e.clientX;
+    startWidthRef.current = sidebarWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const delta = e.clientX - startXRef.current;
+      const newWidth = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, startWidthRef.current + delta));
+      setSidebarWidth(newWidth);
+      document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [sidebarWidth]);
   const terminalState = useTerminalStore();
   const createTab = terminalState?.createTab;
   const createSession = terminalState?.createSession;
@@ -225,6 +261,9 @@ export const Sidebar: React.FC = () => {
           password: config.password,
           privateKey: config.privateKey,
           passphrase: config.passphrase,
+          autoReconnect: true,
+          reconnectInterval: 3000,
+          reconnectAttempts: 5,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.SSH, undefined, config.host);
@@ -250,6 +289,9 @@ export const Sidebar: React.FC = () => {
           type: ConnectionType.TELNET,
           host: config.host,
           port: config.port,
+          autoReconnect: true,
+          reconnectInterval: 3000,
+          reconnectAttempts: 5,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.TELNET, undefined, config.host);
@@ -349,6 +391,9 @@ export const Sidebar: React.FC = () => {
         password: options.password,
         privateKey: options.privateKey,
         passphrase: options.passphrase,
+        autoReconnect: true,
+        reconnectInterval: 3000,
+        reconnectAttempts: 5,
       });
 
       await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
@@ -392,6 +437,9 @@ export const Sidebar: React.FC = () => {
         type: ConnectionType.TELNET,
         host: options.host,
         port: options.port,
+        autoReconnect: true,
+        reconnectInterval: 3000,
+        reconnectAttempts: 5,
       });
 
       await connectWithCleanup(connectionId, `Telnet ${options.host}`, ConnectionType.TELNET, undefined, options.host);
@@ -651,7 +699,7 @@ export const Sidebar: React.FC = () => {
   }
 
   return (
-    <div className="w-[var(--sidebar-width)] bg-surface border-r border-border flex flex-col flex-shrink-0">
+    <div className="w-[var(--sidebar-width)] bg-surface border-r border-border flex flex-col flex-shrink-0 relative">
       {/* 快捷操作 */}
       <div className="p-2 border-b border-border">
         <div className="flex items-center justify-between mb-1.5 px-1">
@@ -825,6 +873,12 @@ export const Sidebar: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* 拖拽调整宽度手柄 */}
+      <div
+        className="sidebar-resize-handle"
+        onMouseDown={handleResizeStart}
+      />
     </div>
   );
 };

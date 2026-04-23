@@ -247,13 +247,13 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       (base64Data: string) => {
         try {
           const data = base64ToUint8Array(base64Data);
-          const decoder = new TextDecoder();
-          const text = decoder.decode(data);
-          xterm.write(text);
+          // 直接写入 Uint8Array，避免 TextDecoder 对非 UTF-8 数据解码产生无效字符
+          xterm.write(data);
 
-          // 实时写入日志
+          // 实时写入日志（日志需要文本）
           const currentSession = sessionsRef.current[sessionId];
           if (currentSession?.logEnabled && currentSession?.logFilePath) {
+            const text = new TextDecoder().decode(data);
             window.qserial.log.write(sessionId, text).catch((err) => {
               console.error('Failed to write log:', err);
             });
@@ -276,10 +276,15 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           const currentSession = sessionsRef.current[sessionId];
           if (currentSession?.connectionType === ConnectionType.SERIAL) {
             showConnectionSuccessMessage(xterm);
+          } else if (currentSession?.connectionType === ConnectionType.SSH ||
+                     currentSession?.connectionType === ConnectionType.TELNET) {
+            xterm.write('\r\n\x1b[32m--- 连接已恢复 ---\x1b[0m\r\n');
           }
         } else if (state === 'disconnected') {
           // 断开连接时重置标志，以便下次连接时可以再次显示
           messageShownRef.current = false;
+        } else if (state === 'reconnecting') {
+          xterm.write('\r\n\x1b[33m--- 连接已断开，正在重连... ---\x1b[0m\r\n');
         }
       }
     );

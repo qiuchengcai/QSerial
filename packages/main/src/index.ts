@@ -17,6 +17,11 @@ const __dirname = path.dirname(__filename);
 // 必须在 app.ready 之前设置
 app.commandLine.appendSwitch('openssl-legacy-provider', '');
 
+// 支持从网络磁盘（UNC路径）运行：禁用沙箱限制
+// Chromium 默认阻止从网络共享路径启动，添加以下开关可绕过此限制
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 let mainWindow: BrowserWindow | null = null;
 
 // 单实例锁 - 确保一次只能运行一个 QSerial 程序

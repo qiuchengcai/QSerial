@@ -127,6 +127,8 @@ export class SshConnection implements IConnection {
   private stream: ClientChannel | null = null;
   private eventEmitter = new EventEmitter();
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectCount = 0;
 
   readonly id: string;
   readonly type = ConnectionType.SSH;
@@ -214,7 +216,12 @@ export class SshConnection implements IConnection {
     }
 
     // 所有方式都失败
-    this._state = ConnectionState.ERROR;
+    if (this.reconnectCount > 0) {
+      // 重连失败时保持 RECONNECTING 状态（handleReconnect 会继续调度）
+      this._state = ConnectionState.RECONNECTING;
+    } else {
+      this._state = ConnectionState.ERROR;
+    }
     this.emitStateChange();
     throw lastError || new Error('All configured authentication methods failed');
   }
@@ -261,6 +268,7 @@ export class SshConnection implements IConnection {
               this.emitStateChange();
               this.eventEmitter.emit('close');
               this.client?.end();
+              this.handleReconnect();
             });
 
             stream.stderr.on('data', (data: Buffer) => {
@@ -268,6 +276,7 @@ export class SshConnection implements IConnection {
             });
 
             this._state = ConnectionState.CONNECTED;
+            this.reconnectCount = 0;
             this.emitStateChange();
             resolve();
           }
@@ -289,6 +298,7 @@ export class SshConnection implements IConnection {
         this._state = ConnectionState.DISCONNECTED;
         this.emitStateChange();
         this.eventEmitter.emit('close');
+        this.handleReconnect();
       });
 
       const config: Record<string, unknown> = {
@@ -321,6 +331,7 @@ export class SshConnection implements IConnection {
   }
 
   async close(): Promise<void> {
+    this.cancelReconnect();
     if (this.stream) {
       this.stream.end();
       this.stream = null;
@@ -334,7 +345,15 @@ export class SshConnection implements IConnection {
   }
 
   destroy(): void {
-    this.close();
+    this.cancelReconnect();
+    if (this.stream) {
+      this.stream = null;
+    }
+    if (this.client) {
+      try { this.client.end(); } catch { /* ignore */ }
+      this.client = null;
+    }
+    this._state = ConnectionState.DISCONNECTED;
     this.eventEmitter.removeAllListeners();
   }
 
@@ -378,5 +397,39 @@ export class SshConnection implements IConnection {
 
   private emitStateChange(): void {
     this.eventEmitter.emit('stateChange', this._state);
+  }
+
+  private handleReconnect(): void {
+    if (!this.options.autoReconnect) return;
+
+    const maxAttempts = this.options.reconnectAttempts || 5;
+    const interval = this.options.reconnectInterval || 3000;
+
+    if (this.reconnectCount >= maxAttempts) {
+      this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
+      return;
+    }
+
+    this._state = ConnectionState.RECONNECTING;
+    this.emitStateChange();
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectCount++;
+      // 清理旧连接后重连
+      this.client = null;
+      this.stream = null;
+      this.open().catch(() => {
+        // open 失败后继续重连
+        this.handleReconnect();
+      });
+    }, interval);
+  }
+
+  private cancelReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectCount = 0;
   }
 }

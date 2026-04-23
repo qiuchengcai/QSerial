@@ -22,6 +22,8 @@ export class TelnetConnection implements IConnection {
   private socket: net.Socket | null = null;
   private eventEmitter = new EventEmitter();
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectCount = 0;
 
   readonly id: string;
   readonly type = ConnectionType.TELNET;
@@ -55,6 +57,7 @@ export class TelnetConnection implements IConnection {
       this.socket.connect(this.options.port, this.options.host, () => {
         clearTimeout(connectTimeout);
         this._state = ConnectionState.CONNECTED;
+        this.reconnectCount = 0;
         this.emitStateChange();
         resolve();
       });
@@ -69,8 +72,11 @@ export class TelnetConnection implements IConnection {
       this.socket.on('error', (err: Error) => {
         clearTimeout(connectTimeout);
         const wasConnecting = this._state === ConnectionState.CONNECTING;
-        this._state = ConnectionState.ERROR;
-        this.emitStateChange();
+        // 重连期间失败保持 RECONNECTING 状态
+        if (this.reconnectCount === 0) {
+          this._state = ConnectionState.ERROR;
+          this.emitStateChange();
+        }
         this.eventEmitter.emit('error', err);
         if (wasConnecting) {
           reject(err);
@@ -82,6 +88,7 @@ export class TelnetConnection implements IConnection {
         this._state = ConnectionState.DISCONNECTED;
         this.emitStateChange();
         this.eventEmitter.emit('close');
+        this.handleReconnect();
       });
     });
   }
@@ -144,6 +151,7 @@ export class TelnetConnection implements IConnection {
   }
 
   async close(): Promise<void> {
+    this.cancelReconnect();
     if (this.socket) {
       this.socket.end();
       this.socket = null;
@@ -153,6 +161,7 @@ export class TelnetConnection implements IConnection {
   }
 
   destroy(): void {
+    this.cancelReconnect();
     if (this.socket) {
       this.socket.destroy();
       this.socket = null;
@@ -199,5 +208,37 @@ export class TelnetConnection implements IConnection {
 
   private emitStateChange(): void {
     this.eventEmitter.emit('stateChange', this._state);
+  }
+
+  private handleReconnect(): void {
+    if (!this.options.autoReconnect) return;
+
+    const maxAttempts = this.options.reconnectAttempts || 5;
+    const interval = this.options.reconnectInterval || 3000;
+
+    if (this.reconnectCount >= maxAttempts) {
+      this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
+      return;
+    }
+
+    this._state = ConnectionState.RECONNECTING;
+    this.emitStateChange();
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectCount++;
+      this.socket = null;
+      this.open().catch(() => {
+        // open 失败后继续重连
+        this.handleReconnect();
+      });
+    }, interval);
+  }
+
+  private cancelReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectCount = 0;
   }
 }

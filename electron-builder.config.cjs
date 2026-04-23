@@ -177,6 +177,13 @@ module.exports = {
     },
   ],
 
+  extraFiles: [
+    {
+      from: 'scripts/launch-network.bat',
+      to: 'launch-network.bat',
+    },
+  ],
+
   asar: true,
   npmRebuild: false,
 

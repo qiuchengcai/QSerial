@@ -96,6 +96,23 @@ body,
   overflow: hidden;
 }
 
+/* Sidebar resize handle */
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle:active {
+  background: var(--color-primary);
+  opacity: 0.4;
+}
+
 .terminal-container .xterm {
   position: absolute;
   top: 0;
