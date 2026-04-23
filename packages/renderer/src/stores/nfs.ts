@@ -148,8 +148,17 @@ export const useNfsStore = create<NfsState & NfsActions>()(
             ...event,
             timestamp: Date.now(),
           };
-          // 保留最近 50 条记录
-          const clients = [newClient, ...state.clients].slice(0, 50);
+          // 按 IP 更新：同一 IP 只保留最新状态
+          const existing = state.clients.findIndex(c => c.address === event.address);
+          let clients: NfsClient[];
+          if (existing >= 0) {
+            clients = [...state.clients];
+            clients[existing] = newClient;
+          } else {
+            clients = [...state.clients, newClient];
+          }
+          // 移除已断开连接的条目（保持列表干净）
+          clients = clients.filter(c => c.action !== 'disconnected');
           return { clients };
         });
       },
