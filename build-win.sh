@@ -75,15 +75,9 @@ echo ""
 echo -e "${YELLOW}[4/5] 打包 Windows 免安装版...${NC}"
 npx electron-builder --win dir --x64 -c electron-builder.config.cjs || true
 
-# 设置 exe 图标（交叉编译时 wine32 可能缺失，用 rcedit-x64 手动设置）
-if [ -f "release/win-unpacked/QSerial.exe" ]; then
-  echo -e "${YELLOW}  设置 exe 图标...${NC}"
-  RCEDIT="/root/.cache/electron-builder/winCodeSign/winCodeSign-2.6.0/rcedit-x64.exe"
-  if [ -f "$RCEDIT" ] && command -v wine &>/dev/null; then
-    DISPLAY= WINEDEBUG=-all wine "$RCEDIT" "$(pwd)/release/win-unpacked/QSerial.exe" --set-icon "$(pwd)/build/icon.ico" 2>/dev/null
-    echo -e "${GREEN}  ✓ 图标设置完成${NC}"
-  fi
-fi
+# 注意：不使用 rcedit 设置 exe 图标
+# rcedit 修改 PE 结构后会导致从 UNC 网络路径无法启动（SxS 配置错误）
+# 任务栏/窗口图标由 Electron 运行时自动加载，仅 exe 文件在资源管理器中显示默认图标
 echo -e "${GREEN}  ✓ 打包完成${NC}"
 echo ""
 
