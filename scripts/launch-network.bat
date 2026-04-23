@@ -1,46 +1,58 @@
 @echo off
 :: QSerial 网络磁盘启动器
-:: 解决从网络路径（UNC 或映射驱动器）运行时的 SxS 配置错误
-:: 原理：将程序复制到本地临时目录后启动，绕过 Windows 对网络路径的 SxS/DLL 加载限制
+:: 解决从 UNC 网络路径（如 \\server\share\）运行时的 SxS 配置错误
+:: 原理：将网络路径映射为本地驱动器号后启动，绕过 Windows 对 UNC 路径的 DLL 加载限制
 
 setlocal enabledelayedexpansion
 
-:: 获取当前批处理文件所在目录
+:: 获取当前批处理文件所在目录（自动兼容 UNC 和本地路径）
 set "APP_DIR=%~dp0"
-:: 去掉末尾反斜杠
-set "APP_DIR=%APP_DIR:~0,-1%"
 
-:: 检查是否在本地磁盘（C:-Y:）上运行
-set "DRIVE_LETTER=%APP_DIR:~0,1%"
-set "IS_LOCAL=0"
-for %%L in (C D E F G H I J K L M N O P Q R S T U V W X Y) do (
-    if /i "!DRIVE_LETTER!"=="%%L" set "IS_LOCAL=1"
-)
-
-if "!IS_LOCAL!"=="1" (
-    :: 本地磁盘，直接启动
-    start "" "%APP_DIR%\QSerial.exe" --no-sandbox
+:: 检查是否在 UNC 路径下运行
+echo %APP_DIR% | findstr /B "\\\\" >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    :: 本地路径，直接启动
+    start "" "%APP_DIR%QSerial.exe" --no-sandbox
     goto :eof
 )
 
-:: 网络路径（UNC 或映射驱动器 Z: 等），需要复制到本地运行
-echo 检测到网络磁盘路径，正在准备本地运行环境...
+:: UNC 路径，需要映射为驱动器号
+:: 查找可用的驱动器号
+set "DRIVE="
+for %%D in (Z Y X W V U T S R Q P O N M L K J I H G F E) do (
+    if not exist %%D:\ (
+        if "!DRIVE!"=="" set "DRIVE=%%D"
+    )
+)
 
-:: 创建本地临时目录
-set "LOCAL_DIR=%TEMP%\QSerial"
-if not exist "%LOCAL_DIR%" mkdir "%LOCAL_DIR%"
-
-:: 复制所有文件到本地（使用 /d 只复制较新的文件，加快速度）
-echo 正在复制文件到本地，请稍候...
-xcopy "%APP_DIR%\*" "%LOCAL_DIR%\" /e /d /y /q >nul 2>&1
-
-if not exist "%LOCAL_DIR%\QSerial.exe" (
-    echo 错误：文件复制失败
+if "!DRIVE!"=="" (
+    echo 错误：找不到可用的驱动器号
     pause
     goto :eof
 )
 
-echo 启动 QSerial...
-start "" "%LOCAL_DIR%\QSerial.exe" --no-sandbox
+:: 映射网络路径到驱动器号
+echo 正在映射网络路径到驱动器 !DRIVE!: ...
+net use !DRIVE!: "%APP_DIR%" >nul 2>&1
+
+if %ERRORLEVEL% neq 0 (
+    :: 映射失败，尝试直接用 pushd（会自动映射 UNC 路径）
+    pushd "%APP_DIR%"
+    if %ERRORLEVEL% neq 0 (
+        echo 错误：无法映射网络路径
+        echo 请将程序复制到本地磁盘后运行
+        pause
+        goto :eof
+    )
+    :: pushd 成功，使用自动映射的驱动器号
+    start "" "%CD%\QSerial.exe" --no-sandbox
+    popd
+) else (
+    :: net use 成功，使用映射的驱动器号启动
+    start "" "!DRIVE!:\QSerial.exe" --no-sandbox
+    :: 等待 3 秒后释放映射（给进程足够时间启动）
+    ping -n 4 127.0.0.1 >nul 2>&1
+    net use !DRIVE!: /delete /yes >nul 2>&1
+)
 
 endlocal

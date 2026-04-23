@@ -92,8 +92,6 @@ echo -e "${YELLOW}[5/5] 检查输出...${NC}"
 if [ -f "release/win-unpacked/QSerial.exe" ]; then
   # 设置可执行权限，确保从网络磁盘(SMB共享)也能运行
   chmod +x release/win-unpacked/QSerial.exe release/win-unpacked/*.dll 2>/dev/null || true
-  # 复制网络磁盘启动器到构建产物根目录
-  cp scripts/launch-network.bat release/win-unpacked/launch-network.bat 2>/dev/null || true
   EXE_SIZE=$(ls -lh release/win-unpacked/QSerial.exe | awk '{print $5}')
   echo -e "${GREEN}  ✓ 构建成功!${NC}"
   echo ""
