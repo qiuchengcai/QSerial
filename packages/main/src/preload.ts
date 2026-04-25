@@ -114,6 +114,31 @@ const api = {
     },
   },
 
+  // FTP 服务器
+  ftp: {
+    start: (port: number, rootDir: string, username: string, password: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.FTP_START, { port, rootDir, username, password }),
+    stop: () => ipcRenderer.invoke(IPC_CHANNELS.FTP_STOP),
+    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.FTP_GET_STATUS),
+    pickDir: () => ipcRenderer.invoke(IPC_CHANNELS.FTP_PICK_DIR),
+    getClients: () => ipcRenderer.invoke(IPC_CHANNELS.FTP_GET_CLIENTS),
+    onStatusChange: (callback: (event: { running: boolean; error?: string }) => void) => {
+      const handler = (_: unknown, event: { running: boolean; error?: string }) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.FTP_STATUS_EVENT, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.FTP_STATUS_EVENT, handler);
+    },
+    onTransfer: (callback: (event: unknown) => void) => {
+      const handler = (_: unknown, event: unknown) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.FTP_TRANSFER_EVENT, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.FTP_TRANSFER_EVENT, handler);
+    },
+    onClient: (callback: (event: unknown) => void) => {
+      const handler = (_: unknown, event: unknown) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.FTP_CLIENT_EVENT, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.FTP_CLIENT_EVENT, handler);
+    },
+  },
+
   // 日志保存
   log: {
     start: (sessionId: string, filePath: string) =>

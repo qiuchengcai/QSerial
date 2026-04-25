@@ -167,6 +167,7 @@ module.exports = {
       to: 'node_modules/uuid',
       filter: ['**/*'],
     },
+    // ftp-srv 通过 extraResources 打包（依赖链较深，使用打平安装方式）
   ],
 
   extraResources: [

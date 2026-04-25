@@ -23,8 +23,11 @@ export interface ButtonGroup {
   buttons: QuickButton[];
 }
 
+export type ButtonBarDirection = 'horizontal' | 'vertical';
+
 interface QuickButtonsState {
   groups: ButtonGroup[];
+  direction: ButtonBarDirection;
   addGroup: (name: string) => string;
   updateGroup: (id: string, name: string) => void;
   removeGroup: (id: string) => void;
@@ -34,12 +37,14 @@ interface QuickButtonsState {
   reorderGroups: (fromIndex: number, toIndex: number) => void;
   moveButton: (fromGroupId: string, toGroupId: string, buttonId: string, toIndex?: number) => void;
   importGroups: (groups: ButtonGroup[]) => void;
+  setDirection: (direction: ButtonBarDirection) => void;
 }
 
 export const useQuickButtonsStore = create<QuickButtonsState>()(
   persist(
     (set) => ({
       groups: [],
+      direction: 'horizontal' as ButtonBarDirection,
 
       addGroup: (name) => {
         const id = crypto.randomUUID();
@@ -132,6 +137,10 @@ export const useQuickButtonsStore = create<QuickButtonsState>()(
 
       importGroups: (groups) => {
         set({ groups });
+      },
+
+      setDirection: (direction) => {
+        set({ direction });
       },
     }),
     {

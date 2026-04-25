@@ -4,15 +4,28 @@
 
 import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import { setupIpcHandlers } from './ipc/index.js';
 import { ConfigManager } from './config/manager.js';
 import { ConnectionFactory } from './connection/factory.js';
 import { destroyTftpManager } from './tftp/manager.js';
 import { initNfsManager, destroyNfsManager } from './nfs/manager.js';
+import { destroyFtpManager } from './ftp/manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// 崩溃日志文件：确保闪退时也能写入磁盘
+const crashLogPath = path.join(app.getPath('userData'), 'crash.log');
+function crashLog(msg: string): void {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  try {
+    fs.appendFileSync(crashLogPath, line);
+  } catch { /* ignore */ }
+  console.log(line.trimEnd());
+}
+crashLog('=== QSerial starting ===');
 
 // 兼容旧设备：启用 OpenSSL legacy provider 以支持 SHA1 签名和短密钥
 // 必须在 app.ready 之前设置
@@ -115,6 +128,15 @@ function createWindow(): void {
     mainWindow = null;
   });
 
+  // 监听渲染进程崩溃
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    crashLog(`[CRASH] Renderer process gone: ${JSON.stringify(details)}`);
+  });
+
+  mainWindow.on('unresponsive', () => {
+    crashLog('[CRASH] Window unresponsive');
+  });
+
   // 监听控制台消息
   mainWindow.webContents.on('console-message', (_event, _level, message) => {
     console.log('[Renderer]', message);
@@ -181,6 +203,8 @@ app.on('before-quit', () => {
     destroyNfsManager();
     // 停止 TFTP 服务器
     destroyTftpManager();
+    // 停止 FTP 服务器
+    destroyFtpManager();
   } catch (error) {
     console.error('Error during cleanup:', error);
   }
@@ -197,9 +221,18 @@ app.on('before-quit', async () => {
 
 // 捕获未处理的错误
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+  crashLog(`Uncaught Exception: ${error?.message}\n${error?.stack}`);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', reason);
+  crashLog(`Unhandled Rejection: ${reason}`);
+});
+
+// 监控 GPU 进程和子进程崩溃
+app.on('gpu-process-crashed', (_event, killed) => {
+  crashLog(`[CRASH] GPU process crashed, killed: ${killed}`);
+});
+
+app.on('child-process-gone', (_event, details) => {
+  crashLog(`[CRASH] Child process gone: ${JSON.stringify(details)}`);
 });

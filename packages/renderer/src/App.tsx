@@ -7,6 +7,7 @@ import { Layout } from './components/layout/Layout';
 import { useConfigStore } from './stores/config';
 import { useThemeStore } from './stores/theme';
 import { initNfsListeners } from './stores/nfs';
+import { initFtpListeners } from './stores/ftp';
 
 export const App: React.FC = () => {
   const { initialize: initConfig, config } = useConfigStore();
@@ -15,6 +16,7 @@ export const App: React.FC = () => {
   React.useEffect(() => {
     initConfig();
     initNfsListeners();
+    initFtpListeners();
   }, [initConfig]);
 
   // 应用主题到 CSS 变量

@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
-import { useQuickButtonsStore, type QuickButton, type ButtonGroup, PRESET_COLORS } from '@/stores/quickButtons';
+import { useQuickButtonsStore, type QuickButton, type ButtonGroup, type ButtonBarDirection, PRESET_COLORS } from '@/stores/quickButtons';
 import { ConnectionState } from '@qserial/shared';
 
 interface ButtonDialogProps {
@@ -264,7 +264,11 @@ const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup
   );
 };
 
-export const QuickButtonBar: React.FC = () => {
+interface QuickButtonBarProps {
+  direction?: ButtonBarDirection;
+}
+
+export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: directionProp }) => {
   const terminalState = useTerminalStore();
   const tabs = terminalState?.tabs || [];
   const activeTabId = terminalState?.activeTabId;
@@ -277,32 +281,25 @@ export const QuickButtonBar: React.FC = () => {
   const addButton = quickButtonsState?.addButton;
   const updateButton = quickButtonsState?.updateButton;
   const removeButton = quickButtonsState?.removeButton;
+  const reorderGroups = quickButtonsState?.reorderGroups;
+  const moveButton = quickButtonsState?.moveButton;
+  const setDirection = quickButtonsState?.setDirection;
+  const storeDirection = quickButtonsState?.direction || 'horizontal';
+  const direction = directionProp || storeDirection;
+  const isVertical = direction === 'vertical';
 
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [showButtonDialog, setShowButtonDialog] = useState(false);
   const [showGroupDialog, setShowGroupDialog] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [editingButton, setEditingButton] = useState<QuickButton | null>(null);
   const [editingGroup, setEditingGroup] = useState<ButtonGroup | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'button' | 'group'; groupId: string; buttonId?: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'button' | 'group'; groupId: string; buttonId?: string; buttonIndex?: number; groupIndex?: number } | null>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeSession = activeTab?.activeSessionId ? sessions[activeTab.activeSessionId] : null;
   const isConnected = activeSession?.connectionState === ConnectionState.CONNECTED;
   const connectionId = activeSession?.connectionId;
-
-  const toggleGroup = (groupId: string) => {
-    setCollapsedGroups((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
-      } else {
-        newSet.add(groupId);
-      }
-      return newSet;
-    });
-  };
 
   const parseEscapeSequences = (cmd: string): string => {
     return cmd
@@ -336,10 +333,10 @@ export const QuickButtonBar: React.FC = () => {
     });
   };
 
-  const handleContextMenu = (e: React.MouseEvent, type: 'button' | 'group', groupId: string, buttonId?: string) => {
+  const handleContextMenu = (e: React.MouseEvent, type: 'button' | 'group', groupId: string, buttonId?: string, buttonIndex?: number, groupIndex?: number) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, type, groupId, buttonId });
+    setContextMenu({ x: e.clientX, y: e.clientY, type, groupId, buttonId, buttonIndex, groupIndex });
   };
 
   const handleEditButton = () => {
@@ -396,74 +393,173 @@ export const QuickButtonBar: React.FC = () => {
 
   return (
     <>
-      <div className="h-[var(--buttonbar-height)] flex items-center px-2 gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0">
-        {/* 分组下拉选择 */}
-        <select
-          value={activeGroupIndex}
-          onChange={(e) => setActiveGroupIndex(Number(e.target.value))}
-          onContextMenu={(e) => {
-            if (groups[activeGroupIndex]) {
-              handleContextMenu(e, 'group', groups[activeGroupIndex].id);
-            }
-          }}
-          className="h-6 px-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer"
-        >
-          {groups.map((group, index) => (
-            <option key={group.id} value={index}>{group.name}</option>
-          ))}
-        </select>
-
-        {/* 当前分组的按钮 */}
-        {groups[activeGroupIndex] && (
-          <>
-            <div className="w-px h-4 bg-border" />
-            {groups[activeGroupIndex].buttons.map((button) => (
-              <button
-                key={button.id}
-                onClick={() => handleSendCommand(button)}
-                onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id)}
-                disabled={!isConnected}
-                className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all"
-                style={{
-                  backgroundColor: button.color || undefined,
-                  color: button.textColor || undefined,
-                }}
-                title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
-              >
-                {button.name}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setActiveGroupId(groups[activeGroupIndex].id);
-                setEditingButton(null);
-                setShowButtonDialog(true);
+      {isVertical ? (
+        // 垂直模式：右侧面板
+        <div className="w-[var(--buttonbar-width)] flex flex-col py-1.5 gap-1 overflow-y-auto scrollbar-hide flex-1 min-h-0">
+          {/* 分组选择 + 方向切换 */}
+          <div className="flex items-center gap-1 px-1.5 flex-shrink-0">
+            <select
+              value={activeGroupIndex}
+              onChange={(e) => setActiveGroupIndex(Number(e.target.value))}
+              onContextMenu={(e) => {
+                if (groups[activeGroupIndex]) {
+                  handleContextMenu(e, 'group', groups[activeGroupIndex].id, undefined, undefined, activeGroupIndex);
+                }
               }}
-              className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center"
-              title="添加按钮"
+              className="h-6 px-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer flex-1 min-w-0"
+            >
+              {groups.map((group: ButtonGroup, index: number) => (
+                <option key={group.id} value={index}>{group.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setDirection?.('horizontal')}
+              className="h-6 w-6 text-xs rounded-md border border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary"
+              title="切换为水平布局"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M1 5h8M5 1v8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
             </button>
-          </>
-        )}
+          </div>
 
-        {/* 添加分组 */}
-        <button
-          onClick={() => {
-            setEditingGroup(null);
-            setShowGroupDialog(true);
-          }}
-          className="h-6 px-2 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1"
-          title="添加分组"
-        >
-          <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-            <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-          </svg>
-          分组
-        </button>
-      </div>
+          {/* 当前分组的按钮（垂直排列） */}
+          {groups[activeGroupIndex] && (
+            <>
+              <div className="h-px bg-border mx-1.5 flex-shrink-0" />
+              <div className="flex flex-col gap-1 px-1.5">
+                {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
+                  <button
+                    key={button.id}
+                    onClick={() => handleSendCommand(button)}
+                    onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
+                    disabled={!isConnected}
+                    className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all w-full text-left"
+                    style={{
+                      backgroundColor: button.color || undefined,
+                      color: button.textColor || undefined,
+                    }}
+                    title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
+                  >
+                    {button.name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setActiveGroupId(groups[activeGroupIndex].id);
+                    setEditingButton(null);
+                    setShowButtonDialog(true);
+                  }}
+                  className="h-6 w-full text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center gap-1"
+                  title="添加按钮"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  </svg>
+                  <span>添加</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* 添加分组 */}
+          <div className="px-1.5 flex-shrink-0 mt-auto">
+            <button
+              onClick={() => {
+                setEditingGroup(null);
+                setShowGroupDialog(true);
+              }}
+              className="h-6 w-full text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary whitespace-nowrap transition-colors flex items-center justify-center gap-1"
+              title="添加分组"
+            >
+              <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              分组
+            </button>
+          </div>
+        </div>
+      ) : (
+        // 水平模式：底部栏（原有布局）
+        <div className="h-[var(--buttonbar-height)] flex items-center px-2 gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+          {/* 分组下拉选择 */}
+          <select
+            value={activeGroupIndex}
+            onChange={(e) => setActiveGroupIndex(Number(e.target.value))}
+            onContextMenu={(e) => {
+              if (groups[activeGroupIndex]) {
+                handleContextMenu(e, 'group', groups[activeGroupIndex].id, undefined, undefined, activeGroupIndex);
+              }
+            }}
+            className="h-6 px-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer"
+          >
+            {groups.map((group: ButtonGroup, index: number) => (
+              <option key={group.id} value={index}>{group.name}</option>
+            ))}
+          </select>
+
+          {/* 当前分组的按钮 */}
+          {groups[activeGroupIndex] && (
+            <>
+              <div className="w-px h-4 bg-border" />
+              {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
+                <button
+                  key={button.id}
+                  onClick={() => handleSendCommand(button)}
+                  onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
+                  disabled={!isConnected}
+                  className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all"
+                  style={{
+                    backgroundColor: button.color || undefined,
+                    color: button.textColor || undefined,
+                  }}
+                  title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
+                >
+                  {button.name}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setActiveGroupId(groups[activeGroupIndex].id);
+                  setEditingButton(null);
+                  setShowButtonDialog(true);
+                }}
+                className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center"
+                title="添加按钮"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          {/* 方向切换 + 添加分组 */}
+          <button
+            onClick={() => setDirection?.('vertical')}
+            className="h-6 w-6 text-xs rounded-md border border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary"
+            title="切换为垂直布局"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1" />
+              <line x1="7" y1="1" x2="7" y2="9" stroke="currentColor" strokeWidth="1" />
+            </svg>
+          </button>
+          <button
+            onClick={() => {
+              setEditingGroup(null);
+              setShowGroupDialog(true);
+            }}
+            className="h-6 px-2 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1"
+            title="添加分组"
+          >
+            <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+              <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            分组
+          </button>
+        </div>
+      )}
 
       {/* 按钮对话框 */}
       <ButtonDialog
@@ -518,11 +614,64 @@ export const QuickButtonBar: React.FC = () => {
               <>
                 <button onClick={handleEditButton} className="w-full px-3 py-1.5 text-left text-sm hover:bg-hover">编辑</button>
                 <button onClick={handleDeleteButton} className="w-full px-3 py-1.5 text-left text-sm text-error hover:bg-hover">删除</button>
+                <div className="my-1 border-t border-border" />
+                <button
+                  onClick={() => {
+                    if (contextMenu.buttonIndex !== undefined && contextMenu.buttonIndex > 0 && contextMenu.groupId) {
+                      moveButton?.(contextMenu.groupId, contextMenu.groupId, contextMenu.buttonId!, contextMenu.buttonIndex - 1);
+                    }
+                    setContextMenu(null);
+                  }}
+                  disabled={contextMenu.buttonIndex === 0}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  左移
+                </button>
+                <button
+                  onClick={() => {
+                    if (contextMenu.buttonIndex !== undefined && contextMenu.groupId) {
+                      const group = groups.find((g) => g.id === contextMenu.groupId);
+                      if (group && contextMenu.buttonIndex < group.buttons.length - 1) {
+                        moveButton?.(contextMenu.groupId, contextMenu.groupId, contextMenu.buttonId!, contextMenu.buttonIndex + 1);
+                      }
+                    }
+                    setContextMenu(null);
+                  }}
+                  disabled={contextMenu.buttonIndex !== undefined && contextMenu.groupId ? contextMenu.buttonIndex >= (groups.find((g) => g.id === contextMenu.groupId)?.buttons.length ?? 0) - 1 : true}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  右移
+                </button>
               </>
             ) : (
               <>
                 <button onClick={handleEditGroup} className="w-full px-3 py-1.5 text-left text-sm hover:bg-hover">编辑分组</button>
                 <button onClick={handleDeleteGroup} className="w-full px-3 py-1.5 text-left text-sm text-error hover:bg-hover">删除分组</button>
+                <div className="my-1 border-t border-border" />
+                <button
+                  onClick={() => {
+                    if (contextMenu.groupIndex !== undefined && contextMenu.groupIndex > 0) {
+                      reorderGroups?.(contextMenu.groupIndex, contextMenu.groupIndex - 1);
+                    }
+                    setContextMenu(null);
+                  }}
+                  disabled={contextMenu.groupIndex === 0}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  左移
+                </button>
+                <button
+                  onClick={() => {
+                    if (contextMenu.groupIndex !== undefined && contextMenu.groupIndex < groups.length - 1) {
+                      reorderGroups?.(contextMenu.groupIndex, contextMenu.groupIndex + 1);
+                    }
+                    setContextMenu(null);
+                  }}
+                  disabled={contextMenu.groupIndex !== undefined ? contextMenu.groupIndex >= groups.length - 1 : true}
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  右移
+                </button>
               </>
             )}
           </div>

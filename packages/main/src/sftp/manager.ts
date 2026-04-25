@@ -11,6 +11,7 @@ import { IPC_CHANNELS, SftpFileInfo, SftpFileStat, SftpProgressEvent } from '@qs
 import { ConnectionFactory } from '../connection/factory.js';
 import { SshConnection } from '../connection/ssh.js';
 import { ConnectionType } from '@qserial/shared';
+import { pickFolder, pickFile } from '../native-dialog.js';
 
 // SFTP 实例信息
 interface SftpInstance {
@@ -495,21 +496,11 @@ export function setupSftpHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_PICK_LOCAL, async () => {
-    const { dialog } = await import('electron');
-    const result = await dialog.showOpenDialog({
-      properties: ['openFile'],
-      title: '选择本地文件',
-    });
-    return result.canceled ? null : result.filePaths[0];
+    return pickFile('选择本地文件');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_PICK_LOCAL_DIR, async () => {
-    const { dialog } = await import('electron');
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory'],
-      title: '选择本地目录',
-    });
-    return result.canceled ? null : result.filePaths[0];
+    return pickFolder('选择本地目录');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_REALPATH, async (_, { sftpId, path }) => {

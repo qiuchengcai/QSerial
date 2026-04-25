@@ -59,6 +59,9 @@ interface SavedSessionsState {
   // 导入会话（合并，跳过重复）
   importSessions: (sessions: SavedSession[]) => void;
 
+  // 重排会话顺序
+  reorderSessions: (fromIndex: number, toIndex: number) => void;
+
   // 加载保存的会话
   loadSessions: () => void;
 
@@ -158,6 +161,15 @@ export const useSavedSessionsStore = create<SavedSessionsState>()(
           return {
             sessions: [...currentSessions, ...newSessions],
           };
+        });
+      },
+
+      reorderSessions: (fromIndex, toIndex) => {
+        set((state) => {
+          const sessions = [...(state.sessions || [])];
+          const [removed] = sessions.splice(fromIndex, 1);
+          sessions.splice(toIndex, 0, removed);
+          return { sessions };
         });
       },
 

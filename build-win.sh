@@ -65,6 +65,8 @@ echo -e "${GREEN}  ✓ ICO 图标生成完成${NC}"
 
 # 构建 TypeScript
 echo -e "${YELLOW}[3/5] 构建项目...${NC}"
+# 准备 ftp-srv 依赖（打平安装到 resources/ftp-node-modules）
+node scripts/prepare-ftp-deps.cjs
 pnpm build:shared
 pnpm build:main
 pnpm build:renderer

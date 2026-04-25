@@ -62,6 +62,16 @@ export const IPC_CHANNELS = {
   NFS_CLIENT_EVENT: 'nfs:clientEvent',
   NFS_GET_MOUNT_HINT: 'nfs:getMountHint',
 
+  // FTP 服务器
+  FTP_START: 'ftp:start',
+  FTP_STOP: 'ftp:stop',
+  FTP_GET_STATUS: 'ftp:getStatus',
+  FTP_PICK_DIR: 'ftp:pickDir',
+  FTP_STATUS_EVENT: 'ftp:statusEvent',
+  FTP_TRANSFER_EVENT: 'ftp:transferEvent',
+  FTP_GET_CLIENTS: 'ftp:getClients',
+  FTP_CLIENT_EVENT: 'ftp:clientEvent',
+
   // 日志保存
   LOG_START: 'log:start',
   LOG_STOP: 'log:stop',
@@ -132,6 +142,11 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.NFS_GET_STATUS]: void;
   [IPC_CHANNELS.NFS_PICK_DIR]: void;
   [IPC_CHANNELS.NFS_GET_MOUNT_HINT]: void;
+  [IPC_CHANNELS.FTP_START]: { port: number; rootDir: string; username: string; password: string };
+  [IPC_CHANNELS.FTP_STOP]: void;
+  [IPC_CHANNELS.FTP_GET_STATUS]: void;
+  [IPC_CHANNELS.FTP_PICK_DIR]: void;
+  [IPC_CHANNELS.FTP_GET_CLIENTS]: void;
   [IPC_CHANNELS.LOG_START]: { sessionId: string; filePath: string };
   [IPC_CHANNELS.LOG_STOP]: { sessionId: string };
   [IPC_CHANNELS.LOG_WRITE]: { sessionId: string; data: string };
@@ -228,6 +243,11 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.NFS_GET_STATUS]: NfsServerStatus;
   [IPC_CHANNELS.NFS_PICK_DIR]: string | null;
   [IPC_CHANNELS.NFS_GET_MOUNT_HINT]: NfsMountHint | null;
+  [IPC_CHANNELS.FTP_START]: void;
+  [IPC_CHANNELS.FTP_STOP]: void;
+  [IPC_CHANNELS.FTP_GET_STATUS]: FtpServerStatus;
+  [IPC_CHANNELS.FTP_PICK_DIR]: string | null;
+  [IPC_CHANNELS.FTP_GET_CLIENTS]: FtpClientInfo[];
   [IPC_CHANNELS.LOG_START]: void;
   [IPC_CHANNELS.LOG_STOP]: void;
   [IPC_CHANNELS.LOG_WRITE]: void;
@@ -370,6 +390,69 @@ export interface NfsMountHint {
   localIp: string;
   exportDir: string;
   mountCmd: string;
+}
+
+/**
+ * FTP 服务器状态
+ */
+export interface FtpServerStatus {
+  running: boolean;
+  port: number;
+  rootDir: string;
+  username: string;
+  hasPassword: boolean;
+}
+
+/**
+ * FTP 状态事件
+ */
+export interface FtpStatusEvent {
+  running: boolean;
+  error?: string;
+}
+
+/**
+ * FTP 传输方向
+ */
+export type FtpTransferDirection = 'download' | 'upload';
+
+/**
+ * FTP 传输状态
+ */
+export type FtpTransferStatus = 'started' | 'progress' | 'completed' | 'error';
+
+/**
+ * FTP 传输事件
+ */
+export interface FtpTransferEvent {
+  id: string;
+  file: string;
+  direction: FtpTransferDirection;
+  status: FtpTransferStatus;
+  remoteAddress: string;
+  fileSize?: number;
+  transferred?: number;
+  percent?: number;
+  error?: string;
+}
+
+/**
+ * FTP 客户端信息
+ */
+export interface FtpClientInfo {
+  address: string;
+  port?: number;
+  userName?: string;
+}
+
+/**
+ * FTP 客户端事件
+ */
+export interface FtpClientEvent {
+  address: string;
+  port?: number;
+  userName?: string;
+  action: 'connected' | 'disconnected';
 }
 
 /**

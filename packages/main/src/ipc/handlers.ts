@@ -2,7 +2,7 @@
  * IPC 处理器
  */
 
-import { app, ipcMain, BrowserWindow, dialog } from 'electron';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@qserial/shared';
 import type { IConnection } from '@qserial/shared';
 import { ConnectionFactory } from '../connection/factory.js';
@@ -24,9 +24,17 @@ import {
   getMountHint,
 } from '../nfs/manager.js';
 import {
+  startFtpServer,
+  stopFtpServer,
+  getFtpStatus,
+  setFtpMainWindow,
+  getFtpClients,
+} from '../ftp/manager.js';
+import {
   setupSftpHandlers,
   setSftpMainWindow,
 } from '../sftp/manager.js';
+import { pickFolder, pickSaveFile } from '../native-dialog.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -70,6 +78,9 @@ export function setupIpcHandlers(): void {
 
   // NFS 服务器
   setupNfsHandlers();
+
+  // FTP 服务器
+  setupFtpHandlers();
 
   // 日志保存
   setupLogHandlers();
@@ -314,16 +325,9 @@ function setupTftpHandlers(): void {
     return getTftpStatus();
   });
 
-  // 选择目录
+  // 选择目录（使用 PowerShell FolderBrowserDialog，避免 Electron 原生对话框崩溃）
   ipcMain.handle(IPC_CHANNELS.TFTP_PICK_DIR, async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory'],
-      title: '选择 TFTP 共享目录',
-    });
-    if (result.canceled || result.filePaths.length === 0) {
-      return null;
-    }
-    return result.filePaths[0];
+    return pickFolder('选择 TFTP 共享目录');
   });
 }
 
@@ -360,19 +364,55 @@ function setupNfsHandlers(): void {
 
   // 选择目录
   ipcMain.handle(IPC_CHANNELS.NFS_PICK_DIR, async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory'],
-      title: '选择 NFS 共享目录',
-    });
-    if (result.canceled || result.filePaths.length === 0) {
-      return null;
-    }
-    return result.filePaths[0];
+    return pickFolder('选择 NFS 共享目录');
   });
 
   // 获取挂载提示
   ipcMain.handle(IPC_CHANNELS.NFS_GET_MOUNT_HINT, () => {
     return getMountHint();
+  });
+}
+
+/**
+ * FTP 相关处理器
+ */
+function setupFtpHandlers(): void {
+  // 设置主窗口引用
+  setFtpMainWindow(mainWindow);
+  app.on('browser-window-created', (_, window) => {
+    if (window === mainWindow) {
+      setFtpMainWindow(window);
+    }
+  });
+
+  // 启动 FTP 服务器
+  ipcMain.handle(IPC_CHANNELS.FTP_START, async (_, { port, rootDir, username, password }) => {
+    try {
+      await startFtpServer(port, rootDir, username, password);
+    } catch (error) {
+      console.error('[FTP] Start error:', error);
+      throw error;
+    }
+  });
+
+  // 停止 FTP 服务器
+  ipcMain.handle(IPC_CHANNELS.FTP_STOP, async () => {
+    await stopFtpServer();
+  });
+
+  // 获取 FTP 状态
+  ipcMain.handle(IPC_CHANNELS.FTP_GET_STATUS, () => {
+    return getFtpStatus();
+  });
+
+  // 选择目录
+  ipcMain.handle(IPC_CHANNELS.FTP_PICK_DIR, async () => {
+    return pickFolder('选择 FTP 共享目录');
+  });
+
+  // 获取客户端列表
+  ipcMain.handle(IPC_CHANNELS.FTP_GET_CLIENTS, () => {
+    return getFtpClients();
   });
 }
 
@@ -385,19 +425,15 @@ function setupLogHandlers(): void {
 
   // 选择保存文件路径
   ipcMain.handle(IPC_CHANNELS.LOG_PICK_FILE, async (_, { defaultName }) => {
-    const result = await dialog.showSaveDialog({
-      title: '选择日志保存位置',
-      defaultPath: defaultName || `terminal-log-${new Date().toISOString().slice(0, 10)}.txt`,
-      filters: [
+    return pickSaveFile(
+      '选择日志保存位置',
+      defaultName || `terminal-log-${new Date().toISOString().slice(0, 10)}.txt`,
+      [
         { name: '文本文件', extensions: ['txt'] },
         { name: '日志文件', extensions: ['log'] },
         { name: '所有文件', extensions: ['*'] },
       ],
-    });
-    if (result.canceled || !result.filePath) {
-      return null;
-    }
-    return result.filePath;
+    );
   });
 
   // 开始记录日志
