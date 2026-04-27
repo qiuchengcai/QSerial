@@ -387,9 +387,11 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const session = sessions[sessionId];
   const isLogging = session?.logEnabled ?? false;
   const isConnected = session?.connectionState === ConnectionState.CONNECTED;
-  const isSerialConnection = session?.connectionType === ConnectionType.SERIAL;
+  const isReconnecting = session?.connectionState === ConnectionState.RECONNECTING;
+  const isConnectionActive = isConnected || isReconnecting;
   // 所有活跃连接都可共享（排除本身就是共享服务端的连接）
-  const canShare = isConnected && session?.connectionType !== ConnectionType.CONNECTION_SERVER && session?.connectionType !== ConnectionType.SERIAL_SERVER;
+  // 重连中的连接也保持可共享状态，共享服务会在源连接恢复后自动继续
+  const canShare = isConnectionActive && session?.connectionType !== ConnectionType.CONNECTION_SERVER && session?.connectionType !== ConnectionType.SERIAL_SERVER;
 
   return (
     <div

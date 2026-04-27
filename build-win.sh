@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # 自动配置 PATH：检测常用 Node/pnpm 安装路径
-for dir in /opt/node-v23.6.0-linux-x64/bin /opt/node-v18.20.6-linux-x64/bin /root/.npm-global/bin /usr/local/bin; do
+for dir in /home/q12444/node/bin /opt/node-v23.6.0-linux-x64/bin /opt/node-v18.20.6-linux-x64/bin /root/.npm-global/bin /usr/local/bin; do
   case ":$PATH:" in
     *":$dir:"*) ;;
     *) export PATH="$dir:$PATH" ;;
@@ -41,13 +41,6 @@ check_command pnpm
 echo "  Node: $(node --version)"
 echo "  pnpm: $(pnpm --version)"
 echo ""
-
-# 检查 wine（用于在 Linux 上设置 exe 图标）
-if command -v wine &>/dev/null; then
-  echo "  Wine: 可用（将自动设置 exe 图标）"
-else
-  echo -e "${YELLOW}  警告: 未找到 wine，exe 图标可能无法正确设置${NC}"
-fi
 
 # 设置环境变量
 export CSC_IDENTITY_AUTO_DISCOVERY=false

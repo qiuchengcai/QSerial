@@ -123,6 +123,8 @@ export class ConnectionServerConnection implements IConnection {
   private sshReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private sshReconnectAttempts = 0;
   private isDestroyed = false;
+  // 源连接是否处于断开状态（用于避免重复通知客户端）
+  private sourceConnectionDown = false;
   // 写入队列：串行化多客户端写入，避免数据帧交错
   private writeQueue: Array<{ data: Buffer; clientId: string }> = [];
   private isWriting = false;
@@ -248,16 +250,54 @@ export class ConnectionServerConnection implements IConnection {
 
     // 监听共享连接的状态变化
     this.stateUnsubscriber = this.sharedConnection.onStateChange((state) => {
-      if (state === ConnectionState.DISCONNECTED || state === ConnectionState.ERROR) {
+      if (state === ConnectionState.DISCONNECTED) {
+        // 源连接断开，但可能配置了 autoReconnect 会自动恢复
+        // 先不通知客户端，等确认是否进入 RECONNECTING 再通知
+        // 如果 autoReconnect 开启，紧接着会收到 RECONNECTING 状态
+        // 如果 autoReconnect 关闭，状态将停留在 DISCONNECTED，需要通知
+        // 延迟一小段时间判断是否进入重连
+        const connRef = this.sharedConnection;
+        const wasDown = this.sourceConnectionDown;
+        setTimeout(() => {
+          // 如果状态仍是 DISCONNECTED（没有进入 RECONNECTING），说明不会自动重连
+          if (connRef && this.sharedConnection === connRef && connRef.state === ConnectionState.DISCONNECTED && !wasDown) {
+            this.sourceConnectionDown = true;
+            this._notifyClientsConnectionDown();
+          }
+        }, 100);
+      } else if (state === ConnectionState.RECONNECTING) {
+        // 源连接正在重连，通知客户端但暂不关闭共享服务
+        if (!this.sourceConnectionDown) {
+          this.sourceConnectionDown = true;
+          this._notifyClientsConnectionDown();
+        }
+      } else if (state === ConnectionState.ERROR) {
+        // 源连接彻底失败，关闭共享服务
+        if (!this.sourceConnectionDown) {
+          this.sourceConnectionDown = true;
+          this._notifyClientsConnectionDown();
+        }
         this._notifyError(new Error('共享连接已断开'));
         this.close();
+      } else if (state === ConnectionState.CONNECTED) {
+        // 源连接恢复，通知客户端
+        if (this.sourceConnectionDown) {
+          this.sourceConnectionDown = false;
+          this._notifyClientsConnectionRestored();
+        }
       }
     });
 
     // 监听共享连接的关闭事件
+    // 注意：对于支持自动重连的连接（如串口、SSH），stream close 不意味着连接彻底死亡
+    // 仅在源连接处于 ERROR 状态（重连彻底失败）时才关闭共享服务
+    // 其他情况由 onStateChange 处理
     this.closeUnsubscriber = this.sharedConnection.onClose(() => {
-      this._notifyError(new Error('共享连接已关闭'));
-      this.close();
+      if (this.sharedConnection && this.sharedConnection.state === ConnectionState.ERROR) {
+        this._notifyError(new Error('共享连接已关闭'));
+        this.close();
+      }
+      // DISCONNECTED/RECONNECTING 状态下 onClose 触发，onStateChange 已处理
     });
 
     // 监听共享连接的错误
@@ -826,6 +866,7 @@ export class ConnectionServerConnection implements IConnection {
     // 清空共享连接引用（如果不拥有则不关闭它）
     this.sharedConnection = null;
     this.ownsSharedConnection = false;
+    this.sourceConnectionDown = false;
 
     this._setState(ConnectionState.DISCONNECTED);
   }
@@ -935,5 +976,29 @@ export class ConnectionServerConnection implements IConnection {
 
   private _notifyError(error: Error): void {
     this.errorCallbacks.forEach((cb) => cb(error));
+  }
+
+  /**
+   * 通知所有已认证客户端：源连接已断开/正在重连
+   */
+  private _notifyClientsConnectionDown(): void {
+    const msg = '\r\n\x1b[33m--- 共享连接已断开，等待重连... ---\x1b[0m\r\n';
+    this.clients.forEach((clientInfo) => {
+      if (!clientInfo.socket.destroyed && clientInfo.authenticated) {
+        clientInfo.socket.write(msg);
+      }
+    });
+  }
+
+  /**
+   * 通知所有已认证客户端：源连接已恢复
+   */
+  private _notifyClientsConnectionRestored(): void {
+    const msg = '\r\n\x1b[32m--- 共享连接已恢复 ---\x1b[0m\r\n';
+    this.clients.forEach((clientInfo) => {
+      if (!clientInfo.socket.destroyed && clientInfo.authenticated) {
+        clientInfo.socket.write(msg);
+      }
+    });
   }
 }
