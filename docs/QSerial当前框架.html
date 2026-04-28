@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>QSerial 架构 · 全连接模块 · SSH/Telnet 客户端 · PTY 伪终端</title>
+  <script src="mermaid.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(145deg, #0b1120 0%, #1e293b 100%);
+      font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      margin: 0;
+    }
+
+    .card {
+      max-width: 1600px;
+      width: 100%;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(71, 85, 105, 0.4);
+      border-radius: 2.5rem;
+      box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(56, 189, 248, 0.2);
+      padding: 2rem 2rem 2.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #a5f3fc, #c084fc, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .header .badge {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid #38bdf8;
+      color: #bae6fd;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 0.2rem 1rem;
+      border-radius: 40px;
+      -webkit-text-fill-color: #bae6fd;
+      background-clip: unset;
+      letter-spacing: 0.3px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    .subtitle span {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.2rem 1rem;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+    }
+
+    .diagram-container {
+      background: #0b1424;
+      border-radius: 1.8rem;
+      padding: 1.5rem 1rem;
+      margin: 1.5rem 0 0.8rem;
+      border: 1px solid #2d3a4f;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.6);
+      overflow-x: auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      min-height: 600px;
+    }
+
+    @keyframes dashFlow {
+      0% { stroke-dashoffset: 24; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    @keyframes pulseGlow {
+      0% { filter: drop-shadow(0 0 2px #38bdf8); }
+      50% { filter: drop-shadow(0 0 10px #f472b6); }
+      100% { filter: drop-shadow(0 0 2px #38bdf8); }
+    }
+
+    .mermaid svg .edgePath .path {
+      animation: dashFlow 1.8s linear infinite;
+      stroke-dasharray: 12 6;
+    }
+
+    .mermaid svg .node polygon,
+    .mermaid svg .node rect,
+    .mermaid svg .node circle {
+      transition: all 0.25s ease;
+    }
+
+    .mermaid svg .node:hover polygon,
+    .mermaid svg .node:hover rect,
+    .mermaid svg .node:hover circle {
+      filter: brightness(1.3) drop-shadow(0 0 8px currentColor);
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .mermaid svg .edgePath.highlight-edge .path {
+      animation: dashFlow 0.9s linear infinite;
+      stroke: #f472b6 !important;
+      stroke-width: 2.5px;
+      stroke-dasharray: 8 6;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.8rem;
+      margin-top: 1.5rem;
+      color: #cbd5e1;
+      font-size: 0.85rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+    }
+
+    hr {
+      border-color: rgba(148, 163, 184, 0.2);
+      margin: 1.2rem 0 0.5rem;
+    }
+
+    .footnote {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-top: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>
+      ⚡ QSerial 架构 · 全终端共享
+      <span class="badge">全客户端连接 · PTY 伪终端</span>
+    </h1>
+    <div class="subtitle">
+      <span>🐧 Linux 服务器</span>
+      <span>🐳 Docker 容器</span>
+      <span>🤖 AI Agent</span>
+      <span>💻 QSerial 网关</span>
+      <span>📟 IPC 设备</span>
+    </div>
+  </div>
+
+  <div class="diagram-container">
+    <div class="mermaid">
+      flowchart LR
+        %% ==========================================
+        %% 第1列：Linux 服务器（AI Agent 运行环境）
+        %% ==========================================
+        subgraph linux["🐧 Linux 服务器 · AI Agent 运行环境"]
+          direction TB
+          subgraph docker["🐳 Docker 容器"]
+            direction LR
+            agent_docker["🤖 AI Agent<br/>(容器)"]
+            skills_docker["🔧 Skills<br/>ipc-connect<br/>flash-analysis<br/>memory-analysis"]
+            telnet_docker["🐍 TELNET Skill"]
+          end
+          subgraph baremetal["🖥️ 宿主机直接运行"]
+            direction LR
+            agent_bare["🤖 AI Agent<br/>(本地)"]
+            skills_bare["🔧 Skills<br/>ipc-connect<br/>flash-analysis<br/>memory-analysis"]
+            telnet_bare["🐍 TELNET Skill"]
+          end
+          agent_docker --> skills_docker
+          agent_docker --> telnet_docker
+          agent_bare --> skills_bare
+          agent_bare --> telnet_bare
+        end
+
+        %% ==========================================
+        %% 第2列：QSerial 核心
+        %% ==========================================
+        subgraph qserial["💻 Windows 主机 · QSerial Electron App"]
+          direction TB
+          subgraph renderer["🖥️ 渲染进程"]
+            direction LR
+            xterm["📟 xterm.js"]
+            file_mgmt["📁 SFTP / NFS / TFTP / FTP"]
+          end
+          subgraph main["⚙️ 主进程"]
+            conn_server["🔐 ConnectionServer<br/>TCP 共享 + 认证<br/>聚合所有连接模块"]
+            subgraph modules["🔌 连接模块（作为客户端发起连接）"]
+              direction LR
+              serial_m["Serial<br/>物理串口"]
+              ssh_m["🔒 SSH 客户端<br/>连接远程设备"]
+              pty_m["💠 PTY 伪终端<br/>本地 Shell (CMD/PowerShell)"]
+              telnet_client_m["🌐 Telnet 客户端<br/>连接远程设备"]
+            end
+          end
+          renderer <-->|"IPC"| conn_server
+          conn_server --> modules
+        end
+
+        %% ==========================================
+        %% 第3列：IPC 设备
+        %% ==========================================
+        subgraph device["📟 IPC 设备 (M5 平台)"]
+          direction TB
+          restricted["🔒 受限 CLI"]
+          root_shell["👑 root shell<br/>动态密码"]
+          restricted --> root_shell
+        end
+
+        %% ==========================================
+        %% 连接关系（从左到右，无交叉）
+        %% ==========================================
+        telnet_docker -->|"Telnet 直连"| conn_server
+        telnet_bare -->|"Telnet 直连"| conn_server
+        serial_m ===>|"USB 转串口<br/>RS-232"| restricted
+
+        %% ==========================================
+        %% 样式定义
+        %% ==========================================
+        classDef linuxStyle fill:#1e1b4b,stroke:#a78bfa,color:#ede9fe,stroke-width:2px
+        classDef dockerStyle fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:2px
+        classDef bareStyle fill:#1e1b4b,stroke:#c084fc,color:#ede9fe,stroke-width:2px
+        classDef agentStyle fill:#4c1d95,stroke:#c084fc,color:#f3e8ff,stroke-width:2px
+        classDef qserialStyle fill:#0f172a,stroke:#34d399,color:#d1fae5,stroke-width:2px
+        classDef renderStyle fill:#1e293b,stroke:#60a5fa,color:#bfdbfe
+        classDef mainStyle fill:#1e293b,stroke:#4ade80,color:#bbf7d0
+        classDef compStyle fill:#334155,stroke:#94a3b8,color:#f1f5f9
+        classDef coreStyle fill:#2563eb,stroke:#60a5fa,color:#fff,stroke-width:3px
+        classDef modStyle fill:#c2410c,stroke:#fb923c,color:#fff
+        classDef ipcStyle fill:#9d174d,stroke:#f472b6,color:#fce7f3
+        classDef telnetStyle fill:#0f766e,stroke:#14b8a6,color:#ccfbf1
+        classDef skillStyle fill:#1e3a5f,stroke:#38bdf8,color:#bae6fd
+
+        class linux linuxStyle
+        class docker dockerStyle
+        class baremetal bareStyle
+        class agent_docker,agent_bare agentStyle
+        class skills_docker,skills_bare skillStyle
+        class qserial qserialStyle
+        class renderer renderStyle
+        class main mainStyle
+        class xterm,file_mgmt compStyle
+        class conn_server coreStyle
+        class serial_m,ssh_m,pty_m,telnet_client_m modStyle
+        class telnet_docker,telnet_bare telnetStyle
+        class restricted,root_shell ipcStyle
+        class modules modStyle
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#a78bfa;"></div> Linux 服务器</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> Docker 容器</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#4c1d95;"></div> AI Agent</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1e3a5f;"></div> Skills</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#14b8a6;"></div> TELNET Skill</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#34d399;"></div> QSerial 网关</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div> ConnectionServer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fb923c;"></div> 连接模块（客户端）</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f472b6;"></div> IPC 设备</div>
+  </div>
+  <hr>
+  <div class="footnote">
+    🔄 动态流程图 · 连接模块均为客户端角色：Serial 直连串口，SSH/Telnet 连接远程设备，PTY 生成本地伪终端
+  </div>
+</div>
+
+<script>
+  (function() {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        'background': '#0b1424',
+        'primaryColor': '#1e293b',
+        'primaryTextColor': '#e2e8f0',
+        'primaryBorderColor': '#475569',
+        'lineColor': '#6b7280',
+        'secondaryColor': '#334155',
+        'tertiaryColor': '#0f172a',
+        'clusterBkg': '#0f172a',
+        'clusterBorder': '#334155',
+        'titleColor': '#f8fafc',
+        'edgeLabelBackground': '#1e293b',
+        'nodeBorder': '#5f6b7a',
+        'mainBkg': '#1e293b',
+        'fontFamily': 'Segoe UI, Inter, system-ui, sans-serif',
+        'fontSize': '14px'
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis',
+        padding: 18,
+        nodeSpacing: 50,
+        rankSpacing: 60
+      }
+    });
+
+    window.addEventListener('load', function() {
+      setTimeout(() => {
+        const svg = document.querySelector('.mermaid svg');
+        if (!svg) return;
+
+        // 高亮 Telnet 直连边
+        const allEdges = svg.querySelectorAll('.edgePath');
+        allEdges.forEach(edge => {
+          const titleEl = edge.querySelector('title');
+          if (titleEl && titleEl.textContent && titleEl.textContent.includes('直连')) {
+            edge.classList.add('highlight-edge');
+          }
+          if (titleEl && titleEl.textContent && titleEl.textContent.includes('USB 转串口')) {
+            const path = edge.querySelector('.path');
+            if (path) {
+              path.style.stroke = '#f472b6';
+              path.style.strokeWidth = '3.5px';
+            }
+          }
+        });
+
+        // ConnectionServer 呼吸效果
+        const nodes = svg.querySelectorAll('.node');
+        nodes.forEach(node => {
+          if (node.textContent && node.textContent.includes('ConnectionServer')) {
+            const shape = node.querySelector('rect, polygon, circle');
+            if (shape) shape.style.animation = 'pulseGlow 2.5s infinite';
+          }
+        });
+
+        console.log('✅ QSerial 完整客户端连接模块流程图已激活。');
+      }, 600);
+    });
+  })();
+</script>
+</body>
+</html>
