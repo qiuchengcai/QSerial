@@ -44,6 +44,9 @@ echo ""
 
 # 设置环境变量
 export CSC_IDENTITY_AUTO_DISCOVERY=false
+# 抑制第三方原生模块（cpu-features 等）的 C++ 编译警告
+export CFLAGS="-Wno-cast-function-type"
+export CXXFLAGS="-Wno-cast-function-type"
 
 # 安装依赖
 echo -e "${YELLOW}[2/5] 安装依赖...${NC}"
