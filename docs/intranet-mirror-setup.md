@@ -73,7 +73,7 @@ export PATH=/tmp/node-v20.20.2-linux-x64/bin:$PATH
 
 ```bash
 # 使用 npm 安装 pnpm
-npm install -g pnpm@8
+npm install -g pnpm@8.15
 
 # 验证
 pnpm --version

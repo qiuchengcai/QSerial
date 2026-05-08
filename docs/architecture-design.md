@@ -1,7 +1,7 @@
 # QSerial 架构设计文档
 
-> 版本: 3.0.0
-> 日期: 2026-04-20
+> 版本: 3.2.0
+> 日期: 2026-05-08
 > 作者: QSerial Team
 
 ## 变更记录
@@ -10,6 +10,7 @@
 |------|------|----------|
 | 2026-04-20 | 3.0.0 | 新增 ConnectionServer、快捷按钮系统、TELNET 协议协商；标注 SerialServer 已废弃；校验位补充 mark/space |
 | 2026-04-21 | 3.1.0 | TFTP 传输参数优化；新增 AI 设备操控架构说明 |
+| 2026-05-08 | 3.2.0 | 新增 FTP/NFS 模块设计说明；补充 IPC 通道列表（FTP/NFS/Log/Window/Network）；AI 设备操控章节标记为待开发；更新架构图；更新配置说明 |
 
 ---
 
@@ -42,9 +43,10 @@ QSerial 是一款现代化的跨平台终端工具，主要面向：
 | 多协议支持 | 本地 Shell、串口、SSH、Telnet |
 | 连接共享 | TCP 共享任意连接 + 密码认证 + SSH 隧道 |
 | 串口共享 | TCP 共享串口 + 密码认证 + SSH 隧道（已废弃，由连接共享替代） |
-| AI 设备操控 | 通过 Skill 方案直连设备，无需 MCP，单命令 2-3 秒 |
 | SFTP 文件传输 | SSH 连接内置文件浏览器 |
 | TFTP 服务器 | 内置 TFTP 服务器，传输参数优化（blockSize=65464、windowSize=64） |
+| FTP 服务器 | 内置 FTP 服务器，支持用户名密码认证 |
+| NFS 服务器 | 内置 NFS 服务器（Windows 使用 WinNFSd，Linux 使用 exportfs） |
 | 多标签管理 | 支持拖拽排序、分组管理 |
 | 主题定制 | 8 套预设主题，支持自定义 |
 | 快捷按钮 | 终端下方可配置快捷命令按钮，支持多行命令 + 行间延迟 |
@@ -60,11 +62,13 @@ QSerial 是一款现代化的跨平台终端工具，主要面向：
 | 桌面框架 | Electron 28+ | Node.js 生态成熟，串口/SSH 功能支持好 |
 | 前端框架 | React 18 + TypeScript 5.3 | 组件化开发，类型安全 |
 | 终端渲染 | xterm.js 5.x | 成熟稳定，社区活跃 |
-| 状态管理 | Zustand | 轻量、API 简洁 |
+| 状态管理 | Zustand | 轻量、API 简洁，persist 中间件持久化 |
 | UI 样式 | Tailwind CSS | 原子化 CSS，开发效率高 |
 | PTY 管理 | node-pty | 微软官方 PTY 库 |
 | 串口通信 | serialport 12.x | Node.js 串口标准库 |
 | SSH 协议 | ssh2 1.15+ | 纯 JS 实现，支持 SFTP |
+| Telnet 协议 | net (Node 内置) | TCP socket 原生支持 |
+| FTP 服务 | ftp-srv 4.x | 纯 JS FTP 服务器 |
 | 构建工具 | Vite 5 + electron-builder | 快速构建 + 跨平台打包 |
 | 包管理 | pnpm 8.15 (Monorepo) | 节省磁盘空间，严格依赖管理 |
 
@@ -82,8 +86,8 @@ QSerial 是一款现代化的跨平台终端工具，主要面向：
 │  │ Component │ │(Sessions)│ │   UI     │              │
 │  └──────────┘ └──────────┘ └──────────┘              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐              │
-│  │QuickBtn  │ │   SFTP   │ │   TFTP   │              │
-│  │   Bar    │ │  Panel   │ │  Dialog  │              │
+│  │QuickBtn  │ │   SFTP   │ │TFTP/FTP/ │              │
+│  │   Bar    │ │  Panel   │ │ NFS Dialog│             │
 │  └──────────┘ └──────────┘ └──────────┘              │
 │  ┌──────────────────────────────────────────────────┐│
 │  │           State Management (Zustand)             ││
@@ -94,16 +98,20 @@ QSerial 是一款现代化的跨平台终端工具，主要面向：
 │                   Main Process                        │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐              │
 │  │   PTY    │ │  Serial  │ │   SSH    │              │
-│  │ Manager  │ │ Manager  │ │ Manager  │              │
+│  │Connection│ │Connection│ │Connection│              │
 │  └──────────┘ └──────────┘ └──────────┘              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐              │
-│  │  Config  │ │   SFTP   │ │   TFTP   │              │
+│  │  Telnet  │ │ Connection│ │  Config  │              │
+│  │Connection│ │  Server   │ │ Manager  │              │
+│  └──────────┘ └──────────┘ └──────────┘              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐              │
+│  │   SFTP   │ │   TFTP   │ │   FTP    │              │
 │  │ Manager  │ │ Manager  │ │ Manager  │              │
 │  └──────────┘ └──────────┘ └──────────┘              │
-│  ┌──────────────────────┐ ┌──────────────────────┐    │
-│  │   ConnectionServer   │ │    SerialServer      │    │
-│  │   (连接共享，推荐)    │ │  (串口共享，已废弃)  │    │
-│  └──────────────────────┘ └──────────────────────┘    │
+│  ┌──────────┐                                        │
+│  │   NFS    │                                        │
+│  │ Manager  │                                        │
+│  └──────────┘                                        │
 └────────────────────────┬────────────────────────────┘
                          ↕
 ┌────────────────────────┴────────────────────────────┐
@@ -111,6 +119,10 @@ QSerial 是一款现代化的跨平台终端工具，主要面向：
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐              │
 │  │ node-pty │ │serialport│ │   ssh2   │              │
 │  └──────────┘ └──────────┘ └──────────┘              │
+│  ┌──────────┐ ┌──────────┐                          │
+│  │ ftp-srv  │ │WinNFSd/  │                          │
+│  │          │ │ exportfs │                          │
+│  └──────────┘ └──────────┘                          │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -161,9 +173,9 @@ interface IConnection {
 | PTY | `PtyConnection` | node-pty | 本地终端，支持 resize |
 | Serial | `SerialConnection` | serialport | 串口连接，支持自动重连和连接复用 |
 | SSH | `SshConnection` | ssh2 | SSH 连接，支持密钥/密码认证，兼容旧设备算法 |
-| Telnet | `TelnetConnection` | net | Telnet 协议连接 |
-| SerialServer | `SerialServerConnection` | net + ssh2 | 串口共享（**已废弃**，由 ConnectionServer 替代） |
-| ConnectionServer | `ConnectionServerConnection` | net + ssh2 | 连接共享，TCP 共享任意活跃连接 |
+| Telnet | `TelnetConnection` | net (Node 内置) | Telnet 协议连接 |
+| SerialServer | `SerialServerConnection` | net + ssh2 | 串口共享（已废弃，由 ConnectionServer 替代） |
+| ConnectionServer | `ConnectionServerConnection` | net + ssh2 | 通用连接共享，TCP 共享任意活跃连接 |
 
 ### 4.4 IPC 通信
 
@@ -174,10 +186,16 @@ IPC 通道定义在 `packages/shared/src/types/ipc.ts`，处理器在 `packages/
 - **串口**: list (端口列表)
 - **串口共享**: start / stop / status
 - **连接共享**: start / stop / status
-- **SFTP**: list / upload / download / mkdir / delete / rename
+- **SFTP**: create / destroy / list / download / upload / mkdir / rmdir / rm / rename / stat / readlink / symlink / realpath
 - **TFTP**: start / stop / status
-- **配置**: get / set
+- **FTP**: start / stop / status / getClients
+- **NFS**: start / stop / status / getMountHint
+- **配置**: get / set / delete
 - **会话**: save / load / list / delete
+- **窗口**: minimize / maximize / close / setTitle
+- **日志**: start / stop / write / pickFile
+- **网络**: getLocalIp
+- **文件操作**: readFile
 
 ### 4.5 配置系统
 
@@ -185,8 +203,8 @@ IPC 通道定义在 `packages/shared/src/types/ipc.ts`，处理器在 `packages/
 
 主要配置分区：
 - `app` — 语言、主题、自动更新、最小化到托盘
-- `terminal` — 字体、光标、scrollback、选中即复制、右键粘贴
-- `serial` — 默认波特率、自动重连、时间戳、十六进制显示
+- `terminal` — 字体、scrollback、选中即复制、右键粘贴
+- `serial` — 默认波特率、数据位、停止位、校验位（none/even/odd/mark/space）、自动重连、时间戳、十六进制显示
 - `ssh` — keepalive、超时
 - `serialShare` — 默认端口、监听地址（**已废弃**，使用 connectionShare）
 - `connectionShare` — 默认端口、监听地址、最近 SSH 隧道配置
@@ -220,6 +238,25 @@ interface Theme {
 - **自定义按钮**：名称、多行命令（逐条发送）、行间延迟、描述、颜色
 - **预设颜色**：10 种预设 + 自定义颜色
 - **持久化**：通过 Zustand persist 中间件保存到 localStorage
+
+### 4.8 FTP 服务器
+
+FTP 服务器定义在 `packages/main/src/ftp/manager.ts`，基于 `ftp-srv` 库实现。
+
+- **匿名/用户认证**：支持匿名访问和用户名密码认证
+- **目录共享**：指定本地目录作为 FTP 根目录
+- **状态管理**：`packages/renderer/src/stores/ftp.ts` — 启动/停止/状态/客户端列表
+- **UI 对话框**：`packages/renderer/src/components/dialogs/FtpDialog.tsx`
+
+### 4.9 NFS 服务器
+
+NFS 服务器定义在 `packages/main/src/nfs/manager.ts`，支持 Windows 和 Linux 双平台：
+
+- **Windows**: 通过 WinNFSd 子进程实现 NFS 共享
+- **Linux**: 通过系统 exportfs / nfs-kernel-server 管理 NFS 共享
+- **客户端监控**: 定时检测 NFS 客户端连接状态，推送连接/断开事件
+- **状态管理**: `packages/renderer/src/stores/nfs.ts` — 启动/停止/状态/客户端列表/挂载提示
+- **UI 对话框**: `packages/renderer/src/components/dialogs/NfsDialog.tsx`
 
 ---
 
@@ -359,7 +396,7 @@ pnpm package:mac          # 打包 macOS
 
 ### 7.3 原生模块
 
-项目包含原生模块需编译：
+项目包含原生模块（node-pty、serialport）需编译，ftp-srv/ssh2 为纯 JS 实现无需编译：
 
 ```bash
 pnpm rebuild node-pty @serialport/bindings-cpp
@@ -385,17 +422,19 @@ pnpm rebuild node-pty @serialport/bindings-cpp
 
 ---
 
-## 8. AI 设备操控架构
+## 8. AI 设备操控架构（规划中）
+
+> ⚠️ **本章节为设计规划，当前代码中尚未实现。**
 
 ### 8.1 架构概述
 
-QSerial 的终端共享功能为 AI 操控设备提供了天然通道。采用 Skill 方案直连设备，无需 MCP 中间层。
+QSerial 的终端共享功能为 AI 操控设备提供了天然通道。计划采用 Skill 方案直连设备，无需 MCP 中间层。
 
 ```
 AI → execute_command → Python脚本 → TELNET → QSerial共享 → 串口 → 设备
 ```
 
-### 8.2 Skill 方案 vs MCP
+### 8.2 Skill 方案 vs MCP（规划中）
 
 | 维度 | Skill 方案 | MCP |
 |------|-----------|-----|
@@ -406,7 +445,7 @@ AI → execute_command → Python脚本 → TELNET → QSerial共享 → 串口 
 | Skill 维护 | 修改即时生效 | 需重启 Server |
 | Skill 分发 | 随仓库提交，clone 即可用 | 每台机器单独配置 |
 
-### 8.3 Skill 实现
+### 8.3 Skill 实现（规划中）
 
 Skill 由两部分组成：
 - **SKILL.md**：Markdown 描述触发规则和使用说明

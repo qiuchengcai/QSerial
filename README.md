@@ -1,24 +1,25 @@
 # QSerial
 
-一款 AI 原生串口终端工具，支持串口、SSH、本地终端等多种连接方式，内置 AI 远程设备操控能力。
+一款现代化的跨平台终端工具，支持串口、SSH、Telnet、本地终端等多种连接方式，内置连接共享与文件传输服务（SFTP/FTP/TFTP/NFS）。
 
 ## 特性
 
-- 🔌 **多协议支持**: 本地终端 (PTY)、串口、SSH、Telnet
-- 📡 **终端共享**: 将本地终端通过 TCP 共享给远程用户，基于 TELNET 协议协商 + 密码认证
-- 🤖 **AI 设备操控**: 通过 Skill 直连设备，无需 MCP 中间层，单命令 2-3 秒响应
+- 🔌 **多协议支持**: 本地终端 (PTY)、串口、SSH、Telnet — 6 种连接类型
+- 📡 **连接共享**: TCP 共享任意活跃连接，基于 TELNET 协议协商 + 密码认证 + SSH 反向隧道
 - 📁 **SFTP 文件传输**: SSH 连接内置 SFTP 文件浏览器，支持上传/下载/管理远程文件
 - 📦 **TFTP 服务器**: 内置 TFTP 服务器，传输参数优化（blockSize=65464、windowSize=64）
+- 🌐 **FTP 服务器**: 内置 FTP 服务器，支持用户名密码认证
+- 💾 **NFS 服务器**: 内置 NFS 服务器（Windows: WinNFSd / Linux: nfs-kernel-server）
 - 📑 **多标签管理**: 支持拖拽排序、分组管理
 - ⚡ **快捷按钮**: 支持多行命令逐条发送、行间延迟配置
-- 🎨 **主题定制**: 丰富的主题系统，支持自定义
+- 🎨 **主题定制**: 8 套预设主题，支持自定义
 - 💾 **会话管理**: 保存连接配置，快速重连
 
 ## 开发
 
 ### 环境要求
 
-- Node.js >= 20.0.0
+- Node.js >= 18.0.0
 - pnpm >= 8.0.0
 
 ### 安装依赖
@@ -64,8 +65,11 @@ QSerial/
 ├── packages/
 │   ├── main/          # Electron 主进程
 │   │   └── src/
-│   │       ├── connection/   # 连接模块 (PTY/Serial/SSH/Telnet/SerialServer)
+│   │       ├── connection/   # 连接模块 (PTY/Serial/SSH/Telnet/SerialServer/ConnectionServer)
+│   │       ├── config/       # 配置管理
 │   │       ├── sftp/         # SFTP 文件传输
+│   │       ├── ftp/          # FTP 服务器
+│   │       ├── nfs/          # NFS 服务器
 │   │       ├── tftp/         # TFTP 服务器
 │   │       └── ipc/          # IPC 处理
 │   ├── renderer/      # 渲染进程 (React)
@@ -80,13 +84,14 @@ QSerial/
 
 ## 技术栈
 
-- **平台**: Windows
+- **平台**: Windows / macOS / Linux
 - **框架**: Electron 28 + React 18
 - **语言**: TypeScript 5.3
-- **终端**: xterm.js 5.x
-- **状态管理**: Zustand
+- **终端**: xterm.js 5.x + addon-fit + addon-search + addon-web-links
+- **状态管理**: Zustand (persist 中间件)
 - **样式**: Tailwind CSS
 - **构建**: Vite 5 + electron-builder
+- **原生模块**: node-pty, serialport 12, ssh2, ftp-srv
 
 ## 开发规范
 

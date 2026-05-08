@@ -33,7 +33,7 @@ d:\QPrj\QSerial\                    # 项目根目录（完整离线包）
 ├── release\                        # 【编译输出目录】
 │   ├── win-unpacked\               # 未打包的原始文件
 │   │   └── QSerial.exe             # 主程序（绿色版）
-│   ├── QSerial-0.1.0-win-x64.exe   # 【安装包】最终交付文件
+│   ├── QSerial-0.2.0-win-x64.exe   # 【安装包】最终交付文件
 │   └── ...
 │
 ├── build-offline.bat               # 一键编译脚本
@@ -56,7 +56,7 @@ d:\QPrj\QSerial\                    # 项目根目录（完整离线包）
 
 ### 3. `release\` - 编译输出
 - **win-unpacked/**：绿色版程序
-- **QSerial-0.1.0-win-x64.exe**：安装包（最终交付文件）
+- **QSerial-0.2.0-win-x64.exe**：安装包（最终交付文件）
 
 ### 4. `build-offline.bat` - 一键编译
 - 清理进程和旧构建
@@ -90,9 +90,9 @@ Test-Path .pnpm-store\v3
 
 ### 1. 安装基础软件
 
-- Node.js 20.x LTS
+- Node.js >= 18.0.0 (推荐 20.x LTS)
 - Git for Windows
-- pnpm：`npm install -g pnpm`
+- pnpm：`npm install -g pnpm@8`
 
 ### 2. 一键编译
 
@@ -115,7 +115,7 @@ cd D:\QPrj\QSerial    # 或你放置的路径
 
 编译完成后，交付文件在：
 ```
-release\QSerial-0.1.0-win-x64.exe    # 安装包
+release\QSerial-0.2.0-win-x64.exe    # 安装包
 release\win-unpacked\QSerial.exe     # 绿色版
 ```
 
@@ -152,4 +152,4 @@ taskkill /F /IM QSerial.exe
 - [ ] `.pnpm-store\v3\` 目录存在
 - [ ] `node_modules` 目录存在
 - [ ] `build-offline.bat` 可正常运行
-- [ ] `release\QSerial-0.1.0-win-x64.exe` 生成成功
+- [ ] `release\QSerial-0.2.0-win-x64.exe` 生成成功

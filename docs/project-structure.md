@@ -1,13 +1,14 @@
 # QSerial 项目结构
 
-> 版本: 2.0.0
-> 更新日期: 2026-04-20
+> 版本: 2.1.0
+> 更新日期: 2026-05-08
 
 ## 变更记录
 
 | 日期 | 版本 | 变更内容 |
 |------|------|----------|
 | 2026-04-20 | 2.0.0 | 新增 connectionServer.ts、ConnectionShareDialog.tsx、QuickButtonBar.tsx；标注 serialServer.ts 已废弃 |
+| 2026-05-08 | 2.1.0 | 新增 FTP/NFS 管理器、对话框、Store 说明；新增 sidebarButtons Store；新增 native-dialog.ts；依赖补充 ftp-srv |
 
 ---
 
@@ -26,12 +27,14 @@ QSerial/
 │   │   ├── src/
 │   │   │   ├── index.ts              # 入口文件，应用生命周期、窗口管理、单实例锁
 │   │   │   ├── preload.ts            # 预加载脚本，暴露安全 API (contextBridge)
+│   │   │   ├── native-dialog.ts       # 原生对话框封装（目录选择、文件保存）
 │   │   │   ├── connection/           # 连接管理
 │   │   │   │   ├── index.ts          # 模块入口
 │   │   │   │   ├── factory.ts        # 连接工厂，管理连接实例
 │   │   │   │   ├── pty.ts            # PTY 本地终端连接
 │   │   │   │   ├── serial.ts         # 串口连接，支持自动重连和连接复用
 │   │   │   │   ├── ssh.ts            # SSH 连接，兼容旧设备算法
+│   │   │   │   ├── telnet.ts         # Telnet 连接
 │   │   │   │   ├── telnet.ts         # Telnet 连接
 │   │   │   │   ├── serialServer.ts   # 串口共享服务端（已废弃，由 connectionServer 替代）
 │   │   │   │   └── connectionServer.ts # 连接共享服务端 (TCP+TELNET协商+SSH隧道)
@@ -41,6 +44,10 @@ QSerial/
 │   │   │   │   └── manager.ts        # 配置管理器 (JSON 持久化，深度合并)
 │   │   │   ├── sftp/                 # SFTP 文件传输
 │   │   │   │   └── manager.ts        # SFTP 会话管理器
+│   │   │   ├── ftp/                  # FTP 服务器
+│   │   │   │   └── manager.ts        # FTP 服务器管理器 (ftp-srv)
+│   │   │   ├── nfs/                  # NFS 服务器
+│   │   │   │   └── manager.ts        # NFS 服务器管理器 (WinNFSd/exportfs)
 │   │   │   ├── tftp/                 # TFTP 服务器
 │   │   │   │   └── manager.ts        # TFTP 服务器管理器
 │   │   │   └── types/                # 类型声明
@@ -55,6 +62,8 @@ QSerial/
 │   │   │   │   │   └── ContextMenu.tsx   # 右键菜单
 │   │   │   │   ├── dialogs/          # 对话框
 │   │   │   │   │   ├── ConnectionShareDialog.tsx  # 连接共享对话框
+│   │   │   │   │   ├── FtpDialog.tsx              # FTP 服务器配置
+│   │   │   │   │   ├── NfsDialog.tsx              # NFS 服务器配置
 │   │   │   │   │   ├── PtyConnectDialog.tsx       # 本地终端连接配置
 │   │   │   │   │   ├── SerialConnectDialog.tsx    # 串口连接配置
 │   │   │   │   │   ├── SerialShareDialog.tsx      # 串口共享配置
@@ -87,6 +96,9 @@ QSerial/
 │   │   │   │   ├── theme.ts          # 主题状态
 │   │   │   │   ├── sftp.ts           # SFTP 状态
 │   │   │   │   ├── tftp.ts           # TFTP 状态
+│   │   │   │   ├── ftp.ts            # FTP 服务器状态
+│   │   │   │   ├── nfs.ts            # NFS 服务器状态
+│   │   │   │   ├── sidebarButtons.ts # 侧边栏按钮排序
 │   │   │   │   └── quickButtons.ts   # 快捷按钮状态（分组、按钮、持久化）
 │   │   │   └── types/                # 类型声明
 │   │   │       └── global.d.ts       # 全局类型 (window.qserial)
@@ -131,6 +143,7 @@ QSerial/
 | `ssh.ts` | SSH 连接，使用 ssh2，兼容旧设备算法，支持密钥/密码认证 |
 | `telnet.ts` | Telnet 连接，使用 net |
 | `serialServer.ts` | 串口共享服务端（**已废弃**，由 connectionServer 替代） |
+| `telnet.ts` | Telnet 连接，使用 Node 内置 net 模块 |
 | `connectionServer.ts` | 连接共享服务端：TCP Server + TELNET 协议协商 + 密码认证 + 写入队列 + SSH 反向隧道，支持共享任意类型活跃连接 |
 
 ### 连接共享服务 (connectionServer.ts)
@@ -155,6 +168,18 @@ QSerial/
 |------|------|
 | `manager.ts` | TFTP 服务器管理器，启动/停止/状态查询/传输事件监控（blockSize=65464、windowSize=64） |
 
+### FTP 服务器 (ftp/)
+
+| 文件 | 说明 |
+|------|------|
+| `manager.ts` | FTP 服务器管理器，基于 ftp-srv 库，支持匿名/用户认证，客户端连接跟踪 |
+
+### NFS 服务器 (nfs/)
+
+| 文件 | 说明 |
+|------|------|
+| `manager.ts` | NFS 服务器管理器，支持双平台：Windows 通过 WinNFSd 子进程，Linux 通过系统 exportfs/nfs-kernel-server；客户端连接监控 |
+
 ---
 
 ## 配置文件
@@ -178,8 +203,9 @@ QSerial/
 | `node-pty` | 本地终端 (PTY) |
 | `serialport` | 串口通信 |
 | `ssh2` | SSH 连接 + SFTP |
+| `ftp-srv` | FTP 服务器 |
 | `tftp` | TFTP 协议 |
-| `uuid` | UUID 生成 |
+| `uuid` | UUID 生成（备用，代码中主要使用 crypto.randomUUID） |
 
 ### 开发依赖
 

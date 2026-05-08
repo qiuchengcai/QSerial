@@ -39,7 +39,7 @@ pnpm build:renderer
 # 3. 交叉编译 serialport
 npx @electron/rebuild -f -w @serialport/bindings-cpp \
     --platform=win32 --arch=x64 \
-    --electron-version=28.2.0
+    --electron-version=28.2.0  # 与 package.json 中 electron 版本保持一致
 
 # 4. 打包
 CSC_IDENTITY_AUTO_DISCOVERY=false pnpm package:win
@@ -124,6 +124,7 @@ jobs:
           node-version: 20
           
       - run: pnpm install
+      - run: pnpm build:shared
       - run: pnpm build
       
       - run: pnpm package:win
