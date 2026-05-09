@@ -179,6 +179,11 @@ module.exports = {
   ],
 
   asar: true,
+  asarUnpack: [
+    'node_modules/node-pty/**/*',
+    'node_modules/@serialport/bindings-cpp/**/*',
+    'node_modules/ssh2/**/*',
+  ],
   npmRebuild: false,
 
   win: {
