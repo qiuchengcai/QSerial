@@ -431,7 +431,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                 {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
                   <button
                     key={button.id}
-                    onClick={() => handleSendCommand(button)}
+                    onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
                     onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
                     disabled={!isConnected}
                     className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all w-full text-left"
@@ -505,7 +505,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
               {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
                 <button
                   key={button.id}
-                  onClick={() => handleSendCommand(button)}
+                  onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
                   onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
                   disabled={!isConnected}
                   className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all"

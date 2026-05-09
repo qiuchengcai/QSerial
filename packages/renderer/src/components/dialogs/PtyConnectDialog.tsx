@@ -55,7 +55,7 @@ export const PtyConnectDialog: React.FC<PtyConnectDialogProps> = ({
   }, [editSession]);
 
   const handlePickDir = async () => {
-    const result = await window.qserial.tftp.pickDir();
+    const result = await window.qserial.dialog.pickDir('选择本地终端起始目录');
     if (result) {
       setCwd(result);
     }

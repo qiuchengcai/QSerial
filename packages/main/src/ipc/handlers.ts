@@ -76,6 +76,9 @@ export function setupIpcHandlers(): void {
   // TFTP 服务器
   setupTftpHandlers();
 
+  // 通用对话框
+  setupDialogHandlers();
+
   // NFS 服务器
   setupNfsHandlers();
 
@@ -328,6 +331,15 @@ function setupTftpHandlers(): void {
   // 选择目录（使用 PowerShell FolderBrowserDialog，避免 Electron 原生对话框崩溃）
   ipcMain.handle(IPC_CHANNELS.TFTP_PICK_DIR, async () => {
     return pickFolder('选择 TFTP 共享目录');
+  });
+}
+
+/**
+ * 通用对话框处理器
+ */
+function setupDialogHandlers(): void {
+  ipcMain.handle(IPC_CHANNELS.DIALOG_PICK_DIR, async (_, { title }) => {
+    return pickFolder(title || '选择目录');
   });
 }
 

@@ -34,7 +34,7 @@ fs.writeFileSync(path.join(FTP_DIR, 'package.json'), JSON.stringify(pkgJson, nul
 
 console.log('Installing ftp-srv dependencies (flat)...');
 try {
-  const output = execSync('npm install --omit=dev --no-package-lock --ignore-scripts 2>&1', {
+  const output = execSync('npm install --omit=dev --no-package-lock --ignore-scripts --no-audit --no-fund 2>&1', {
     cwd: FTP_DIR,
     encoding: 'utf-8',
   });

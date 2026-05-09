@@ -95,6 +95,9 @@ export const IPC_CHANNELS = {
   // 文件操作
   READ_FILE: 'file:read',
 
+  // 通用对话框
+  DIALOG_PICK_DIR: 'dialog:pickDir',
+
   // SFTP 文件传输
   SFTP_CREATE: 'sftp:create',
   SFTP_DESTROY: 'sftp:destroy',
@@ -197,6 +200,7 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: { id: string };
   [IPC_CHANNELS.GET_LOCAL_IP]: void;
   [IPC_CHANNELS.READ_FILE]: { path: string };
+  [IPC_CHANNELS.DIALOG_PICK_DIR]: { title: string };
   [IPC_CHANNELS.SFTP_CREATE]: { connectionId: string };
   [IPC_CHANNELS.SFTP_DESTROY]: { sftpId: string };
   [IPC_CHANNELS.SFTP_LIST]: { sftpId: string; path: string };
@@ -260,6 +264,7 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: ConnectionServerStatus;
   [IPC_CHANNELS.GET_LOCAL_IP]: string;
   [IPC_CHANNELS.READ_FILE]: string;
+  [IPC_CHANNELS.DIALOG_PICK_DIR]: string | null;
   [IPC_CHANNELS.SFTP_CREATE]: { sftpId: string };
   [IPC_CHANNELS.SFTP_DESTROY]: void;
   [IPC_CHANNELS.SFTP_LIST]: SftpFileInfo[];

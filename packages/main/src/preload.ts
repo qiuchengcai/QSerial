@@ -214,6 +214,12 @@ const api = {
     return () => ipcRenderer.off(IPC_CHANNELS.DEBUG_LOG, handler);
   },
 
+  // 通用对话框
+  dialog: {
+    pickDir: (title: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.DIALOG_PICK_DIR, { title }),
+  },
+
   // 网络
   getLocalIp: () => ipcRenderer.invoke(IPC_CHANNELS.GET_LOCAL_IP),
 

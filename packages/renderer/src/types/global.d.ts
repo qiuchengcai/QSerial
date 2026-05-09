@@ -132,6 +132,10 @@ interface QSerialAPI {
   readFile: (path: string) => Promise<string>;
 
   // SFTP 文件传输
+  dialog: {
+    pickDir: (title: string) => Promise<string | null>;
+  };
+
   sftp: {
     create: (connectionId: string) => Promise<{ sftpId: string }>;
     destroy: (sftpId: string) => Promise<void>;
