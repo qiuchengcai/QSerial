@@ -138,7 +138,7 @@ export const useTerminalStore = create<TerminalState>()(
       const sessionId = crypto.randomUUID();
       set((state) => {
         const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-        if (!activeTab) return sessionId;
+        if (!activeTab) return;
 
         state.sessions[sessionId] = {
           id: sessionId,
@@ -234,6 +234,22 @@ export const useTerminalStore = create<TerminalState>()(
     closeSessionAndTab: (sessionId) => {
       set((state) => {
         const session = state.sessions[sessionId];
+
+        // 找到包含该 session 的 Tab
+        const tabIndex = state.tabs.findIndex((t) => t.sessions.includes(sessionId));
+        if (tabIndex === -1) return;
+
+        const tab = state.tabs[tabIndex];
+        console.log('[closeSessionAndTab]', {
+          sessionId: sessionId.slice(0, 8),
+          sessionExists: !!session,
+          tabIndex,
+          tabName: tab?.name?.slice(0, 20),
+          tabSessionCount: tab?.sessions?.length,
+          currentActiveTabId: (state.activeTabId as string)?.slice(0, 8),
+          allTabIds: state.tabs.map(t => t.id.slice(0, 8)),
+          allSessionIds: Object.keys(state.sessions).map(s => s.slice(0, 8)),
+        });
         if (session) {
           // 异步关闭连接
           window.qserial.connection.destroy(session.connectionId).catch((err) => {
@@ -245,12 +261,6 @@ export const useTerminalStore = create<TerminalState>()(
           });
         }
         delete state.sessions[sessionId];
-
-        // 找到包含该 session 的 Tab
-        const tabIndex = state.tabs.findIndex((t) => t.sessions.includes(sessionId));
-        if (tabIndex === -1) return;
-
-        const tab = state.tabs[tabIndex];
 
         // 从 Tab 中移除该 session
         const sessionIndex = tab.sessions.indexOf(sessionId);

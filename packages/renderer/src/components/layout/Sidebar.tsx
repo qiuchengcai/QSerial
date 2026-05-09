@@ -14,6 +14,7 @@ import { TftpDialog } from '../dialogs/TftpDialog';
 import { NfsDialog } from '../dialogs/NfsDialog';
 import { FtpDialog } from '../dialogs/FtpDialog';
 import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectDialog';
+import { globalError } from '../common/ErrorToast';
 
 const MIN_SIDEBAR_WIDTH = 120;
 const MAX_SIDEBAR_WIDTH = 400;
@@ -90,12 +91,7 @@ export const Sidebar: React.FC = () => {
     try {
       await window.qserial.connection.open(connectionId);
     } catch (error) {
-      // open 失败后先销毁连接（取消自动重连等），再清理 session/tab
-      try {
-        await window.qserial.connection.destroy(connectionId);
-      } catch {
-        // destroy 失败不影响清理流程
-      }
+      // closeSessionAndTab 内部已调用 destroy，无需重复销毁
       closeSessionAndTab(sessionId);
       throw error;
     }
@@ -135,23 +131,22 @@ export const Sidebar: React.FC = () => {
       });
 
       await connectWithCleanup(connectionId, '本地终端', ConnectionType.PTY);
-
-      if (options.saveConfig && options.configName) {
-        addSession({
-          name: options.configName,
-          type: 'pty',
-          ptyConfig: {
-            shell: options.shell,
-            cwd: options.cwd,
-          },
-        });
-      }
     } catch (error) {
       console.error('Failed to create terminal:', error);
-      setConnectingType(null);
-      setTimeout(() => alert('创建终端失败: ' + (error as Error).message), 0);
-      return;
+      globalError.show('创建终端失败: ' + (error as Error).message);
     }
+
+    if (options.saveConfig && options.configName) {
+      addSession({
+        name: options.configName,
+        type: 'pty',
+        ptyConfig: {
+          shell: options.shell,
+          cwd: options.cwd,
+        },
+      });
+    }
+
     setConnectingType(null);
   };
 
@@ -184,26 +179,25 @@ export const Sidebar: React.FC = () => {
       });
 
       await connectWithCleanup(connectionId, `串口 ${options.path}`, ConnectionType.SERIAL, options.path);
-
-      if (options.saveConfig && options.configName) {
-        addSession({
-          name: options.configName,
-          type: 'serial',
-          serialConfig: {
-            path: options.path,
-            baudRate: options.baudRate,
-            dataBits: options.dataBits,
-            stopBits: options.stopBits,
-            parity: options.parity,
-          },
-        });
-      }
     } catch (error) {
       console.error('Failed to create serial connection:', error);
-      setConnectingType(null);
-      setTimeout(() => alert('创建串口连接失败: ' + (error as Error).message), 0);
-      return;
+      globalError.show('创建串口连接失败: ' + (error as Error).message);
     }
+
+    if (options.saveConfig && options.configName) {
+      addSession({
+        name: options.configName,
+        type: 'serial',
+        serialConfig: {
+          path: options.path,
+          baudRate: options.baudRate,
+          dataBits: options.dataBits,
+          stopBits: options.stopBits,
+          parity: options.parity,
+        },
+      });
+    }
+
     setConnectingType(null);
   };
 
@@ -252,7 +246,7 @@ export const Sidebar: React.FC = () => {
       } catch (error) {
         console.error('Failed to quick connect:', error);
         setConnectingType(null);
-        setTimeout(() => alert('快速连接失败: ' + (error as Error).message), 0);
+        globalError.show('快速连接失败: ' + (error as Error).message);
         return;
       }
       setConnectingType(null);
@@ -285,7 +279,7 @@ export const Sidebar: React.FC = () => {
       } catch (error) {
         console.error('Failed to quick connect SSH:', error);
         setConnectingType(null);
-        setTimeout(() => alert('SSH 快速连接失败: ' + (error as Error).message), 0);
+        globalError.show('SSH 快速连接失败: ' + (error as Error).message);
         return;
       }
       setConnectingType(null);
@@ -314,7 +308,7 @@ export const Sidebar: React.FC = () => {
       } catch (error) {
         console.error('Failed to quick connect Telnet:', error);
         setConnectingType(null);
-        setTimeout(() => alert('Telnet 快速连接失败: ' + (error as Error).message), 0);
+        globalError.show('Telnet 快速连接失败: ' + (error as Error).message);
         return;
       }
       setConnectingType(null);
@@ -342,7 +336,7 @@ export const Sidebar: React.FC = () => {
       } catch (error) {
         console.error('Failed to quick connect PTY:', error);
         setConnectingType(null);
-        setTimeout(() => alert('本地终端快速连接失败: ' + (error as Error).message), 0);
+        globalError.show('本地终端快速连接失败: ' + (error as Error).message);
         return;
       }
       setConnectingType(null);
@@ -415,27 +409,26 @@ export const Sidebar: React.FC = () => {
       });
 
       await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
-
-      if (options.saveConfig && options.configName) {
-        addSession({
-          name: options.configName,
-          type: 'ssh',
-          sshConfig: {
-            host: options.host,
-            port: options.port,
-            username: options.username,
-            password: options.password,
-            privateKey: options.privateKey,
-            passphrase: options.passphrase,
-          },
-        });
-      }
     } catch (error) {
       console.error('Failed to create SSH connection:', error);
-      setConnectingType(null);
-      setTimeout(() => alert('SSH 连接失败: ' + (error as Error).message), 0);
-      return;
+      globalError.show('SSH 连接失败: ' + (error as Error).message);
     }
+
+    if (options.saveConfig && options.configName) {
+      addSession({
+        name: options.configName,
+        type: 'ssh',
+        sshConfig: {
+          host: options.host,
+          port: options.port,
+          username: options.username,
+          password: options.password,
+          privateKey: options.privateKey,
+          passphrase: options.passphrase,
+        },
+      });
+    }
+
     setConnectingType(null);
   };
 
@@ -462,23 +455,22 @@ export const Sidebar: React.FC = () => {
       });
 
       await connectWithCleanup(connectionId, `Telnet ${options.host}`, ConnectionType.TELNET, undefined, options.host);
-
-      if (options.saveConfig && options.configName) {
-        addSession({
-          name: options.configName,
-          type: 'telnet',
-          telnetConfig: {
-            host: options.host,
-            port: options.port,
-          },
-        });
-      }
     } catch (error) {
       console.error('Failed to create Telnet connection:', error);
-      setConnectingType(null);
-      setTimeout(() => alert('Telnet 连接失败: ' + (error as Error).message), 0);
-      return;
+      globalError.show('Telnet 连接失败: ' + (error as Error).message);
     }
+
+    if (options.saveConfig && options.configName) {
+      addSession({
+        name: options.configName,
+        type: 'telnet',
+        telnetConfig: {
+          host: options.host,
+          port: options.port,
+        },
+      });
+    }
+
     setConnectingType(null);
   };
 

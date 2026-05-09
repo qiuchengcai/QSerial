@@ -2,7 +2,7 @@
  * 主内容区组件
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { TabBar } from '../tabs/TabBar';
 import { TerminalPane } from '../terminal/TerminalPane';
@@ -11,13 +11,31 @@ import { SftpPanel } from '../sftp';
 import { useSftpStore } from '@/stores/sftp';
 
 export const MainContent: React.FC = () => {
-  const terminalState = useTerminalStore();
-  const tabs = terminalState?.tabs || [];
-  const activeTabId = terminalState?.activeTabId;
-  const sessions = terminalState?.sessions || {};
+  const tabs = useTerminalStore(state => state.tabs);
+  const activeTabId = useTerminalStore(state => state.activeTabId);
+  const sessions = useTerminalStore(state => state.sessions);
   const { panelVisible } = useSftpStore();
 
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  // 展平所有标签页中的终端面板（避免嵌套数组导致 React reconciliation 问题）
+  const terminalPanes = useMemo(() => {
+    const panes: React.ReactNode[] = [];
+    for (const tab of tabs) {
+      for (const sessionId of tab.sessions) {
+        const session = sessions[sessionId];
+        if (!session) continue;
+        panes.push(
+          <TerminalPane
+            key={sessionId}
+            sessionId={sessionId}
+            connectionId={session.connectionId}
+            isActive={tab.id === activeTabId && sessionId === tab.activeSessionId}
+            activeTabId={activeTabId}
+          />,
+        );
+      }
+    }
+    return panes;
+  }, [tabs, activeTabId, sessions]);
 
   return (
     <div className="flex-1 min-h-0 bg-background flex main-content-container">
@@ -43,21 +61,7 @@ export const MainContent: React.FC = () => {
 
             {/* 终端内容 */}
             <div className="flex-1 min-h-0 relative overflow-hidden bg-background">
-              {tabs.map((tab) =>
-                tab.sessions.map((sessionId) => {
-                  const session = sessions[sessionId];
-                  if (!session) return null;
-
-                  return (
-                    <TerminalPane
-                      key={sessionId}
-                      sessionId={sessionId}
-                      connectionId={session.connectionId}
-                      isActive={tab.id === activeTabId && sessionId === tab.activeSessionId}
-                    />
-                  );
-                })
-              )}
+              {terminalPanes}
             </div>
           </>
         )}

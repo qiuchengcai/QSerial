@@ -11,6 +11,7 @@ import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useThemeStore } from '../../stores/theme';
 import { useTftpStore } from '../../stores/tftp';
 import { SettingsDialog } from '../dialogs/SettingsDialog';
+import { ErrorToast, useGlobalError } from '../common/ErrorToast';
 import type { TftpTransferEvent } from '@qserial/shared';
 
 export const Layout: React.FC = () => {
@@ -19,9 +20,11 @@ export const Layout: React.FC = () => {
   const [showSettings, setShowSettings] = React.useState(false);
   const quickButtonsState = useQuickButtonsStore();
   const isVertical = quickButtonsState?.direction === 'vertical';
+  const { errorMessage, dismiss } = useGlobalError();
 
   // 全局监听 TFTP 状态和传输事件
   useEffect(() => {
+    if (!window.qserial?.tftp) return;
     const unsubStatus = window.qserial.tftp.onStatusChange((event) => {
       if (event.running) {
         useTftpStore.getState().setRunning(true);
@@ -92,6 +95,8 @@ export const Layout: React.FC = () => {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
       />
+
+      <ErrorToast message={errorMessage} onDismiss={dismiss} />
     </div>
   );
 };

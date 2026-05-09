@@ -12,17 +12,23 @@ import { base64ToUint8Array, ConnectionType, ConnectionState } from '@qserial/sh
 import 'xterm/css/xterm.css';
 
 import { ConnectionShareDialog } from '../dialogs/ConnectionShareDialog';
+import { globalError } from '../common/ErrorToast';
+
+// 永久记录已显示过连接成功消息的 session，防止组件重新挂载后重复显示
+const successMessageShownSessions = new Set<string>();
 
 interface TerminalPaneProps {
   sessionId: string;
   connectionId: string;
   isActive: boolean;
+  activeTabId?: string | null;
 }
 
-export const TerminalPane: React.FC<TerminalPaneProps> = ({
+export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
   sessionId,
   connectionId,
   isActive,
+  activeTabId,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -34,21 +40,17 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
   const [logStarting, setLogStarting] = useState(false);
   const initializedRef = useRef(false);
   const [showSerialShareDialog, setShowSerialShareDialog] = useState(false);
+  const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const mountCountRef = useRef(0);
 
-  const terminalState = useTerminalStore();
-  const updateSessionSize = terminalState?.updateSessionSize;
-  const updateSessionState = terminalState?.updateSessionState;
-  const sessions = terminalState?.sessions || {};
-  const startLog = terminalState?.startLog;
-  const stopLog = terminalState?.stopLog;
+  // 使用 selector 精准订阅，避免其他 session 变更导致本组件重渲染
+  const session = useTerminalStore(state => state.sessions[sessionId]);
+  const updateSessionSize = useTerminalStore(state => state.updateSessionSize);
+  const updateSessionState = useTerminalStore(state => state.updateSessionState);
+  const startLog = useTerminalStore(state => state.startLog);
+  const stopLog = useTerminalStore(state => state.stopLog);
   const { currentTheme } = useThemeStore();
   const { config } = useConfigStore();
-
-  // 使用 ref 存储最新的 sessions，避免闭包问题
-  const sessionsRef = useRef(sessions);
-  useEffect(() => {
-    sessionsRef.current = sessions;
-  }, [sessions]);
 
   // 调整终端尺寸 - 使用 FitAddon
   const resizeTerminal = useCallback(() => {
@@ -71,6 +73,9 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     if (!containerRef.current) return;
 
     initializedRef.current = true;
+    mountCountRef.current += 1;
+    const mountId = mountCountRef.current;
+    console.log('[TerminalPane] INIT xterm mountId:', mountId, 'sessionId:', sessionId.slice(0, 8), 'connectionId:', connectionId.slice(0, 8));
 
     const xterm = new XTerm({
       theme: currentTheme.xterm,
@@ -89,8 +94,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     // 显示连接成功消息的函数
     const showConnectionSuccessMessage = (terminal: XTerm) => {
-      // 防止重复显示
+      // 防止重复显示（模块级 Set + 组件级 ref 双重防护）
+      if (successMessageShownSessions.has(sessionId)) return;
       if (messageShownRef.current) return;
+      successMessageShownSessions.add(sessionId);
       messageShownRef.current = true;
 
       const now = new Date();
@@ -174,32 +181,39 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
         });
       }
 
+      // 延迟调度（自动追踪，cleanup 时统一清除）
+      const schedule = (fn: () => void, ms: number) => {
+        const id = setTimeout(fn, ms);
+        timeoutIdsRef.current.push(id);
+        return id;
+      };
+
       // 多次延迟调整尺寸，确保布局稳定
       const resizeMultiple = () => {
         resizeTerminal();
-        setTimeout(resizeTerminal, 50);
-        setTimeout(resizeTerminal, 100);
-        setTimeout(resizeTerminal, 200);
-        setTimeout(resizeTerminal, 500);
+        schedule(resizeTerminal, 50);
+        schedule(resizeTerminal, 100);
+        schedule(resizeTerminal, 200);
+        schedule(resizeTerminal, 500);
       };
 
       // 延迟初始化后调整尺寸
-      setTimeout(async () => {
+      schedule(async () => {
         resizeMultiple();
 
         // 主动查询当前连接状态（因为可能错过了 connected 事件）
         try {
           const { state } = await window.qserial.connection.getState(connectionId);
-          console.log('[TerminalPane] Queried state:', state);
+          console.log('[TerminalPane] Queried state:', state, 'mountId:', mountId);
 
           // 更新 session 状态
           updateSessionState(sessionId, state as any);
 
           if (state === 'connected') {
-            const session = sessionsRef.current[sessionId];
-            console.log('[TerminalPane] Session connectionType:', session?.connectionType);
+            const session = useTerminalStore.getState().sessions[sessionId];
+            console.log('[TerminalPane] Session connectionType:', session?.connectionType, 'mountId:', mountId);
             if (session?.connectionType === ConnectionType.SERIAL) {
-              console.log('[TerminalPane] Showing connection success message!');
+              console.log('[TerminalPane] Showing connection success message! mountId:', mountId);
               showConnectionSuccessMessage(xterm);
             }
           }
@@ -251,7 +265,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
           xterm.write(data);
 
           // 实时写入日志（日志需要文本）
-          const currentSession = sessionsRef.current[sessionId];
+          const currentSession = useTerminalStore.getState().sessions[sessionId];
           if (currentSession?.logEnabled && currentSession?.logFilePath) {
             const text = new TextDecoder().decode(data);
             window.qserial.log.write(sessionId, text).catch((err) => {
@@ -269,11 +283,11 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     const unsubscribeState = window.qserial.connection.onStateChange(
       connectionId,
       (state: string) => {
-        console.log('[TerminalPane] State changed:', state);
+        console.log('[TerminalPane] State changed:', state, 'sessionId:', sessionId.slice(0, 8), 'mountId:', mountId);
         updateSessionState(sessionId, state as any);
 
         if (state === 'connected') {
-          const currentSession = sessionsRef.current[sessionId];
+          const currentSession = useTerminalStore.getState().sessions[sessionId];
           if (currentSession?.connectionType === ConnectionType.SERIAL) {
             showConnectionSuccessMessage(xterm);
           } else if (currentSession?.connectionType === ConnectionType.SSH ||
@@ -294,7 +308,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     const unsubscribeError = window.qserial.connection.onError(
       connectionId,
       (error: string) => {
-        console.error('[TerminalPane] Connection error:', error);
+        console.error('[TerminalPane] Connection error:', error, 'connectionId:', connectionId.slice(0, 8));
         xterm.write(`\x1b[31m错误: ${error}\x1b[0m\r\n`);
       }
     );
@@ -310,6 +324,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
 
     return () => {
+      console.log('[TerminalPane] DISPOSE xterm mountId:', mountId, 'sessionId:', sessionId.slice(0, 8));
+      // 清除所有未完成的 timeout
+      timeoutIdsRef.current.forEach(clearTimeout);
+      timeoutIdsRef.current = [];
       resizeObserver.disconnect();
       unsubscribersRef.current.forEach((unsub) => unsub());
       unsubscribersRef.current = [];
@@ -348,13 +366,12 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       }, 50);
       xtermRef.current.focus();
     }
-  }, [isActive]);
+  }, [isActive, activeTabId]);
 
   // 开始实时日志记录
   const handleStartLog = async () => {
     setLogStarting(true);
     try {
-      const session = sessions[sessionId];
       const defaultName = session
         ? `${session.connectionType}-log-${new Date().toISOString().slice(0, 10)}.txt`
         : `terminal-log-${new Date().toISOString().slice(0, 10)}.txt`;
@@ -369,7 +386,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       startLog(sessionId, filePath);
     } catch (error) {
       console.error('Failed to start log:', error);
-      alert('启动日志记录失败: ' + (error as Error).message);
+      globalError.show('启动日志记录失败: ' + (error as Error).message);
     }
     setLogStarting(false);
   };
@@ -384,7 +401,6 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
   };
 
-  const session = sessions[sessionId];
   const isLogging = session?.logEnabled ?? false;
   const isConnected = session?.connectionState === ConnectionState.CONNECTED;
   const isReconnecting = session?.connectionState === ConnectionState.RECONNECTING;
@@ -453,4 +469,4 @@ export const TerminalPane: React.FC<TerminalPaneProps> = ({
       />
     </div>
   );
-};
+});
