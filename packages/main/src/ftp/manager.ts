@@ -60,6 +60,8 @@ function getFtpSrvEntryPath(): string {
 function loadFtpSrv(): void {
   if (FtpSrv) return;
 
+  const savedNodePath = process.env.NODE_PATH;
+
   // 先设置 NODE_PATH，确保 ftp-srv 内部的 require('lodash') 等可以正确解析
   const ftpNodeModulesCandidates = [
     // extraResources: { from: 'resources', to: 'resources' }
@@ -89,6 +91,14 @@ function loadFtpSrv(): void {
   } catch (err) {
     console.error('[FTP] Failed to load ftp-srv:', err);
     throw new Error(`加载 ftp-srv 失败: ${(err as Error).message}`);
+  } finally {
+    // 恢复原始 NODE_PATH，避免全局副作用
+    if (savedNodePath === undefined) {
+      delete process.env.NODE_PATH;
+    } else {
+      process.env.NODE_PATH = savedNodePath;
+    }
+    nodeRequire('module')._initPaths();
   }
 }
 
@@ -96,6 +106,7 @@ let mainWindow: BrowserWindow | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let server: any = null;
 let serverRunning = false;
+let startingPromise: Promise<void> | null = null;
 let currentStatus: FtpServerStatus = {
   running: false,
   port: 2121,
@@ -153,13 +164,21 @@ function getLocalIp(): string {
  * 启动 FTP 服务器
  */
 export async function startFtpServer(port: number, rootDir: string, username: string, password: string): Promise<void> {
+  // 防止并发调用导致服务器实例泄漏
+  if (startingPromise) {
+    await startingPromise;
+    if (serverRunning) return; // 前一次启动已成功
+  }
+
   // 如果已在运行，先停止
   if (serverRunning || server) {
     await stopFtpServer();
   }
 
-  // 检查目录是否存在
-  if (!rootDir || !fs.existsSync(rootDir)) {
+  startingPromise = (async () => {
+    try {
+      // 检查目录是否存在
+      if (!rootDir || !fs.existsSync(rootDir)) {
     throw new Error(`共享目录不存在: ${rootDir}`);
   }
 
@@ -174,8 +193,7 @@ export async function startFtpServer(port: number, rootDir: string, username: st
     throw new Error('FTP 服务模块加载失败');
   }
 
-  try {
-    const localIp = getLocalIp();
+  const localIp = getLocalIp();
     server = new FtpSrv({
       url: `ftp://0.0.0.0:${port}`,
       anonymous: username === 'anonymous',
@@ -204,13 +222,15 @@ export async function startFtpServer(port: number, rootDir: string, username: st
         });
 
         // 验证用户名密码
-        if (username !== 'anonymous' && user !== username) {
-          reject(new Error('用户名错误'));
-          return;
-        }
-        if (username !== 'anonymous' && password && pass !== password) {
-          reject(new Error('密码错误'));
-          return;
+        if (username !== 'anonymous') {
+          if (user !== username) {
+            reject(new Error('用户名错误'));
+            return;
+          }
+          if (!password || pass !== password) {
+            reject(new Error('密码错误'));
+            return;
+          }
         }
 
         // 设置根目录
@@ -263,7 +283,12 @@ export async function startFtpServer(port: number, rootDir: string, username: st
     server = null;
     serverRunning = false;
     throw new Error(`FTP 服务器启动失败: ${(error as Error).message}`);
+  } finally {
+    startingPromise = null;
   }
+  })();
+
+  await startingPromise;
 }
 
 /**

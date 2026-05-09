@@ -53,6 +53,7 @@ export class PtyConnection implements IConnection {
       });
 
       this.ptyProcess.onExit(({ exitCode }) => {
+        this.ptyProcess = null;
         this._state = ConnectionState.DISCONNECTED;
         this.emitStateChange();
         this.eventEmitter.emit('close', exitCode);

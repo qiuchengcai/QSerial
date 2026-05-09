@@ -56,9 +56,21 @@ export function setupIpcHandlers(): void {
   // 获取主窗口
   mainWindow = BrowserWindow.getAllWindows()[0];
 
-  // 监听窗口创建
+  // 初始化所有主窗口引用
+  setSftpMainWindow(mainWindow);
+  setTftpMainWindow(mainWindow);
+  setNfsMainWindow(mainWindow);
+  setFtpMainWindow(mainWindow);
+
+  // 监听窗口创建（所有子模块共享一个监听器）
   app.on('browser-window-created', (_, window) => {
-    mainWindow = window;
+    if (window === mainWindow) {
+      mainWindow = window;
+      setSftpMainWindow(window);
+      setTftpMainWindow(window);
+      setNfsMainWindow(window);
+      setFtpMainWindow(window);
+    }
   });
 
   // 连接管理
@@ -102,12 +114,6 @@ export function setupIpcHandlers(): void {
 
   // SFTP 文件传输
   setupSftpHandlers();
-  setSftpMainWindow(mainWindow);
-  app.on('browser-window-created', (_, window) => {
-    if (window === mainWindow) {
-      setSftpMainWindow(window);
-    }
-  });
 
   console.log('IPC handlers registered');
 }
@@ -301,14 +307,6 @@ function setupAppHandlers(): void {
  * TFTP 相关处理器
  */
 function setupTftpHandlers(): void {
-  // 设置主窗口引用
-  setTftpMainWindow(mainWindow);
-  app.on('browser-window-created', (_, window) => {
-    if (window === mainWindow) {
-      setTftpMainWindow(window);
-    }
-  });
-
   // 启动 TFTP 服务器
   ipcMain.handle(IPC_CHANNELS.TFTP_START, async (_, { port, rootDir }) => {
     try {
@@ -347,14 +345,6 @@ function setupDialogHandlers(): void {
  * NFS 相关处理器
  */
 function setupNfsHandlers(): void {
-  // 设置主窗口引用
-  setNfsMainWindow(mainWindow);
-  app.on('browser-window-created', (_, window) => {
-    if (window === mainWindow) {
-      setNfsMainWindow(window);
-    }
-  });
-
   // 启动 NFS 服务器
   ipcMain.handle(IPC_CHANNELS.NFS_START, async (_, { exportDir, allowedClients, options }) => {
     try {
@@ -389,14 +379,6 @@ function setupNfsHandlers(): void {
  * FTP 相关处理器
  */
 function setupFtpHandlers(): void {
-  // 设置主窗口引用
-  setFtpMainWindow(mainWindow);
-  app.on('browser-window-created', (_, window) => {
-    if (window === mainWindow) {
-      setFtpMainWindow(window);
-    }
-  });
-
   // 启动 FTP 服务器
   ipcMain.handle(IPC_CHANNELS.FTP_START, async (_, { port, rootDir, username, password }) => {
     try {
@@ -491,8 +473,9 @@ function setupLogHandlers(): void {
   // 写入日志数据
   ipcMain.handle(IPC_CHANNELS.LOG_WRITE, async (_, { sessionId, data }) => {
     const stream = logStreams.get(sessionId);
-    if (stream && stream.writable) {
-      stream.write(data);
+    if (!stream || !stream.writable) return;
+    if (!stream.write(data)) {
+      await new Promise<void>((resolve) => stream.once('drain', resolve));
     }
   });
 
@@ -720,11 +703,14 @@ function setupConnectionServerHandlers(): void {
  */
 function setupFileHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.READ_FILE, async (_, { path: filePath }) => {
-    try {
-      const content = await fs.promises.readFile(filePath, 'utf-8');
-      return content;
-    } catch (error) {
-      throw error;
+    if (!filePath || typeof filePath !== 'string') {
+      throw new Error('无效的文件路径');
     }
+    const resolved = path.resolve(filePath);
+    const userData = app.getPath('userData');
+    if (!resolved.startsWith(userData) && !resolved.startsWith(path.join(userData, '..', 'QSerial'))) {
+      throw new Error('不允许的路径');
+    }
+    return fs.promises.readFile(resolved, 'utf-8');
   });
 }

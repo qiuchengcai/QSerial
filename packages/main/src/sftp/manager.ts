@@ -13,6 +13,17 @@ import { SshConnection } from '../connection/ssh.js';
 import { ConnectionType } from '@qserial/shared';
 import { pickFolder, pickFile } from '../native-dialog.js';
 
+const SFTP_TIMEOUT = 30000; // 30 秒超时
+
+function withTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`SFTP 操作超时: ${operation}`)), SFTP_TIMEOUT)
+    ),
+  ]);
+}
+
 // SFTP 实例信息
 interface SftpInstance {
   id: string;
@@ -73,7 +84,7 @@ export async function createSftp(connectionId: string): Promise<string> {
     await destroySftp(sftpId);
   }
 
-  return new Promise((resolve, reject) => {
+  return withTimeout(new Promise((resolve, reject) => {
     client.sftp((err, sftp) => {
       if (err) {
         reject(err);
@@ -88,7 +99,7 @@ export async function createSftp(connectionId: string): Promise<string> {
 
       resolve(sftpId);
     });
-  });
+  }), 'createSftp');
 }
 
 /**
@@ -447,52 +458,56 @@ export async function realpath(sftpId: string, remotePath: string): Promise<stri
  */
 export function setupSftpHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SFTP_CREATE, async (_, { connectionId }) => {
-    const sftpId = await createSftp(connectionId);
+    const sftpId = await withTimeout(createSftp(connectionId), 'createSftp');
     return { sftpId };
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_DESTROY, async (_, { sftpId }) => {
-    await destroySftp(sftpId);
+    await withTimeout(destroySftp(sftpId), 'destroySftp');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_LIST, async (_, { sftpId, path }) => {
-    return listDirectory(sftpId, path);
+    return withTimeout(listDirectory(sftpId, path), 'listDirectory');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_DOWNLOAD, async (_, { sftpId, remotePath, localPath }) => {
-    return downloadFile(sftpId, remotePath, localPath);
+    return withTimeout(downloadFile(sftpId, remotePath, localPath), 'downloadFile');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_UPLOAD, async (_, { sftpId, localPath, remotePath }) => {
-    return uploadFile(sftpId, localPath, remotePath);
+    return withTimeout(uploadFile(sftpId, localPath, remotePath), 'uploadFile');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_MKDIR, async (_, { sftpId, path }) => {
-    return mkdir(sftpId, path);
+    return withTimeout(mkdir(sftpId, path), 'mkdir');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_RMDIR, async (_, { sftpId, path }) => {
-    return rmdir(sftpId, path);
+    return withTimeout(rmdir(sftpId, path), 'rmdir');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_RM, async (_, { sftpId, path }) => {
-    return rm(sftpId, path);
+    return withTimeout(rm(sftpId, path), 'rm');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_RENAME, async (_, { sftpId, oldPath, newPath }) => {
-    return rename(sftpId, oldPath, newPath);
+    return withTimeout(rename(sftpId, oldPath, newPath), 'rename');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_STAT, async (_, { sftpId, path }) => {
-    return stat(sftpId, path);
+    return withTimeout(stat(sftpId, path), 'stat');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_READLINK, async (_, { sftpId, path }) => {
-    return readlink(sftpId, path);
+    return withTimeout(readlink(sftpId, path), 'readlink');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_SYMLINK, async (_, { sftpId, target, path }) => {
-    return symlink(sftpId, target, path);
+    return withTimeout(symlink(sftpId, target, path), 'symlink');
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SFTP_REALPATH, async (_, { sftpId, path }) => {
+    return withTimeout(realpath(sftpId, path), 'realpath');
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_PICK_LOCAL, async () => {
@@ -501,9 +516,5 @@ export function setupSftpHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.SFTP_PICK_LOCAL_DIR, async () => {
     return pickFolder('选择本地目录');
-  });
-
-  ipcMain.handle(IPC_CHANNELS.SFTP_REALPATH, async (_, { sftpId, path }) => {
-    return realpath(sftpId, path);
   });
 }

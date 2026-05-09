@@ -137,8 +137,19 @@ export const useTerminalStore = create<TerminalState>()(
     createSession: (connectionId, type, serialPath, host) => {
       const sessionId = crypto.randomUUID();
       set((state) => {
-        const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-        if (!activeTab) return;
+        let activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+        if (!activeTab) {
+          // 没有活跃标签页时自动创建一个
+          const tabId = crypto.randomUUID();
+          activeTab = {
+            id: tabId,
+            name: `${type}-${sessionId.slice(0, 4)}`,
+            sessions: [],
+            activeSessionId: null,
+          };
+          state.tabs.push(activeTab);
+          state.activeTabId = tabId;
+        }
 
         state.sessions[sessionId] = {
           id: sessionId,
@@ -175,15 +186,24 @@ export const useTerminalStore = create<TerminalState>()(
           });
         }
         delete state.sessions[sessionId];
-        state.tabs.forEach((tab) => {
+        for (let i = state.tabs.length - 1; i >= 0; i--) {
+          const tab = state.tabs[i];
           const index = tab.sessions.indexOf(sessionId);
           if (index !== -1) {
             tab.sessions.splice(index, 1);
             if (tab.activeSessionId === sessionId) {
               tab.activeSessionId = tab.sessions[0] || null;
             }
+            // 会话全部关闭后移除空标签页
+            if (tab.sessions.length === 0) {
+              if (state.activeTabId === tab.id) {
+                const newActive = state.tabs[i - 1] || state.tabs[i + 1];
+                state.activeTabId = newActive?.id || null;
+              }
+              state.tabs.splice(i, 1);
+            }
           }
-        });
+        }
       });
     },
 

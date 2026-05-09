@@ -14,9 +14,6 @@ import 'xterm/css/xterm.css';
 import { ConnectionShareDialog } from '../dialogs/ConnectionShareDialog';
 import { globalError } from '../common/ErrorToast';
 
-// 永久记录已显示过连接成功消息的 session，防止组件重新挂载后重复显示
-const successMessageShownSessions = new Set<string>();
-
 interface TerminalPaneProps {
   sessionId: string;
   connectionId: string;
@@ -95,10 +92,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
 
     // 显示连接成功消息的函数
     const showConnectionSuccessMessage = (terminal: XTerm) => {
-      // 防止重复显示（模块级 Set + 组件级 ref 双重防护）
-      if (successMessageShownSessions.has(sessionId)) return;
       if (messageShownRef.current) return;
-      successMessageShownSessions.add(sessionId);
       messageShownRef.current = true;
 
       const now = new Date();
@@ -291,15 +285,19 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
           const currentSession = useTerminalStore.getState().sessions[sessionId];
           if (currentSession?.connectionType === ConnectionType.SERIAL) {
             showConnectionSuccessMessage(xterm);
-          } else if (currentSession?.connectionType === ConnectionType.SSH ||
-                     currentSession?.connectionType === ConnectionType.TELNET) {
+          }
+          if (currentSession?.connectionType === ConnectionType.SSH ||
+              currentSession?.connectionType === ConnectionType.TELNET ||
+              currentSession?.connectionType === ConnectionType.SERIAL) {
             xterm.write('\r\n\x1b[32m--- 连接已恢复 ---\x1b[0m\r\n');
           }
         } else if (state === 'disconnected') {
           // 断开连接时重置标志，以便下次连接时可以再次显示
           messageShownRef.current = false;
           const currentSession = useTerminalStore.getState().sessions[sessionId];
-          if (currentSession?.connectionType === ConnectionType.SSH) {
+          if (currentSession?.connectionType === ConnectionType.SSH ||
+              currentSession?.connectionType === ConnectionType.SERIAL ||
+              currentSession?.connectionType === ConnectionType.TELNET) {
             xterm.write('\r\n\x1b[33m--- 连接已断开，点击右上角"重连"按钮重新连接 ---\x1b[0m\r\n');
           }
         } else if (state === 'reconnecting') {
@@ -474,8 +472,12 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
             </button>
           )}
 
-          {/* 重连按钮 - 手动重连 SSH */}
-          {(isDisconnected || isError) && session?.connectionType === ConnectionType.SSH && (
+          {/* 重连按钮 - 手动重连（SSH/Serial/Telnet 断开或出错时显示） */}
+          {(isDisconnected || isError) && (
+            session?.connectionType === ConnectionType.SSH ||
+            session?.connectionType === ConnectionType.SERIAL ||
+            session?.connectionType === ConnectionType.TELNET
+          ) && (
             <button
               onClick={handleReconnect}
               disabled={reconnectLoading}

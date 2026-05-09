@@ -30,10 +30,17 @@ export const useConfigStore = create<ConfigState>()((set) => ({
   },
 
   updateConfig: (key, value) => {
-    set((state) => ({
-      config: { ...state.config, [key]: value },
-    }));
-    window.qserial.config.set(key as string, value);
+    let previousValue: AppConfig[typeof key] | undefined;
+    set((state) => {
+      previousValue = state.config[key];
+      return { config: { ...state.config, [key]: value } };
+    });
+    window.qserial.config.set(key as string, value).catch((err) => {
+      console.error('Failed to persist config:', err);
+      if (previousValue !== undefined) {
+        set((state) => ({ config: { ...state.config, [key]: previousValue } }));
+      }
+    });
   },
 
   resetConfig: () => {
