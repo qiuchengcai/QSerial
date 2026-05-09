@@ -52,6 +52,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   const [fontSize, setFontSize] = useState(config.terminal.fontSize);
   const [fontFamily, setFontFamily] = useState(config.terminal.fontFamily);
+  const [autoReconnect, setAutoReconnect] = useState(config.terminal.autoReconnect);
   const [importError, setImportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
 
@@ -59,7 +60,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   useEffect(() => {
     setFontSize(config.terminal.fontSize);
     setFontFamily(config.terminal.fontFamily);
-  }, [config.terminal.fontSize, config.terminal.fontFamily]);
+    setAutoReconnect(config.terminal.autoReconnect);
+  }, [config.terminal.fontSize, config.terminal.fontFamily, config.terminal.autoReconnect]);
 
   if (!isOpen) return null;
 
@@ -68,6 +70,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       ...config.terminal,
       fontSize,
       fontFamily,
+      autoReconnect,
     });
     updateConfig('app', {
       ...config.app,
@@ -128,6 +131,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           updateConfig('terminal', data.terminal);
           setFontSize(data.terminal.fontSize);
           setFontFamily(data.terminal.fontFamily);
+          setAutoReconnect(data.terminal.autoReconnect ?? true);
         }
         if (data.quickButtons && Array.isArray(data.quickButtons)) {
           useQuickButtonsStore.getState().importGroups(data.quickButtons);
@@ -243,6 +247,29 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <option value="Source Code Pro, monospace">Source Code Pro</option>
                   <option value="Fira Code, monospace">Fira Code（连字符）</option>
                 </select>
+              </div>
+
+              {/* 自动重连 */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-xs font-medium text-text">自动重连</label>
+                  <p className="text-[11px] text-text-secondary mt-0.5">断开后自动尝试重新连接（3秒/次，最多5次）</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoReconnect}
+                  onClick={() => setAutoReconnect(!autoReconnect)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    autoReconnect ? 'bg-[var(--color-primary)]' : 'bg-border'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                      autoReconnect ? 'translate-x-[18px]' : 'translate-x-[4px]'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
           </div>

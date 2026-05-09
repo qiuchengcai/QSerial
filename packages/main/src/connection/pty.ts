@@ -15,6 +15,8 @@ export class PtyConnection implements IConnection {
   private ptyProcess: pty.IPty | null = null;
   private eventEmitter = new EventEmitter();
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectCount = 0;
 
   readonly id: string;
   readonly type = ConnectionType.PTY;
@@ -54,11 +56,11 @@ export class PtyConnection implements IConnection {
 
       this.ptyProcess.onExit(({ exitCode }) => {
         this.ptyProcess = null;
-        this._state = ConnectionState.DISCONNECTED;
-        this.emitStateChange();
         this.eventEmitter.emit('close', exitCode);
+        this.handleReconnect();
       });
 
+      this.cancelReconnect();
       this._state = ConnectionState.CONNECTED;
       this.emitStateChange();
     } catch (error) {
@@ -70,6 +72,7 @@ export class PtyConnection implements IConnection {
   }
 
   async close(): Promise<void> {
+    this.cancelReconnect();
     if (this.ptyProcess) {
       this.ptyProcess.kill();
       this.ptyProcess = null;
@@ -121,6 +124,49 @@ export class PtyConnection implements IConnection {
 
   private emitStateChange(): void {
     this.eventEmitter.emit('stateChange', this._state);
+  }
+
+  private handleReconnect(): void {
+    if (!this.options.autoReconnect) {
+      this.ptyProcess = null;
+      this._state = ConnectionState.DISCONNECTED;
+      this.emitStateChange();
+      return;
+    }
+
+    const maxAttempts = this.options.reconnectAttempts || 5;
+    const interval = this.options.reconnectInterval || 3000;
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    if (this.reconnectCount >= maxAttempts) {
+      this._state = ConnectionState.DISCONNECTED;
+      this.emitStateChange();
+      this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
+      return;
+    }
+
+    this._state = ConnectionState.RECONNECTING;
+    this.emitStateChange();
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectCount++;
+      this.ptyProcess = null;
+      this.open().catch(() => {
+        this.handleReconnect();
+      });
+    }, interval);
+  }
+
+  private cancelReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectCount = 0;
   }
 
   private getDefaultShell(): string {

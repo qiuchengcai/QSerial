@@ -6,6 +6,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useSavedSessionsStore, type SavedSession } from '@/stores/sessions';
 import { useSidebarButtonsStore, type SidebarButtonType } from '@/stores/sidebarButtons';
+import { useConfigStore } from '@/stores/config';
 import { ConnectionType, ConnectionState } from '@qserial/shared';
 import { SerialConnectDialog } from '../dialogs/SerialConnectDialog';
 import { SshConnectDialog } from '../dialogs/SshConnectDialog';
@@ -73,6 +74,7 @@ export const Sidebar: React.FC = () => {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SavedSession; index: number } | null>(null);
 
   const { buttons: sidebarButtons } = useSidebarButtonsStore();
+  const terminalConfig = useConfigStore(s => s.config.terminal);
   const reorderSessions = savedSessionsState?.reorderSessions;
 
   // 连接失败时自动清理 tab/session 的辅助函数
@@ -125,6 +127,9 @@ export const Sidebar: React.FC = () => {
         cwd: options.cwd,
         cols: 80,
         rows: 24,
+        autoReconnect: terminalConfig.autoReconnect,
+        reconnectInterval: terminalConfig.reconnectInterval,
+        reconnectAttempts: terminalConfig.reconnectAttempts,
       });
 
       await connectWithCleanup(connectionId, '本地终端', ConnectionType.PTY);
@@ -170,9 +175,9 @@ export const Sidebar: React.FC = () => {
         dataBits: options.dataBits,
         stopBits: options.stopBits,
         parity: options.parity,
-        autoReconnect: true,
-        reconnectInterval: 3000,
-        reconnectAttempts: 5,
+        autoReconnect: terminalConfig.autoReconnect,
+        reconnectInterval: terminalConfig.reconnectInterval,
+        reconnectAttempts: terminalConfig.reconnectAttempts,
       });
 
       await connectWithCleanup(connectionId, `串口 ${options.path}`, ConnectionType.SERIAL, options.path);
@@ -234,9 +239,9 @@ export const Sidebar: React.FC = () => {
           dataBits: config.dataBits,
           stopBits: config.stopBits,
           parity: config.parity,
-          autoReconnect: true,
-          reconnectInterval: 3000,
-          reconnectAttempts: 5,
+          autoReconnect: terminalConfig.autoReconnect,
+          reconnectInterval: terminalConfig.reconnectInterval,
+          reconnectAttempts: terminalConfig.reconnectAttempts,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.SERIAL, config.path);
@@ -267,7 +272,9 @@ export const Sidebar: React.FC = () => {
           password: config.password,
           privateKey: config.privateKey,
           passphrase: config.passphrase,
-          autoReconnect: false,
+          autoReconnect: terminalConfig.autoReconnect,
+          reconnectInterval: terminalConfig.reconnectInterval,
+          reconnectAttempts: terminalConfig.reconnectAttempts,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.SSH, undefined, config.host);
@@ -294,9 +301,9 @@ export const Sidebar: React.FC = () => {
           type: ConnectionType.TELNET,
           host: config.host,
           port: config.port,
-          autoReconnect: true,
-          reconnectInterval: 3000,
-          reconnectAttempts: 5,
+          autoReconnect: terminalConfig.autoReconnect,
+          reconnectInterval: terminalConfig.reconnectInterval,
+          reconnectAttempts: terminalConfig.reconnectAttempts,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.TELNET, undefined, config.host);
@@ -325,6 +332,9 @@ export const Sidebar: React.FC = () => {
           cwd: config.cwd,
           cols: 80,
           rows: 24,
+          autoReconnect: terminalConfig.autoReconnect,
+          reconnectInterval: terminalConfig.reconnectInterval,
+          reconnectAttempts: terminalConfig.reconnectAttempts,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.PTY);
@@ -398,7 +408,9 @@ export const Sidebar: React.FC = () => {
         password: options.password,
         privateKey: options.privateKey,
         passphrase: options.passphrase,
-        autoReconnect: false,
+        autoReconnect: terminalConfig.autoReconnect,
+        reconnectInterval: terminalConfig.reconnectInterval,
+        reconnectAttempts: terminalConfig.reconnectAttempts,
       });
 
       await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
@@ -442,9 +454,9 @@ export const Sidebar: React.FC = () => {
         type: ConnectionType.TELNET,
         host: options.host,
         port: options.port,
-        autoReconnect: true,
-        reconnectInterval: 3000,
-        reconnectAttempts: 5,
+        autoReconnect: terminalConfig.autoReconnect,
+        reconnectInterval: terminalConfig.reconnectInterval,
+        reconnectAttempts: terminalConfig.reconnectAttempts,
       });
 
       await connectWithCleanup(connectionId, `Telnet ${options.host}`, ConnectionType.TELNET, undefined, options.host);

@@ -39,6 +39,9 @@ export interface TerminalSettings {
   rightClickPaste: boolean;
   bellStyle: 'none' | 'sound' | 'visual';
   enableWebLinks: boolean;
+  autoReconnect: boolean;
+  reconnectInterval: number;
+  reconnectAttempts: number;
 }
 
 /**
@@ -130,6 +133,9 @@ export const DEFAULT_CONFIG: AppConfig = {
     rightClickPaste: true,
     bellStyle: 'none',
     enableWebLinks: true,
+    autoReconnect: true,
+    reconnectInterval: 3000,
+    reconnectAttempts: 5,
   },
 
   serial: {
