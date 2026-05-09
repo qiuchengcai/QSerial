@@ -223,7 +223,11 @@ export class SerialConnection implements IConnection {
   }
 
   private handleReconnect(): void {
-    if (!this.options.autoReconnect) return;
+    if (!this.options.autoReconnect) {
+      // 清理引用，让 open() 可以被手动重连调用
+      this.port = null;
+      return;
+    }
 
     const maxAttempts = this.options.reconnectAttempts || 5;
     const interval = this.options.reconnectInterval || 3000;

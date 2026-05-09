@@ -38,6 +38,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
   const isComposingRef = useRef(false);
   const compositionDataRef = useRef<string>('');
   const [logStarting, setLogStarting] = useState(false);
+  const [reconnectLoading, setReconnectLoading] = useState(false);
   const initializedRef = useRef(false);
   const [showSerialShareDialog, setShowSerialShareDialog] = useState(false);
   const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -297,6 +298,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
         } else if (state === 'disconnected') {
           // 断开连接时重置标志，以便下次连接时可以再次显示
           messageShownRef.current = false;
+          const currentSession = useTerminalStore.getState().sessions[sessionId];
+          if (currentSession?.connectionType === ConnectionType.SSH) {
+            xterm.write('\r\n\x1b[33m--- 连接已断开，点击右上角"重连"按钮重新连接 ---\x1b[0m\r\n');
+          }
         } else if (state === 'reconnecting') {
           xterm.write('\r\n\x1b[33m--- 连接已断开，正在重连... ---\x1b[0m\r\n');
         }
@@ -401,9 +406,25 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     }
   };
 
+  // 手动重连
+  const handleReconnect = useCallback(async () => {
+    if (reconnectLoading) return;
+    setReconnectLoading(true);
+    try {
+      await window.qserial.connection.open(connectionId);
+    } catch (error) {
+      console.error('Failed to reconnect:', error);
+      globalError.show('重连失败: ' + (error as Error).message);
+    } finally {
+      setReconnectLoading(false);
+    }
+  }, [connectionId, reconnectLoading]);
+
   const isLogging = session?.logEnabled ?? false;
   const isConnected = session?.connectionState === ConnectionState.CONNECTED;
   const isReconnecting = session?.connectionState === ConnectionState.RECONNECTING;
+  const isDisconnected = session?.connectionState === ConnectionState.DISCONNECTED;
+  const isError = session?.connectionState === ConnectionState.ERROR;
   const isConnectionActive = isConnected || isReconnecting;
   // 所有活跃连接都可共享（排除本身就是共享服务端的连接）
   // 重连中的连接也保持可共享状态，共享服务会在源连接恢复后自动继续
@@ -450,6 +471,22 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
               title="连接共享"
             >
               🔗 共享
+            </button>
+          )}
+
+          {/* 重连按钮 - 手动重连 SSH */}
+          {(isDisconnected || isError) && session?.connectionType === ConnectionType.SSH && (
+            <button
+              onClick={handleReconnect}
+              disabled={reconnectLoading}
+              className={`px-2 py-1 border rounded text-xs transition-colors ${
+                reconnectLoading
+                  ? 'bg-surface/80 border-border opacity-50'
+                  : 'bg-blue-500/80 border-blue-400 text-white hover:bg-blue-600/80'
+              }`}
+              title="重新连接"
+            >
+              {reconnectLoading ? '⏳ 连接中...' : '🔄 重连'}
             </button>
           )}
         </div>

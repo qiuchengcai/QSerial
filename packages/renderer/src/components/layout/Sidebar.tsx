@@ -270,9 +270,7 @@ export const Sidebar: React.FC = () => {
           password: config.password,
           privateKey: config.privateKey,
           passphrase: config.passphrase,
-          autoReconnect: true,
-          reconnectInterval: 3000,
-          reconnectAttempts: 5,
+          autoReconnect: false,
         });
 
         await connectWithCleanup(connectionId, savedSession.name, ConnectionType.SSH, undefined, config.host);
@@ -403,9 +401,7 @@ export const Sidebar: React.FC = () => {
         password: options.password,
         privateKey: options.privateKey,
         passphrase: options.passphrase,
-        autoReconnect: true,
-        reconnectInterval: 3000,
-        reconnectAttempts: 5,
+        autoReconnect: false,
       });
 
       await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
