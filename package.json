@@ -32,7 +32,7 @@
     "build:renderer": "pnpm --filter @qserial/renderer build",
     "start": "electron packages/main/dist/index.js",
     "package": "pnpm run build && electron-builder -c electron-builder.config.cjs",
-    "package:win": "pnpm run build && electron-builder --win -c electron-builder.config.cjs",
+    "package:win": "python3 scripts/gen_icon_ico.py && pnpm run build && electron-builder --win -c electron-builder.config.cjs && node scripts/set-icon.cjs release/win-unpacked/QSerial.exe build/icon.ico",
     "package:mac": "pnpm run build && electron-builder --mac -c electron-builder.config.cjs",
     "package:linux": "pnpm run build && electron-builder --linux -c electron-builder.config.cjs",
     "lint": "eslint packages --ext .ts,.tsx",

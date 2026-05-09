@@ -121,6 +121,7 @@ export class ConnectionServerConnection implements IConnection {
   private closeUnsubscriber: (() => void) | null = null;
   private errorUnsubscriber: (() => void) | null = null;
   private sshReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private sourceCheckTimer: ReturnType<typeof setTimeout> | null = null;
   private sshReconnectAttempts = 0;
   private isDestroyed = false;
   // 源连接是否处于断开状态（用于避免重复通知客户端）
@@ -191,6 +192,7 @@ export class ConnectionServerConnection implements IConnection {
 
   private async cleanupOnError(): Promise<void> {
     this._clearSshReconnectTimer();
+    this._clearSourceCheckTimer();
 
     if (this.tcpServer) {
       await new Promise<void>((resolve) => {
@@ -258,7 +260,9 @@ export class ConnectionServerConnection implements IConnection {
         // 延迟一小段时间判断是否进入重连
         const connRef = this.sharedConnection;
         const wasDown = this.sourceConnectionDown;
-        setTimeout(() => {
+        if (this.sourceCheckTimer) clearTimeout(this.sourceCheckTimer);
+        this.sourceCheckTimer = setTimeout(() => {
+          this.sourceCheckTimer = null;
           // 如果状态仍是 DISCONNECTED（没有进入 RECONNECTING），说明不会自动重连
           if (connRef && this.sharedConnection === connRef && connRef.state === ConnectionState.DISCONNECTED && !wasDown) {
             this.sourceConnectionDown = true;
@@ -823,8 +827,16 @@ export class ConnectionServerConnection implements IConnection {
     }
   }
 
+  private _clearSourceCheckTimer(): void {
+    if (this.sourceCheckTimer) {
+      clearTimeout(this.sourceCheckTimer);
+      this.sourceCheckTimer = null;
+    }
+  }
+
   async close(): Promise<void> {
     this._clearSshReconnectTimer();
+    this._clearSourceCheckTimer();
 
     // 清理写入队列
     this.writeQueue = [];
@@ -874,6 +886,7 @@ export class ConnectionServerConnection implements IConnection {
   destroy(): void {
     this.isDestroyed = true;
     this._clearSshReconnectTimer();
+    this._clearSourceCheckTimer();
     this.close().catch(() => {});
     this.dataCallbacks.clear();
     this.stateCallbacks.clear();

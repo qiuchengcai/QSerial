@@ -220,6 +220,11 @@ export class TelnetConnection implements IConnection {
     const maxAttempts = this.options.reconnectAttempts || 5;
     const interval = this.options.reconnectInterval || 3000;
 
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     if (this.reconnectCount >= maxAttempts) {
       this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
       return;

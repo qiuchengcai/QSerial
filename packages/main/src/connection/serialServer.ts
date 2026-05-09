@@ -472,14 +472,19 @@ export class SerialServerConnection implements IConnection {
 
       try {
         await new Promise<void>((connectResolve, connectReject) => {
+          let settled = false;
+
           this.sshClient = new Client();
 
           const timeout = setTimeout(() => {
+            if (settled) return;
+            settled = true;
             this.sshClient?.end();
             connectReject(new Error('SSH连接超时'));
           }, 15000);
 
           this.sshClient.on('ready', () => {
+            if (settled) return;
             clearTimeout(timeout);
             this.sshReconnectAttempts = 0; // 连接成功，重置重连计数
 
@@ -488,9 +493,12 @@ export class SerialServerConnection implements IConnection {
               '127.0.0.1',
               tunnelConfig.remotePort,
               (err) => {
+                if (settled) return;
                 if (err) {
+                  settled = true;
                   connectReject(new Error(`SSH隧道建立失败: ${err.message}`));
                 } else {
+                  settled = true;
                   connected = true;
                   connectResolve();
                 }
@@ -526,6 +534,8 @@ export class SerialServerConnection implements IConnection {
           });
 
           this.sshClient.on('error', (err) => {
+            if (settled) return;
+            settled = true;
             clearTimeout(timeout);
             lastError = err;
             connectReject(err);

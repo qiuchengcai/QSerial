@@ -53,11 +53,8 @@ export const Sidebar: React.FC = () => {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }, [sidebarWidth]);
-  const terminalState = useTerminalStore();
-  const createTab = terminalState?.createTab;
-  const createSession = terminalState?.createSession;
-  const sessions = terminalState?.sessions || {};
-  const closeSessionAndTab = terminalState?.closeSessionAndTab;
+  const sessions = useTerminalStore((s) => s.sessions);
+  const { createTab, createSession, closeSessionAndTab } = useTerminalStore.getState();
   const savedSessionsState = useSavedSessionsStore();
   const savedSessions = savedSessionsState?.sessions || [];
   const addSession = savedSessionsState?.addSession;

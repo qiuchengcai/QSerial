@@ -5,7 +5,7 @@
  */
 
 import { BrowserWindow, app } from 'electron';
-import { execSync, spawn, type ChildProcess } from 'child_process';
+import { execSync, execFileSync, spawnSync, spawn, type ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
@@ -74,6 +74,15 @@ function run(cmd: string): string {
   } catch (error) {
     const err = error as { stderr?: string; message?: string };
     throw new Error(err.stderr?.trim() || err.message || `Command failed: ${cmd}`);
+  }
+}
+
+function sudo(args: string[]): string {
+  try {
+    return execFileSync('sudo', args, { encoding: 'utf-8', timeout: 10000 }).trim();
+  } catch (error) {
+    const err = error as { stderr?: string; message?: string };
+    throw new Error(err.stderr?.trim() || err.message || `sudo ${args.join(' ')} failed`);
   }
 }
 
@@ -306,7 +315,7 @@ function killWinnfsd(): void {
 
 function writeExports(content: string): void {
   try {
-    run(`echo ${JSON.stringify(content)} | sudo tee /etc/exports > /dev/null`);
+    spawnSync('sudo', ['tee', '/etc/exports'], { input: content, encoding: 'utf-8', timeout: 10000 });
   } catch {
     fs.writeFileSync('/etc/exports', content);
   }
@@ -382,13 +391,13 @@ function startLinuxNfs(exportDir: string, allowedClients: string, options: strin
 
     // 写入 /etc/exports
     try {
-      run(`echo ${JSON.stringify(exportsContent)} | sudo tee /etc/exports > /dev/null`);
+      spawnSync('sudo', ['tee', '/etc/exports'], { input: exportsContent, encoding: 'utf-8', timeout: 10000 });
     } catch {
       fs.writeFileSync('/etc/exports', exportsContent);
     }
 
     // 导出共享
-    run('sudo exportfs -ra');
+    sudo(['exportfs', '-ra']);
 
     // 确保 NFS 服务运行
     try {
@@ -414,10 +423,10 @@ function stopLinuxNfs(): void {
   try {
     if (currentStatus.exportDir) {
       try {
-        run(`sudo exportfs -u ${currentStatus.allowedClients}:${currentStatus.exportDir}`);
+        sudo(['exportfs', '-u', `${currentStatus.allowedClients}:${currentStatus.exportDir}`]);
       } catch {
         try {
-          run('sudo exportfs -ra');
+          sudo(['exportfs', '-ra']);
         } catch {
           // 忽略
         }
@@ -427,7 +436,7 @@ function stopLinuxNfs(): void {
     restoreExports();
 
     try {
-      run('sudo exportfs -ra');
+      sudo(['exportfs', '-ra']);
     } catch {
       // 忽略
     }

@@ -232,6 +232,11 @@ export class SerialConnection implements IConnection {
     const maxAttempts = this.options.reconnectAttempts || 5;
     const interval = this.options.reconnectInterval || 3000;
 
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     if (this.reconnectCount >= maxAttempts) {
       this.eventEmitter.emit('error', new Error('Max reconnection attempts reached'));
       return;
@@ -242,7 +247,10 @@ export class SerialConnection implements IConnection {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectCount++;
-      this.open().catch(() => {});
+      this.open().catch(() => {
+        // open 失败后继续重连
+        this.handleReconnect();
+      });
     }, interval);
   }
 

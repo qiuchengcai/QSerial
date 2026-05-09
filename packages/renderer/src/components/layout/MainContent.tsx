@@ -13,12 +13,12 @@ import { useSftpStore } from '@/stores/sftp';
 export const MainContent: React.FC = () => {
   const tabs = useTerminalStore(state => state.tabs);
   const activeTabId = useTerminalStore(state => state.activeTabId);
-  const sessions = useTerminalStore(state => state.sessions);
   const { panelVisible } = useSftpStore();
 
   // 展平所有标签页中的终端面板（避免嵌套数组导致 React reconciliation 问题）
   const terminalPanes = useMemo(() => {
     const panes: React.ReactNode[] = [];
+    const sessions = useTerminalStore.getState().sessions;
     for (const tab of tabs) {
       for (const sessionId of tab.sessions) {
         const session = sessions[sessionId];
@@ -35,7 +35,7 @@ export const MainContent: React.FC = () => {
       }
     }
     return panes;
-  }, [tabs, activeTabId, sessions]);
+  }, [tabs, activeTabId]);
 
   return (
     <div className="flex-1 min-h-0 bg-background flex main-content-container">

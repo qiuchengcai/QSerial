@@ -36,6 +36,11 @@ app.commandLine.appendSwitch('openssl-legacy-provider', '');
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 
+// 设置 AppUserModelID，使 Windows 任务栏可以固定图标
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.qserial.app');
+}
+
 let mainWindow: BrowserWindow | null = null;
 
 // 单实例锁 - 确保一次只能运行一个 QSerial 程序

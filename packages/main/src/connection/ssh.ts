@@ -209,8 +209,8 @@ export class SshConnection implements IConnection {
         }
       }
 
-      // 如果已经是 legacy preset 且仍然签名验证失败，不再重试
-      if (lastError?.message?.includes('signature verification failed')) {
+      // 仅在 legacy preset 仍签名验证失败时放弃，让 full→legacy 回退生效
+      if (preset === 'legacy' && lastError?.message?.includes('signature verification failed')) {
         break;
       }
     }
@@ -409,6 +409,11 @@ export class SshConnection implements IConnection {
 
     const maxAttempts = this.options.reconnectAttempts || 5;
     const interval = this.options.reconnectInterval || 3000;
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
 
     if (this.reconnectCount >= maxAttempts) {
       this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
