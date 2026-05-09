@@ -109,13 +109,6 @@ QSerial/
 类型: 新增/修复/优化/重构/文档/样式/测试/构建/其他
 ```
 
-### 内网环境
-
-内网镜像配置见 `docs/intranet-mirror-setup.md`，关键镜像：
-- npm: `https://mirrors.uniview.com/npm/`
-- electron: `https://mirrors.uniview.com/electron/`
-- node: `https://mirrors.uniview.com/node/`
-
 ## 文档
 
 | 文档 | 说明 |
@@ -124,7 +117,6 @@ QSerial/
 | [架构设计文档](docs/architecture-design.md) | 系统架构设计 |
 | [用户指南](docs/user-guide.md) | 功能使用说明 |
 | [优化路线图](docs/optimization-roadmap.md) | 后续优化方向 |
-| [内网镜像配置指南](docs/intranet-mirror-setup.md) | Uniview 内网镜像配置 |
 | [离线环境搭建指南](docs/offline-environment-setup.md) | 离线环境搭建 |
 | [Linux交叉编译Windows版本指南](docs/linux-cross-compile-windows.md) | 交叉编译 |
 

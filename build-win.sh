@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # 自动配置 PATH：检测常用 Node/pnpm 安装路径
-for dir in /home/q12444/node/bin /opt/node-v23.6.0-linux-x64/bin /opt/node-v18.20.6-linux-x64/bin /root/.npm-global/bin /usr/local/bin; do
+for dir in /opt/node-v23.6.0-linux-x64/bin /opt/node-v18.20.6-linux-x64/bin /root/.npm-global/bin /usr/local/bin; do
   case ":$PATH:" in
     *":$dir:"*) ;;
     *) export PATH="$dir:$PATH" ;;
@@ -47,6 +47,9 @@ export CSC_IDENTITY_AUTO_DISCOVERY=false
 # 抑制第三方原生模块（cpu-features 等）的 C++ 编译警告
 export CFLAGS="-Wno-cast-function-type"
 export CXXFLAGS="-Wno-cast-function-type"
+# 绕过 /home/qcc/.npmrc 目录挂载导致的 EISDIR 警告
+export npm_config_userconfig="${TMPDIR:-/tmp}/npmrc"
+touch "$npm_config_userconfig" 2>/dev/null || true
 
 # 安装依赖
 echo -e "${YELLOW}[2/5] 安装依赖...${NC}"

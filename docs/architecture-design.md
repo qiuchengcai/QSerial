@@ -452,7 +452,7 @@ Skill 由两部分组成：
 - **scripts/**：Python 脚本实现连接和命令执行逻辑
 
 ```
-.codebuddy/skills/uniview-ipc-connect/
+.codebuddy/skills/device-ipc-connect/
 ├── SKILL.md              # 触发规则 + 使用说明
 └── scripts/
     ├── shell.py          # Layer 1：CLI 命令执行
