@@ -64,7 +64,8 @@ export function setupIpcHandlers(): void {
 
   // 监听窗口创建（所有子模块共享一个监听器）
   app.on('browser-window-created', (_, window) => {
-    if (window === mainWindow) {
+    // 只在 mainWindow 未设置或已销毁时更新引用
+    if (!mainWindow || mainWindow.isDestroyed()) {
       mainWindow = window;
       setSftpMainWindow(window);
       setTftpMainWindow(window);
