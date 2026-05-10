@@ -76,6 +76,9 @@ echo ""
 echo -e "${YELLOW}[4/5] 打包 Windows 免安装版...${NC}"
 npx electron-builder --win dir --x64 -c electron-builder.config.cjs || true
 
+# 修复 node-pty 原生模块：将 Windows 预编译文件复制到 build/Release/
+node scripts/fix-node-pty-release.cjs
+
 # 设置 exe 图标（使用 resedit 纯 JS 方式，不破坏 PE 结构，兼容网络磁盘运行）
 if [ -f "release/win-unpacked/QSerial.exe" ]; then
   echo -e "${YELLOW}  设置 exe 图标...${NC}"

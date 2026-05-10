@@ -37,6 +37,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
   const [logStarting, setLogStarting] = useState(false);
   const [reconnectLoading, setReconnectLoading] = useState(false);
   const initializedRef = useRef(false);
+  const disposedRef = useRef(false);
   const [showSerialShareDialog, setShowSerialShareDialog] = useState(false);
   const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const mountCountRef = useRef(0);
@@ -73,6 +74,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     initializedRef.current = true;
     mountCountRef.current += 1;
     const mountId = mountCountRef.current;
+    const openedRef = { current: false }; // 追踪 xterm.open() 是否已调用
     console.log('[TerminalPane] INIT xterm mountId:', mountId, 'sessionId:', sessionId.slice(0, 8), 'connectionId:', connectionId.slice(0, 8));
 
     const xterm = new XTerm({
@@ -131,12 +133,13 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
 
     // 使用 requestAnimationFrame 确保 DOM 完全准备好
     requestAnimationFrame(() => {
-      if (!xtermRef.current || !containerRef.current) return;
+      if (disposedRef.current || !xtermRef.current || !containerRef.current) return;
 
       const container = containerRef.current;
 
       try {
         xterm.open(container);
+        openedRef.current = true;
       } catch (e) {
         console.error('Failed to open terminal:', e);
         return;
@@ -327,19 +330,22 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
 
     return () => {
       console.log('[TerminalPane] DISPOSE xterm mountId:', mountId, 'sessionId:', sessionId.slice(0, 8));
+      disposedRef.current = true;
       // 清除所有未完成的 timeout
       timeoutIdsRef.current.forEach(clearTimeout);
       timeoutIdsRef.current = [];
       resizeObserver.disconnect();
       unsubscribersRef.current.forEach((unsub) => unsub());
       unsubscribersRef.current = [];
-      try {
-        xterm.dispose();
-      } catch {
-        // 忽略 dispose 错误
-      }
       xtermRef.current = null;
       initializedRef.current = false;
+      if (openedRef.current) {
+        try {
+          xterm.dispose();
+        } catch {
+          // 忽略 dispose 错误
+        }
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId, sessionId]);
