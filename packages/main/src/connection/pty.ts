@@ -17,6 +17,7 @@ export class PtyConnection implements IConnection {
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectCount = 0;
+  private isClosing = false;
 
   readonly id: string;
   readonly type = ConnectionType.PTY;
@@ -36,6 +37,7 @@ export class PtyConnection implements IConnection {
       throw new Error('Connection already open');
     }
 
+    this.isClosing = false;
     this._state = ConnectionState.CONNECTING;
     this.emitStateChange();
 
@@ -72,6 +74,7 @@ export class PtyConnection implements IConnection {
   }
 
   async close(): Promise<void> {
+    this.isClosing = true;
     this.cancelReconnect();
     if (this.ptyProcess) {
       this.ptyProcess.kill();
@@ -82,6 +85,7 @@ export class PtyConnection implements IConnection {
   }
 
   destroy(): void {
+    this.isClosing = true;
     this.close();
     this.eventEmitter.removeAllListeners();
   }
@@ -127,7 +131,7 @@ export class PtyConnection implements IConnection {
   }
 
   private handleReconnect(): void {
-    if (!this.options.autoReconnect) {
+    if (!this.options.autoReconnect || this.isClosing) {
       this.ptyProcess = null;
       this._state = ConnectionState.DISCONNECTED;
       this.emitStateChange();

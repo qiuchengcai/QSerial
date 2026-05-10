@@ -12,7 +12,12 @@ import { ConnectionFactory } from './connection/factory.js';
 import { destroyTftpManager } from './tftp/manager.js';
 import { initNfsManager, destroyNfsManager } from './nfs/manager.js';
 import { destroyFtpManager } from './ftp/manager.js';
+import { ensureNativePatch } from './connection/native-patch.js';
 import { ensurePtyPatch } from './connection/pty-patch.js';
+
+// 通用 process.dlopen 补丁：拦截所有 .node 文件加载，网络驱动器场景下自动复制到本地临时目录
+// 必须在任何原生模块使用前执行
+ensureNativePatch();
 
 // ESM imports 已执行完毕，node-pty 模块已加载。
 // 在创建任何 PTY 连接之前 patch loadNativeModule，使其使用绝对路径 require

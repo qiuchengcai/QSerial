@@ -9,7 +9,7 @@ import { execSync, execFileSync, spawnSync, spawn, type ChildProcess } from 'chi
 import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
-import * as os from 'os';
+import { getLocalIp } from '../utils/network.js';
 import {
   IPC_CHANNELS,
   type NfsServerStatus,
@@ -88,6 +88,16 @@ function sudo(args: string[]): string {
 
 // ==================== Windows: WinNFSd ====================
 
+let nfsTempDir = '';
+
+function getNfsTempDir(): string {
+  if (!nfsTempDir) {
+    nfsTempDir = path.join(app.getPath('temp'), 'qserial-nfs');
+    fs.mkdirSync(nfsTempDir, { recursive: true });
+  }
+  return nfsTempDir;
+}
+
 /**
  * 查找 WinNFSd 可执行文件路径
  */
@@ -119,11 +129,30 @@ function findWinnfsdPath(): string | null {
 }
 
 /**
+ * 复制 WinNFSd 到本地临时目录，解决网络驱动器执行限制
+ */
+function copyWinnfsdToTemp(srcPath: string): string {
+  const destPath = path.join(getNfsTempDir(), 'winnfsd.exe');
+  try {
+    const srcStat = fs.statSync(srcPath);
+    const destStat = fs.statSync(destPath, { throwIfNoEntry: false });
+    if (!destStat || srcStat.mtimeMs > destStat.mtimeMs || srcStat.size !== destStat.size) {
+      fs.copyFileSync(srcPath, destPath);
+      console.log('[NFS] Copied winnfsd.exe to temp:', destPath);
+    }
+  } catch {
+    fs.copyFileSync(srcPath, destPath);
+    console.log('[NFS] Copied winnfsd.exe to temp:', destPath);
+  }
+  return destPath;
+}
+
+/**
  * Windows: 启动 WinNFSd
  */
 async function startWinnfsd(exportDir: string, _allowedClients: string, options: string): Promise<void> {
-  const winnfsdPath = findWinnfsdPath();
-  if (!winnfsdPath) {
+  const originalPath = findWinnfsdPath();
+  if (!originalPath) {
     throw new Error(
       '未找到 WinNFSd.exe，请下载 WinNFSd 并放到以下任一位置：\n' +
       `1. ${path.join(process.resourcesPath || '', 'resources', 'nfs', 'winnfsd.exe')}\n` +
@@ -132,6 +161,9 @@ async function startWinnfsd(exportDir: string, _allowedClients: string, options:
       '下载地址: https://github.com/winnfsd/winnfsd/releases'
     );
   }
+
+  // 复制到本地临时目录执行，解决 Windows 网络驱动器执行限制 (spawn EPERM)
+  const winnfsdPath = copyWinnfsdToTemp(originalPath);
 
   // 检查目录是否存在
   if (!fs.existsSync(exportDir)) {
@@ -562,19 +594,7 @@ export function getNfsStatus(): NfsServerStatus {
 export function getMountHint(): { localIp: string; exportDir: string; mountCmd: string } | null {
   if (!serverRunning || !currentStatus.exportDir) return null;
 
-  const interfaces = os.networkInterfaces();
-  let localIp = '127.0.0.1';
-
-  for (const name of Object.keys(interfaces)) {
-    const nets = interfaces[name];
-    if (!nets) continue;
-    for (const net of nets) {
-      if (net.family === 'IPv4' && !net.internal) {
-        localIp = net.address;
-        break;
-      }
-    }
-  }
+  const localIp = getLocalIp();
 
   // WinNFSd 使用别名作为 NFS 导出路径
   // 例如: C:\Users\test\share 别名 /share -> 客户端挂载 /share

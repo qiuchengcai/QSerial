@@ -75,6 +75,8 @@ export interface SshConnectionOptions extends BaseConnectionOptions {
   privateKey?: string;
   passphrase?: string;
   keepaliveInterval?: number;
+  /** 是否验证 SSH 主机密钥，默认 true */
+  verifyHostKey?: boolean;
 }
 
 /**

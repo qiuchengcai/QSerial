@@ -24,6 +24,7 @@ export class TelnetConnection implements IConnection {
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectCount = 0;
+  private isClosing = false;
 
   readonly id: string;
   readonly type = ConnectionType.TELNET;
@@ -43,6 +44,7 @@ export class TelnetConnection implements IConnection {
       throw new Error('Connection already open');
     }
 
+    this.isClosing = false;
     this._state = ConnectionState.CONNECTING;
     this.emitStateChange();
 
@@ -151,6 +153,7 @@ export class TelnetConnection implements IConnection {
   }
 
   async close(): Promise<void> {
+    this.isClosing = true;
     this.cancelReconnect();
     if (this.socket) {
       this.socket.end();
@@ -161,6 +164,7 @@ export class TelnetConnection implements IConnection {
   }
 
   destroy(): void {
+    this.isClosing = true;
     this.cancelReconnect();
     if (this.socket) {
       this.socket.destroy();
@@ -211,9 +215,12 @@ export class TelnetConnection implements IConnection {
   }
 
   private handleReconnect(): void {
-    if (!this.options.autoReconnect) {
-      // 清理引用，让 open() 可以被手动重连调用
+    if (!this.options.autoReconnect || this.isClosing) {
       this.socket = null;
+      if (this.isClosing) {
+        this._state = ConnectionState.DISCONNECTED;
+        this.emitStateChange();
+      }
       return;
     }
 
@@ -226,6 +233,8 @@ export class TelnetConnection implements IConnection {
     }
 
     if (this.reconnectCount >= maxAttempts) {
+      this._state = ConnectionState.DISCONNECTED;
+      this.emitStateChange();
       this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
       return;
     }
@@ -237,7 +246,6 @@ export class TelnetConnection implements IConnection {
       this.reconnectCount++;
       this.socket = null;
       this.open().catch(() => {
-        // open 失败后继续重连
         this.handleReconnect();
       });
     }, interval);

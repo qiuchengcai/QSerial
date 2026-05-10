@@ -4,7 +4,7 @@
  * 支持 TELNET 协议协商，确保 Tab 补全、方向键等交互功能正常
  */
 
-import * as net from 'net';
+import * as net from 'node:net';
 import {
   ConnectionType,
   ConnectionState,
@@ -12,52 +12,21 @@ import {
 } from '@qserial/shared';
 import type { IConnection } from '@qserial/shared';
 import { ConnectionFactory } from './factory.js';
+import {
+  AUTH_TIMEOUT,
+  sendTelnetNegotiation,
+  processTelnetData,
+  processPasswordAuth,
+  OPT_TTYPE,
+} from './telnet-utils.js';
+import type { TelnetClientState } from './telnet-utils.js';
 
-// ============== TELNET 协议常量 ==============
-const IAC = 255;   // Interpret As Command
-const WILL = 251;
-const WONT = 252;
-const DO = 253;
-const DONT = 254;
-const SB = 250;    // Subnegotiation Begin
-const SE = 240;    // Subnegotiation End
-const NOP = 241;
-
-// TELNET 选项
-const OPT_ECHO = 1;
-const OPT_SUPPRESS_GA = 3;
-const OPT_NAWS = 31;    // Negotiate About Window Size
-const OPT_TTYPE = 24;   // Terminal Type
-const OPT_LINEMODE = 34;
-
-// ============== 常规常量 ==============
-
-/** 客户端认证超时 */
-const AUTH_TIMEOUT = 10000; // 10s
-
-/**
- * 在数据中查找 IAC SE 的位置（子协商结束标记）
- */
-function findIACSE(data: Buffer, offset: number): number {
-  for (let i = offset; i < data.length - 1; i++) {
-    if (data[i] === IAC && data[i + 1] === SE) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-interface ClientInfo {
-  socket: net.Socket;
+interface ClientInfo extends TelnetClientState {
   address: string;
   authenticated: boolean;
   authTimer: ReturnType<typeof setTimeout> | null;
-  telnetNegotiated: boolean;     // 是否完成 TELNET 协商
-  telnetBuf: Buffer;             // TELNET 子协商缓冲
-  terminalCols: number;          // 客户端终端列数
-  terminalRows: number;          // 客户端终端行数
-  authAttempts: number;          // 认证尝试次数
-  authBuffer: string;            // 认证输入缓冲（逐字符累加直到回车）
+  authAttempts: number;
+  authBuffer: string;
 }
 
 /**
@@ -75,17 +44,14 @@ export class ConnectionServerConnection implements IConnection {
   private stateCallbacks: Set<(state: ConnectionState) => void> = new Set();
   private errorCallbacks: Set<(error: Error) => void> = new Set();
   private closeCallbacks: Set<(code?: number) => void> = new Set();
-  // 共享的数据源连接
   private sharedConnection: IConnection | null = null;
-  private ownsSharedConnection = false; // 是否拥有数据源连接的生命周期
+  private ownsSharedConnection = false;
   private dataUnsubscriber: (() => void) | null = null;
   private stateUnsubscriber: (() => void) | null = null;
   private closeUnsubscriber: (() => void) | null = null;
   private errorUnsubscriber: (() => void) | null = null;
   private sourceCheckTimer: ReturnType<typeof setTimeout> | null = null;
-  // 源连接是否处于断开状态（用于避免重复通知客户端）
   private sourceConnectionDown = false;
-  // 写入队列：串行化多客户端写入，避免数据帧交错
   private writeQueue: Array<{ data: Buffer; clientId: string }> = [];
   private isWriting = false;
 
@@ -102,10 +68,8 @@ export class ConnectionServerConnection implements IConnection {
     try {
       this._setState(ConnectionState.CONNECTING);
 
-      // 根据数据源类型获取或创建连接
       await this._resolveSourceConnection();
 
-      // 启动TCP共享服务器
       await this.startTcpServer();
 
       this._setState(ConnectionState.CONNECTED);
@@ -116,12 +80,8 @@ export class ConnectionServerConnection implements IConnection {
     }
   }
 
-  /**
-   * 根据配置解析数据源连接
-   */
   private async _resolveSourceConnection(): Promise<void> {
     if (this.options.sourceType === 'existing' && this.options.existingConnectionId) {
-      // 复用已有连接
       const existing = ConnectionFactory.get(this.options.existingConnectionId);
       if (!existing) {
         throw new Error(`找不到已有连接: ${this.options.existingConnectionId}`);
@@ -133,7 +93,6 @@ export class ConnectionServerConnection implements IConnection {
       this.ownsSharedConnection = false;
       this._setupSharedConnection();
     } else if (this.options.sourceType === 'new' && this.options.newConnectionOptions) {
-      // 创建新连接
       const conn = await ConnectionFactory.create(this.options.newConnectionOptions);
       await conn.open();
       this.sharedConnection = conn;
@@ -156,7 +115,6 @@ export class ConnectionServerConnection implements IConnection {
 
     this._unsubscribeSharedConnection();
 
-    // 如果拥有数据源连接，销毁它
     if (this.ownsSharedConnection && this.sharedConnection) {
       try {
         await ConnectionFactory.destroy(this.sharedConnection.id);
@@ -188,7 +146,6 @@ export class ConnectionServerConnection implements IConnection {
   private _setupSharedConnection(): void {
     if (!this.sharedConnection) return;
 
-    // 监听共享连接的数据 -> 转发给所有客户端
     this.dataUnsubscriber = this.sharedConnection.onData((data) => {
       this.clients.forEach((clientInfo) => {
         if (!clientInfo.socket.destroyed && clientInfo.authenticated) {
@@ -198,33 +155,24 @@ export class ConnectionServerConnection implements IConnection {
       this.dataCallbacks.forEach((cb) => cb(data));
     });
 
-    // 监听共享连接的状态变化
     this.stateUnsubscriber = this.sharedConnection.onStateChange((state) => {
       if (state === ConnectionState.DISCONNECTED) {
-        // 源连接断开，但可能配置了 autoReconnect 会自动恢复
-        // 先不通知客户端，等确认是否进入 RECONNECTING 再通知
-        // 如果 autoReconnect 开启，紧接着会收到 RECONNECTING 状态
-        // 如果 autoReconnect 关闭，状态将停留在 DISCONNECTED，需要通知
-        // 延迟一小段时间判断是否进入重连
         const connRef = this.sharedConnection;
         const wasDown = this.sourceConnectionDown;
         if (this.sourceCheckTimer) clearTimeout(this.sourceCheckTimer);
         this.sourceCheckTimer = setTimeout(() => {
           this.sourceCheckTimer = null;
-          // 如果状态仍是 DISCONNECTED（没有进入 RECONNECTING），说明不会自动重连
           if (connRef && this.sharedConnection === connRef && connRef.state === ConnectionState.DISCONNECTED && !wasDown) {
             this.sourceConnectionDown = true;
             this._notifyClientsConnectionDown();
           }
         }, 100);
       } else if (state === ConnectionState.RECONNECTING) {
-        // 源连接正在重连，通知客户端但暂不关闭共享服务
         if (!this.sourceConnectionDown) {
           this.sourceConnectionDown = true;
           this._notifyClientsConnectionDown();
         }
       } else if (state === ConnectionState.ERROR) {
-        // 源连接彻底失败，关闭共享服务
         if (!this.sourceConnectionDown) {
           this.sourceConnectionDown = true;
           this._notifyClientsConnectionDown();
@@ -232,7 +180,6 @@ export class ConnectionServerConnection implements IConnection {
         this._notifyError(new Error('共享连接已断开'));
         this.close();
       } else if (state === ConnectionState.CONNECTED) {
-        // 源连接恢复，通知客户端
         if (this.sourceConnectionDown) {
           this.sourceConnectionDown = false;
           this._notifyClientsConnectionRestored();
@@ -240,19 +187,13 @@ export class ConnectionServerConnection implements IConnection {
       }
     });
 
-    // 监听共享连接的关闭事件
-    // 注意：对于支持自动重连的连接（如串口、SSH），stream close 不意味着连接彻底死亡
-    // 仅在源连接处于 ERROR 状态（重连彻底失败）时才关闭共享服务
-    // 其他情况由 onStateChange 处理
     this.closeUnsubscriber = this.sharedConnection.onClose(() => {
       if (this.sharedConnection && this.sharedConnection.state === ConnectionState.ERROR) {
         this._notifyError(new Error('共享连接已关闭'));
         this.close();
       }
-      // DISCONNECTED/RECONNECTING 状态下 onClose 触发，onStateChange 已处理
     });
 
-    // 监听共享连接的错误
     this.errorUnsubscriber = this.sharedConnection.onError((err) => {
       this._notifyError(err);
     });
@@ -268,7 +209,7 @@ export class ConnectionServerConnection implements IConnection {
         const clientInfo: ClientInfo = {
           socket,
           address,
-          authenticated: !accessPassword, // 无密码则默认已认证
+          authenticated: !accessPassword,
           authTimer: null,
           telnetNegotiated: false,
           telnetBuf: Buffer.alloc(0),
@@ -278,7 +219,6 @@ export class ConnectionServerConnection implements IConnection {
           authBuffer: '',
         };
 
-        // 有密码时设置认证超时
         if (accessPassword) {
           clientInfo.authTimer = setTimeout(() => {
             if (!clientInfo.authenticated) {
@@ -291,93 +231,44 @@ export class ConnectionServerConnection implements IConnection {
 
         this.clients.set(address, clientInfo);
 
-        // 主动 TELNET 协商：客户端连接后立即发送协商命令，使其尽快进入字符模式
-        // 避免协商完成前的本地回显导致双重回显（空行）
-        this._sendTelnetNegotiation(socket);
+        sendTelnetNegotiation(socket);
         clientInfo.telnetNegotiated = true;
 
-        // 有密码时发送认证提示
         if (accessPassword) {
           socket.write('PASSWORD: ');
         }
 
-        // 客户端数据处理
         socket.on('data', (data) => {
-          // 未认证时处理密码验证
           if (accessPassword && !clientInfo.authenticated) {
-            // 处理 TELNET 协议，提取纯用户数据
-            const userData = this._processTelnetData(data, clientInfo);
-            // 逐字符缓冲，等回车后再验证
-            for (const byte of userData) {
-              if (byte === 0x0D || byte === 0x0A) {
-                // 回车/换行：验证缓冲中的密码
-                const text = clientInfo.authBuffer.trim();
-                clientInfo.authBuffer = '';
-                if (!text) continue; // 空行忽略
-                // 支持 PASSWORD:xxx 前缀或直接输入密码
-                const pwd = text.startsWith('PASSWORD:') ? text.slice('PASSWORD:'.length) : text;
-                if (pwd === accessPassword) {
-                  clientInfo.authenticated = true;
-                  if (clientInfo.authTimer) {
-                    clearTimeout(clientInfo.authTimer);
-                    clientInfo.authTimer = null;
-                  }
-                  socket.write('\r\nOK\r\n');
-                } else {
-                  clientInfo.authAttempts++;
-                  if (clientInfo.authAttempts >= 3) {
-                    socket.write('\r\nAUTH_FAILED\r\n');
-                    socket.destroy();
-                    this.clients.delete(address);
-                  } else {
-                    // 重置超时计时器，给用户更多时间重试
-                    if (clientInfo.authTimer) {
-                      clearTimeout(clientInfo.authTimer);
-                    }
-                    clientInfo.authTimer = setTimeout(() => {
-                      if (!clientInfo.authenticated) {
-                        socket.write('\r\nAUTH_TIMEOUT\r\n');
-                        socket.destroy();
-                        this.clients.delete(address);
-                      }
-                    }, AUTH_TIMEOUT);
-                    socket.write('\r\nAUTH_FAILED, retry:\r\nPASSWORD: ');
-                  }
-                }
-              } else if (byte === 0x7F || byte === 0x08) {
-                // 退格/删除：删除最后一个字符，擦除屏幕上的 *
-                clientInfo.authBuffer = clientInfo.authBuffer.slice(0, -1);
-                socket.write('\b \b');
-              } else if (byte >= 32 && byte < 127) {
-                // 可打印字符：追加到缓冲，回显星号
-                clientInfo.authBuffer += String.fromCharCode(byte);
-                socket.write('*');
-              }
-              // 其他控制字符忽略
-            }
-            return; // 未认证时忽略其他数据
+            const userData = processTelnetData(data, clientInfo);
+            processPasswordAuth(
+              userData, clientInfo, socket, accessPassword,
+              () => this.clients.delete(address),
+            );
+            return;
           }
 
-          // 处理 TELNET 协议，提取纯用户数据
-          const userData = this._processTelnetData(data, clientInfo);
+          const userData = processTelnetData(
+            data, clientInfo,
+            (opt, subData) => {
+              if (opt === OPT_TTYPE && subData.length > 1 && subData[0] === 0) {
+                // 终端类型信息接收，无需特殊处理
+              }
+            },
+          );
           if (userData.length > 0) {
-            // 已认证：加入写入队列
             this.writeQueue.push({ data: userData, clientId: address });
             this._processWriteQueue();
           }
         });
 
         socket.on('close', () => {
-          if (clientInfo.authTimer) {
-            clearTimeout(clientInfo.authTimer);
-          }
+          if (clientInfo.authTimer) clearTimeout(clientInfo.authTimer);
           this.clients.delete(address);
         });
 
         socket.on('error', () => {
-          if (clientInfo.authTimer) {
-            clearTimeout(clientInfo.authTimer);
-          }
+          if (clientInfo.authTimer) clearTimeout(clientInfo.authTimer);
           this.clients.delete(address);
         });
       });
@@ -397,166 +288,6 @@ export class ConnectionServerConnection implements IConnection {
     });
   }
 
-  /**
-   * 发送 TELNET 协商命令，使客户端进入字符模式
-   * 关键：请求 WILL ECHO + WILL SUPPRESS-GA + DO SUPPRESS-GA，
-   * 这样客户端不会在本地回显（避免双回显），且进入字符模式（每个按键即时发送，Tab 补全可用）
-   */
-  private _sendTelnetNegotiation(socket: net.Socket): void {
-    const cmds: number[] = [];
-    // 告诉客户端：我方将回显（服务端回显），客户端不要本地回显
-    cmds.push(IAC, WILL, OPT_ECHO);
-    // 抑制 Go-Ahead（字符模式的必要条件）
-    cmds.push(IAC, WILL, OPT_SUPPRESS_GA);
-    cmds.push(IAC, DO, OPT_SUPPRESS_GA);
-    // 请求客户端报告窗口大小
-    cmds.push(IAC, DO, OPT_NAWS);
-    // 请求终端类型
-    cmds.push(IAC, DO, OPT_TTYPE);
-    // 不使用行模式
-    cmds.push(IAC, DONT, OPT_LINEMODE);
-
-    socket.write(Buffer.from(cmds));
-  }
-
-  /**
-   * 处理 TELNET 协议数据，提取纯用户输入数据
-   * 同时响应客户端的 TELNET 协商请求
-   */
-  private _processTelnetData(data: Buffer, clientInfo: ClientInfo, isReentry = false): Buffer {
-    const userData: number[] = [];
-    let i = 0;
-
-    while (i < data.length) {
-      if (data[i] !== IAC) {
-        // TELNET 规范：CR 后必须跟 LF 或 NUL，PTTY 只需要 CR，过滤掉多余字节
-        if (data[i] === 0x0D && i + 1 < data.length && (data[i + 1] === 0x0A || data[i + 1] === 0x00)) {
-          userData.push(0x0D);
-          i += 2;
-          continue;
-        }
-        // 普通数据
-        userData.push(data[i]);
-        i++;
-        continue;
-      }
-
-      // 检测到 IAC → 客户端是 TELNET 客户端，首次触发协商
-      if (!clientInfo.telnetNegotiated) {
-        clientInfo.telnetNegotiated = true;
-        this._sendTelnetNegotiation(clientInfo.socket);
-      }
-
-      // IAC 开始
-      if (i + 1 >= data.length) break;
-
-      const cmd = data[i + 1];
-
-      // IAC IAC → 转义为 0xFF 数据
-      if (cmd === IAC) {
-        userData.push(255);
-        i += 2;
-        continue;
-      }
-
-      // 简单两字节命令（NOP, SE 等）
-      if (cmd === NOP || cmd === SE) {
-        i += 2;
-        continue;
-      }
-
-      // 三字节命令：WILL / WONT / DO / DONT
-      if (cmd === WILL || cmd === WONT || cmd === DO || cmd === DONT) {
-        if (i + 2 >= data.length) break;
-        const opt = data[i + 2];
-        this._handleTelnetCommand(clientInfo.socket, cmd, opt);
-        i += 3;
-        continue;
-      }
-
-      // 子协商：SB ... IAC SE
-      if (cmd === SB) {
-        if (i + 2 >= data.length) break;
-        const opt = data[i + 2];
-
-        // 查找 IAC SE 结束标记
-        const sePos = findIACSE(data, i + 3);
-        if (sePos === -1) {
-          // 子协商不完整，暂存
-          clientInfo.telnetBuf = Buffer.concat([clientInfo.telnetBuf, data.slice(i)]);
-          break;
-        }
-
-        const subData = data.slice(i + 3, sePos);
-        this._handleTelnetSubnegotiation(clientInfo, opt, subData);
-        i = sePos + 2; // 跳过 IAC SE
-        continue;
-      }
-
-      // 未知命令，跳过
-      i += 2;
-    }
-
-    // 处理之前暂存的不完整子协商（防止无限递归）
-    if (clientInfo.telnetBuf.length > 0 && !isReentry) {
-      const combined = Buffer.concat([clientInfo.telnetBuf, data]);
-      clientInfo.telnetBuf = Buffer.alloc(0);
-      return this._processTelnetData(combined, clientInfo, true);
-    }
-
-    return Buffer.from(userData);
-  }
-
-  /**
-   * 处理 TELNET 三字节命令
-   */
-  private _handleTelnetCommand(socket: net.Socket, cmd: number, opt: number): void {
-    if (cmd === WILL) {
-      // 客户端愿意启用某选项
-      if (opt === OPT_NAWS || opt === OPT_TTYPE || opt === OPT_SUPPRESS_GA) {
-        // 同意
-        socket.write(Buffer.from([IAC, DO, opt]));
-      } else {
-        // 拒绝其他选项
-        socket.write(Buffer.from([IAC, DONT, opt]));
-      }
-    } else if (cmd === WONT) {
-      socket.write(Buffer.from([IAC, DONT, opt]));
-    } else if (cmd === DO) {
-      // 客户端请求我方启用某选项
-      if (opt === OPT_ECHO || opt === OPT_SUPPRESS_GA) {
-        socket.write(Buffer.from([IAC, WILL, opt]));
-      } else {
-        socket.write(Buffer.from([IAC, WONT, opt]));
-      }
-    } else if (cmd === DONT) {
-      socket.write(Buffer.from([IAC, WONT, opt]));
-    }
-  }
-
-  /**
-   * 处理 TELNET 子协商
-   */
-  private _handleTelnetSubnegotiation(clientInfo: ClientInfo, opt: number, subData: Buffer): void {
-    if (opt === OPT_NAWS) {
-      // 窗口大小子协商：4 字节 (width-hi, width-lo, height-hi, height-lo)
-      if (subData.length >= 4) {
-        const cols = (subData[0] << 8) | subData[1];
-        const rows = (subData[2] << 8) | subData[3];
-        clientInfo.terminalCols = cols;
-        clientInfo.terminalRows = rows;
-      }
-    } else if (opt === OPT_TTYPE) {
-      // 终端类型子协商：第一个字节是 IS(0)，后面是终端类型字符串
-      if (subData.length > 1 && subData[0] === 0) {
-        // 终端类型信息已接收，无需特殊处理
-      }
-    }
-  }
-
-  /**
-   * 串行化处理写入队列，确保同一时刻只有一个数据块写入共享连接
-   */
   private _processWriteQueue(): void {
     if (this.isWriting || this.writeQueue.length === 0) return;
 
@@ -584,20 +315,15 @@ export class ConnectionServerConnection implements IConnection {
   async close(): Promise<void> {
     this._clearSourceCheckTimer();
 
-    // 清理写入队列
     this.writeQueue = [];
     this.isWriting = false;
 
-    // 关闭所有客户端连接（清理认证计时器）
     for (const [, clientInfo] of this.clients) {
-      if (clientInfo.authTimer) {
-        clearTimeout(clientInfo.authTimer);
-      }
+      if (clientInfo.authTimer) clearTimeout(clientInfo.authTimer);
       clientInfo.socket.destroy();
     }
     this.clients.clear();
 
-    // 关闭TCP服务器
     if (this.tcpServer) {
       await new Promise<void>((resolve) => {
         this.tcpServer!.close(() => resolve());
@@ -605,17 +331,14 @@ export class ConnectionServerConnection implements IConnection {
       this.tcpServer = null;
     }
 
-    // 取消共享连接的监听
     this._unsubscribeSharedConnection();
 
-    // 如果拥有数据源连接，销毁它
     if (this.ownsSharedConnection && this.sharedConnection) {
       try {
         await ConnectionFactory.destroy(this.sharedConnection.id);
       } catch { /* ignore */ }
     }
 
-    // 清空共享连接引用（如果不拥有则不关闭它）
     this.sharedConnection = null;
     this.ownsSharedConnection = false;
     this.sourceConnectionDown = false;
@@ -633,7 +356,6 @@ export class ConnectionServerConnection implements IConnection {
   }
 
   write(data: Buffer | string): void {
-    // 将字符串转换为 Buffer
     const bufferData = typeof data === 'string' ? Buffer.from(data, 'utf-8') : data;
 
     if (this.sharedConnection) {
@@ -669,9 +391,6 @@ export class ConnectionServerConnection implements IConnection {
     return () => this.closeCallbacks.delete(callback);
   }
 
-  /**
-   * 获取服务状态
-   */
   getStatus(): {
     running: boolean;
     sourceType: 'existing' | 'new';
@@ -726,9 +445,6 @@ export class ConnectionServerConnection implements IConnection {
     this.errorCallbacks.forEach((cb) => cb(error));
   }
 
-  /**
-   * 通知所有已认证客户端：源连接已断开/正在重连
-   */
   private _notifyClientsConnectionDown(): void {
     const msg = '\r\n\x1b[33m--- 共享连接已断开，等待重连... ---\x1b[0m\r\n';
     this.clients.forEach((clientInfo) => {
@@ -738,9 +454,6 @@ export class ConnectionServerConnection implements IConnection {
     });
   }
 
-  /**
-   * 通知所有已认证客户端：源连接已恢复
-   */
   private _notifyClientsConnectionRestored(): void {
     const msg = '\r\n\x1b[32m--- 共享连接已恢复 ---\x1b[0m\r\n';
     this.clients.forEach((clientInfo) => {

@@ -84,6 +84,22 @@ export async function createSftp(connectionId: string): Promise<string> {
     await destroySftp(sftpId);
   }
 
+  // 监听 SSH 连接关闭，自动清理 SFTP
+  const connection = ConnectionFactory.get(connectionId);
+  if (connection) {
+    let cleanupDone = false;
+    const cleanup = () => {
+      if (cleanupDone) return;
+      cleanupDone = true;
+      destroySftp(sftpId).catch(() => {});
+    };
+    // SSH 连接关闭/断开时自动销毁 SFTP
+    connection.onClose(cleanup);
+    connection.onStateChange((state) => {
+      if (state === 'error' || state === 'disconnected') cleanup();
+    });
+  }
+
   return withTimeout(new Promise((resolve, reject) => {
     client.sftp((err, sftp) => {
       if (err) {

@@ -129,6 +129,7 @@ export class SshConnection implements IConnection {
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectCount = 0;
+  private isClosing = false;
 
   readonly id: string;
   readonly type = ConnectionType.SSH;
@@ -148,6 +149,7 @@ export class SshConnection implements IConnection {
       throw new Error('Connection already open');
     }
 
+    this.isClosing = false;
     this._state = ConnectionState.CONNECTING;
     this.emitStateChange();
 
@@ -307,8 +309,6 @@ export class SshConnection implements IConnection {
         username: this.options.username,
         readyTimeout: 20000,
         keepaliveInterval: this.options.keepaliveInterval || 30000,
-        // 跳过主机密钥验证（兼容旧设备，生产环境应改为严格验证）
-        hostVerifier: () => true,
         algorithms,
         debug: (msg: string) => {
           console.log('[SSH]', msg);
@@ -326,11 +326,17 @@ export class SshConnection implements IConnection {
         config.tryKeyboard = true;
       }
 
+      // 仅当用户明确禁用时才跳过主机密钥验证
+      if (this.options.verifyHostKey === false) {
+        config.hostVerifier = () => true;
+      }
+
       this.client.connect(config);
     });
   }
 
   async close(): Promise<void> {
+    this.isClosing = true;
     this.cancelReconnect();
     if (this.stream) {
       this.stream.end();
@@ -345,6 +351,7 @@ export class SshConnection implements IConnection {
   }
 
   destroy(): void {
+    this.isClosing = true;
     this.cancelReconnect();
     if (this.stream) {
       this.stream = null;
@@ -400,10 +407,13 @@ export class SshConnection implements IConnection {
   }
 
   private handleReconnect(): void {
-    if (!this.options.autoReconnect) {
-      // 清理引用，让 open() 可以被手动重连调用
+    if (!this.options.autoReconnect || this.isClosing) {
       this.client = null;
       this.stream = null;
+      if (this.isClosing) {
+        this._state = ConnectionState.DISCONNECTED;
+        this.emitStateChange();
+      }
       return;
     }
 
@@ -416,6 +426,8 @@ export class SshConnection implements IConnection {
     }
 
     if (this.reconnectCount >= maxAttempts) {
+      this._state = ConnectionState.DISCONNECTED;
+      this.emitStateChange();
       this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
       return;
     }
@@ -425,11 +437,9 @@ export class SshConnection implements IConnection {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectCount++;
-      // 清理旧连接后重连
       this.client = null;
       this.stream = null;
       this.open().catch(() => {
-        // open 失败后继续重连
         this.handleReconnect();
       });
     }, interval);

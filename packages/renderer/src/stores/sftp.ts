@@ -169,7 +169,9 @@ export const useSftpStore = create<SftpState>()(
             // 更新历史记录
             const history = state.sessions[sftpId].history;
             const newIndex = state.sessions[sftpId].historyIndex + 1;
-            state.sessions[sftpId].history = [...history.slice(0, newIndex), path];
+            // 裁剪历史记录，保留最近 100 条
+            const sliced = history.slice(0, newIndex);
+            state.sessions[sftpId].history = [...sliced.slice(-99), path];
             state.sessions[sftpId].historyIndex = newIndex;
           }
         });
@@ -263,6 +265,7 @@ export const useSftpStore = create<SftpState>()(
           percent: 0,
           status: 'running',
         });
+        state.transfers = state.transfers.slice(-50);
       });
 
       try {
@@ -300,6 +303,7 @@ export const useSftpStore = create<SftpState>()(
           percent: 0,
           status: 'running',
         });
+        state.transfers = state.transfers.slice(-50);
       });
 
       try {

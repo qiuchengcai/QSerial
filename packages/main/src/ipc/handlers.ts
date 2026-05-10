@@ -9,6 +9,7 @@ import { ConnectionFactory } from '../connection/factory.js';
 import { SerialConnection } from '../connection/serial.js';
 import { ConnectionServerConnection } from '../connection/connectionServer.js';
 import { ConfigManager } from '../config/manager.js';
+import { getLocalIp } from '../utils/network.js';
 import { bufferToBase64 } from '@qserial/shared';
 import {
   startTftpServer,
@@ -576,27 +577,7 @@ function setupSerialServerHandlers(): void {
  * 网络相关处理器
  */
 function setupNetworkHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.GET_LOCAL_IP, () => {
-    const os = require('os');
-    const interfaces = os.networkInterfaces();
-    const addresses: string[] = [];
-
-    // 遍历所有网络接口
-    Object.keys(interfaces).forEach((name) => {
-      const nets = interfaces[name];
-      if (!nets) return;
-
-      nets.forEach((net: { family: string; internal: boolean; address: string }) => {
-        // 只获取 IPv4 地址，跳过内部地址
-        if (net.family === 'IPv4' && !net.internal) {
-          addresses.push(net.address);
-        }
-      });
-    });
-
-    // 返回第一个非内部 IPv4 地址，如果没有则返回 localhost
-    return addresses.length > 0 ? addresses[0] : '127.0.0.1';
-  });
+  ipcMain.handle(IPC_CHANNELS.GET_LOCAL_IP, () => getLocalIp());
 }
 
 /**

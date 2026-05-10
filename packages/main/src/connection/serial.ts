@@ -18,6 +18,7 @@ export class SerialConnection implements IConnection {
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectCount = 0;
+  private isClosing = false;
   private sharedConnection: IConnection | null = null;
   private dataUnsubscriber: (() => void) | null = null;
 
@@ -39,6 +40,7 @@ export class SerialConnection implements IConnection {
       throw new Error('Connection already open');
     }
 
+    this.isClosing = false;
     this._state = ConnectionState.CONNECTING;
     this.emitStateChange();
 
@@ -135,9 +137,9 @@ export class SerialConnection implements IConnection {
   }
 
   async close(): Promise<void> {
+    this.isClosing = true;
     this.cancelReconnect();
 
-    // 取消共享连接的监听
     if (this.dataUnsubscriber) {
       this.dataUnsubscriber();
       this.dataUnsubscriber = null;
@@ -150,7 +152,6 @@ export class SerialConnection implements IConnection {
           this.port!.close(() => resolve());
         });
       }
-      // 移除所有监听器
       this.port.removeAllListeners();
       this.port = null;
     }
@@ -159,9 +160,9 @@ export class SerialConnection implements IConnection {
   }
 
   destroy(): void {
+    this.isClosing = true;
     this.cancelReconnect();
 
-    // 取消共享连接的监听
     if (this.dataUnsubscriber) {
       this.dataUnsubscriber();
       this.dataUnsubscriber = null;
@@ -223,9 +224,12 @@ export class SerialConnection implements IConnection {
   }
 
   private handleReconnect(): void {
-    if (!this.options.autoReconnect) {
-      // 清理引用，让 open() 可以被手动重连调用
+    if (!this.options.autoReconnect || this.isClosing) {
       this.port = null;
+      if (this.isClosing) {
+        this._state = ConnectionState.DISCONNECTED;
+        this.emitStateChange();
+      }
       return;
     }
 
@@ -238,7 +242,9 @@ export class SerialConnection implements IConnection {
     }
 
     if (this.reconnectCount >= maxAttempts) {
-      this.eventEmitter.emit('error', new Error('Max reconnection attempts reached'));
+      this._state = ConnectionState.DISCONNECTED;
+      this.emitStateChange();
+      this.eventEmitter.emit('error', new Error(`重连失败，已达最大重试次数 (${maxAttempts})`));
       return;
     }
 
@@ -247,8 +253,8 @@ export class SerialConnection implements IConnection {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectCount++;
+      this.port = null;
       this.open().catch(() => {
-        // open 失败后继续重连
         this.handleReconnect();
       });
     }, interval);

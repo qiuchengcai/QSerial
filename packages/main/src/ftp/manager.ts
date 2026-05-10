@@ -5,8 +5,8 @@
 
 import { BrowserWindow } from 'electron';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
+import { getLocalIp } from '../utils/network.js';
 import { createRequire } from 'module';
 import {
   IPC_CHANNELS,
@@ -141,23 +141,6 @@ function sendClientEvent(event: FtpClientEvent): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC_CHANNELS.FTP_CLIENT_EVENT, event);
   }
-}
-
-/**
- * 获取本机非内部 IPv4 地址
- */
-function getLocalIp(): string {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    const nets = interfaces[name];
-    if (!nets) continue;
-    for (const net of nets) {
-      if (net.family === 'IPv4' && !net.internal) {
-        return net.address;
-      }
-    }
-  }
-  return '127.0.0.1';
 }
 
 /**
