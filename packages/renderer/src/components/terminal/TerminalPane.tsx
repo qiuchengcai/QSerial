@@ -237,16 +237,20 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
 
     // 用户输入（包括粘贴）
     xterm.onData((data) => {
+      console.log('[TerminalPane] onData received:', JSON.stringify(data), 'connectionId:', connectionId.slice(0, 8));
       // 如果在 composition 过程中，不发送数据
       if (isComposingRef.current) {
+        console.log('[TerminalPane] onData blocked by composition');
         return;
       }
       // 如果数据与 composition 结束时的数据相同，发送后清空标记
       if (data === compositionDataRef.current) {
+        console.log('[TerminalPane] onData sending (composition end)');
         window.qserial.connection.write(connectionId, data);
         compositionDataRef.current = ''; // 清空标记，防止重复
         return;
       }
+      console.log('[TerminalPane] onData sending');
       window.qserial.connection.write(connectionId, data);
     });
 

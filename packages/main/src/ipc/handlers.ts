@@ -218,8 +218,12 @@ function setupConnectionHandlers(): void {
 
   // 写入数据
   ipcMain.handle(IPC_CHANNELS.CONNECTION_WRITE, async (_, { id, data }) => {
+    console.log('[IPC] CONNECTION_WRITE received:', JSON.stringify(data).slice(0, 80), 'id:', id?.slice(0, 8));
     const connection = ConnectionFactory.get(id);
-    if (!connection) throw new Error(`Connection ${id} not found`);
+    if (!connection) {
+      console.error('[IPC] CONNECTION_WRITE connection not found:', id?.slice(0, 8));
+      throw new Error(`Connection ${id} not found`);
+    }
     connection.write(data);
   });
 
