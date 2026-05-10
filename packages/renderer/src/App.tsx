@@ -8,6 +8,7 @@ import { useConfigStore } from './stores/config';
 import { useThemeStore } from './stores/theme';
 import { initNfsListeners } from './stores/nfs';
 import { initFtpListeners } from './stores/ftp';
+import { initMcpListeners } from './stores/mcp';
 
 export const App: React.FC = () => {
   const { initialize: initConfig, config } = useConfigStore();
@@ -17,6 +18,7 @@ export const App: React.FC = () => {
     initConfig();
     initNfsListeners();
     initFtpListeners();
+    initMcpListeners();
   }, [initConfig]);
 
   // 应用主题到 CSS 变量

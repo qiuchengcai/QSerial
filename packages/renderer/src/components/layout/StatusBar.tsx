@@ -7,6 +7,7 @@ import { useTerminalStore } from '@/stores/terminal';
 import { useTftpStore } from '@/stores/tftp';
 import { useNfsStore } from '@/stores/nfs';
 import { useFtpStore } from '@/stores/ftp';
+import { useMcpStore } from '@/stores/mcp';
 import { useSftpStore } from '@/stores/sftp';
 import { CONNECTION_STATE_NAMES, ConnectionType, ConnectionState } from '@qserial/shared';
 
@@ -18,6 +19,7 @@ export const StatusBar: React.FC = () => {
   const { running: tftpRunning, transfers } = useTftpStore();
   const { running: nfsRunning } = useNfsStore();
   const { running: ftpRunning } = useFtpStore();
+  const { running: mcpRunning } = useMcpStore();
   const { panelVisible, setPanelVisible, createSession, sessions: sftpSessions } = useSftpStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -136,6 +138,14 @@ export const StatusBar: React.FC = () => {
           <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
             <span className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-text-secondary">FTP</span>
+          </div>
+        )}
+
+        {/* MCP 服务器状态 */}
+        {mcpRunning && (
+          <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-text-secondary">MCP</span>
           </div>
         )}
       </div>

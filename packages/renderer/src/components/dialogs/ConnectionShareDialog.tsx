@@ -61,6 +61,9 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
     clientCount: number;
     clients: string[];
     hasPassword: boolean;
+    apiPort?: number;
+    apiClientCount: number;
+    apiClients: string[];
   } | null>(null);
 
   // 获取活跃会话列表
@@ -70,6 +73,8 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
   // 服务配置
   const localPort = config.connectionShare?.defaultLocalPort || config.serialShare?.defaultLocalPort || 8888;
   const [localPortValue, setLocalPortValue] = useState(localPort);
+  const apiPortDefault = config.connectionShare?.defaultApiPort || (localPort + 1);
+  const [apiPortValue, setApiPortValue] = useState(apiPortDefault);
   const [listenAddress, setListenAddress] = useState(
     config.connectionShare?.defaultListenAddress || config.serialShare?.defaultListenAddress || '0.0.0.0'
   );
@@ -169,6 +174,8 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
         existingConnectionId: session.connectionId,
         localPort: localPortValue,
         listenAddress,
+        apiPort: apiPortValue,
+        apiProtocol: 'json-tcp' as const,
         ...(accessPassword ? { accessPassword } : {}),
       };
 
@@ -177,6 +184,7 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
       // 保存配置
       updateConfig('connectionShare', {
         defaultLocalPort: localPortValue,
+        defaultApiPort: apiPortValue,
         defaultListenAddress: listenAddress,
       });
 
@@ -274,6 +282,25 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
             />
           </div>
 
+          {/* API 端口 */}
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">
+              JSON API 端口 <span className="text-text-secondary/50 font-normal">(AI/程序化客户端)</span>
+            </label>
+            <input
+              type="number"
+              value={apiPortValue}
+              onChange={(e) => setApiPortValue(Number(e.target.value))}
+              disabled={isRunning}
+              className="dialog-input"
+              min={1}
+              max={65535}
+            />
+            <p className="text-xs text-text-secondary/50 mt-1">
+              局域网内 AI Agent 可通过此端口以结构化 JSON 协议操作设备。留 0 则不启用
+            </p>
+          </div>
+
           {/* 监听地址 */}
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">监听地址</label>
@@ -321,15 +348,23 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
             </div>
             {isRunning && status && status.clients.length > 0 && (
               <div className="ml-5 text-xs text-text-secondary space-y-0.5">
-                <p className="font-medium text-text-secondary/80">已连接客户端 ({status.clientCount})：</p>
+                <p className="font-medium text-text-secondary/80">TELNET 客户端 ({status.clientCount})：</p>
                 {status.clients.map((addr) => (
                   <p key={addr} className="ml-2 font-mono">{addr}</p>
                 ))}
               </div>
             )}
-            {isRunning && status && status.clientCount > 1 && (
+            {isRunning && status && status.apiClients.length > 0 && (
+              <div className="ml-5 text-xs text-text-secondary space-y-0.5">
+                <p className="font-medium text-text-secondary/80">JSON API 客户端 ({status.apiClientCount})：</p>
+                {status.apiClients.map((addr) => (
+                  <p key={addr} className="ml-2 font-mono">{addr}</p>
+                ))}
+              </div>
+            )}
+            {isRunning && status && (status.clientCount + status.apiClientCount) > 1 && (
               <p className="ml-5 text-xs text-yellow-500">
-                多客户端同时操作可能导致数据混乱，建议同时只有一个客户端发送指令
+                人类和AI同时操作时，设备回显双方可见。多客户端同时发送指令可能导致数据混乱
               </p>
             )}
           </div>
@@ -397,7 +432,8 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                 <p className="text-sm text-text-secondary mb-2">连接信息：</p>
                 <div className="space-y-1 text-sm">
                   <p><span className="text-text-secondary">数据源：</span>{status?.sourceDescription || '未知'}</p>
-                  <p><span className="text-text-secondary">监听地址：</span>{listenAddress}:{localPortValue}</p>
+                  <p><span className="text-text-secondary">TELNET 端口：</span>{listenAddress}:{localPortValue}</p>
+                  <p><span className="text-text-secondary">JSON API 端口：</span>{listenAddress}:{apiPortValue}</p>
                   {accessPassword && (
                     <p><span className="text-text-secondary">访问密码：</span>已设置</p>
                   )}
@@ -405,13 +441,10 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
               </div>
 
               <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
-                <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
+                <p className="text-sm font-medium mb-2">人类终端 — 局域网设备执行：</p>
                 <div className="bg-background rounded-md p-2 font-mono text-sm">
                   telnet {'<本机IP>'} {localPortValue}
                 </div>
-                <p className="text-xs text-text-secondary mt-2">
-                  请将 {'<本机IP>'} 替换为本机的局域网 IP 地址
-                </p>
                 <button
                   onClick={async () => {
                     try {
@@ -423,19 +456,51 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                   }}
                   className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
                 >
-                  复制命令
+                  复制 TELNET 命令
                 </button>
                 {accessPassword && (
                   <p className="text-xs text-yellow-500 mt-2">
-                    连接后直接输入密码 {accessPassword} 回车即可认证
+                    连接后直接输入密码回车即可认证
                   </p>
                 )}
               </div>
 
-              <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
-                <p className="font-medium text-text-secondary/80 mb-1">本地局域网连接说明：</p>
-                <p>同一局域网内的其他设备可通过上述命令连接。</p>
-                <p className="mt-1 text-yellow-500">推荐使用 telnet 客户端连接，支持完整的终端交互功能。Windows 需先启用: dism /online /Enable-Feature /FeatureName:TelnetClient</p>
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                <p className="text-sm font-medium mb-2">AI Agent — 局域网设备执行：</p>
+                <div className="bg-background rounded-md p-2 font-mono text-xs space-y-0.5">
+                  <p className="text-text-secondary"># Python 示例</p>
+                  <p>import socket, json, base64</p>
+                  <p>s = socket.create_connection(({'<IP>'}, {apiPortValue}))</p>
+                  <p>reader = s.makefile('r')</p>
+                  <p className="text-text-secondary"># 逐行读取 JSON 消息</p>
+                  <p>for line in reader:</p>
+                  <p>&nbsp;&nbsp;msg = json.loads(line)</p>
+                  <p>&nbsp;&nbsp;if msg['type'] == 'data':</p>
+                  <p>&nbsp;&nbsp;&nbsp;&nbsp;print(base64.b64decode(msg['data']))</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const ip = await window.qserial.getLocalIp();
+                      await navigator.clipboard.writeText(
+                        `# Python AI 客户端连接\\nimport socket, json, base64\\n\\n` +
+                        `s = socket.create_connection(('${ip}', ${apiPortValue}))\\n` +
+                        `reader = s.makefile('r')\\n` +
+                        `for line in reader:\\n    msg = json.loads(line)\\n    if msg['type'] == 'data':\\n        print(base64.b64decode(msg['data']))\\n    elif msg['type'] == 'peer_input':\\n        print(f\"[{msg['source']}] 输入: {base64.b64decode(msg['data'])}\")`
+                      );
+                    } catch {
+                      await navigator.clipboard.writeText(`# Python AI 客户端连接`);
+                    }
+                  }}
+                  className="mt-2 px-3 py-1.5 text-sm bg-green-500/20 hover:bg-green-500/30 rounded-md transition-colors"
+                >
+                  复制 Python 示例
+                </button>
+                {accessPassword && (
+                  <p className="text-xs text-yellow-500 mt-2">
+                    如设置密码，需先发送 {'{"type":"auth","password":"...\\n"}'}
+                  </p>
+                )}
               </div>
             </div>
 

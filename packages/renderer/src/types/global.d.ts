@@ -2,7 +2,7 @@
  * 全局类型声明
  */
 
-import type { SerialPortInfo, SerialServerStatus, ConnectionServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent, NfsServerStatus, NfsMountHint, FtpServerStatus, FtpClientInfo, FtpTransferEvent, FtpClientEvent } from '@qserial/shared';
+import type { SerialPortInfo, SerialServerStatus, ConnectionServerStatus, McpServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent, NfsServerStatus, NfsMountHint, FtpServerStatus, FtpClientInfo, FtpTransferEvent, FtpClientEvent } from '@qserial/shared';
 
 interface QSerialAPI {
   connection: {
@@ -104,9 +104,18 @@ interface QSerialAPI {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
+      apiPort?: number;
+      apiProtocol?: 'json-tcp';
     }) => Promise<void>;
     stop: (id: string) => Promise<void>;
     getStatus: (id: string) => Promise<ConnectionServerStatus>;
+  };
+
+  mcp: {
+    start: (port: number) => Promise<void>;
+    stop: () => Promise<void>;
+    getStatus: () => Promise<McpServerStatus>;
+    onStatusChange: (callback: (event: { running: boolean; port: number }) => void) => () => void;
   };
 
   onDebugLog: (callback: (event: { message: string; timestamp: number }) => void) => () => void;

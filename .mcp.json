@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "qserial": {
+      "transport": "streamableHttp",
+      "url": "http://192.168.44.1:9800/mcp"
+    }
+  }
+}

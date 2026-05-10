@@ -182,6 +182,8 @@ const api = {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
+      apiPort?: number;
+      apiProtocol?: 'json-tcp';
     }) => {
       return ipcRenderer.invoke(IPC_CHANNELS.CONNECTION_SERVER_START, options);
     },
@@ -190,6 +192,19 @@ const api = {
     getStatus: (id: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.CONNECTION_SERVER_STATUS, { id }),
   },
+
+	  // MCP 服务器
+	  mcp: {
+	    start: (port: number) =>
+	      ipcRenderer.invoke(IPC_CHANNELS.MCP_START, { port }),
+	    stop: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_STOP),
+	    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_GET_STATUS),
+	    onStatusChange: (callback: (event: { running: boolean; port: number }) => void) => {
+	      const handler = (_: unknown, event: { running: boolean; port: number }) => callback(event);
+	      ipcRenderer.on(IPC_CHANNELS.MCP_STATUS_EVENT, handler);
+	      return () => ipcRenderer.off(IPC_CHANNELS.MCP_STATUS_EVENT, handler);
+	    },
+	  },
 
   // 调试日志
   onDebugLog: (callback: (event: { message: string; timestamp: number }) => void) => {

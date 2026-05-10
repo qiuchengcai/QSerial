@@ -12,6 +12,7 @@ export interface AppConfig {
   ssh: SshSettings;
   serialShare: SerialShareSettings; // @deprecated 使用 connectionShare
   connectionShare: ConnectionShareSettings;
+  mcp: McpSettings;
   window: WindowSettings;
 }
 
@@ -82,7 +83,13 @@ export interface SerialShareSettings {
  */
 export interface ConnectionShareSettings {
   defaultLocalPort: number;
+  defaultApiPort?: number;
   defaultListenAddress?: string;
+}
+
+export interface McpSettings {
+  enabled: boolean;
+  port: number;
 }
 
 /**
@@ -148,9 +155,15 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   connectionShare: {
     defaultLocalPort: 8888,
+    defaultApiPort: 8889,
     defaultListenAddress: '0.0.0.0',
   },
 
+
+	  mcp: {
+	    enabled: true,
+	    port: 9800,
+	  },
   window: {
     width: 1200,
     height: 800,

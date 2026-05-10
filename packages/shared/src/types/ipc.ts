@@ -98,6 +98,12 @@ export const IPC_CHANNELS = {
   // 通用对话框
   DIALOG_PICK_DIR: 'dialog:pickDir',
 
+  // MCP 服务器
+  MCP_START: 'mcp:start',
+  MCP_STOP: 'mcp:stop',
+  MCP_GET_STATUS: 'mcp:getStatus',
+  MCP_STATUS_EVENT: 'mcp:statusEvent',
+
   // SFTP 文件传输
   SFTP_CREATE: 'sftp:create',
   SFTP_DESTROY: 'sftp:destroy',
@@ -181,9 +187,14 @@ export interface IpcRequestMap {
     localPort: number;
     listenAddress?: string;
     accessPassword?: string;
+    apiPort?: number;
+    apiProtocol?: 'json-tcp';
   };
   [IPC_CHANNELS.CONNECTION_SERVER_STOP]: { id: string };
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: { id: string };
+  [IPC_CHANNELS.MCP_START]: { port: number };
+  [IPC_CHANNELS.MCP_STOP]: void;
+  [IPC_CHANNELS.MCP_GET_STATUS]: void;
   [IPC_CHANNELS.GET_LOCAL_IP]: void;
   [IPC_CHANNELS.READ_FILE]: { path: string };
   [IPC_CHANNELS.DIALOG_PICK_DIR]: { title: string };
@@ -248,6 +259,9 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.CONNECTION_SERVER_START]: void;
   [IPC_CHANNELS.CONNECTION_SERVER_STOP]: void;
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: ConnectionServerStatus;
+  [IPC_CHANNELS.MCP_START]: void;
+  [IPC_CHANNELS.MCP_STOP]: void;
+  [IPC_CHANNELS.MCP_GET_STATUS]: McpServerStatus;
   [IPC_CHANNELS.GET_LOCAL_IP]: string;
   [IPC_CHANNELS.READ_FILE]: string;
   [IPC_CHANNELS.DIALOG_PICK_DIR]: string | null;
@@ -472,6 +486,23 @@ export interface ConnectionServerStatus {
   clientCount: number;
   clients: string[];
   hasPassword: boolean;
+  apiPort?: number;
+  apiClientCount: number;
+  apiClients: string[];
+}
+
+/**
+ * MCP 服务器状态
+ */
+export interface McpServerStatus {
+  running: boolean;
+  port: number;
+  connections: {
+    id: string;
+    type: string;
+    name: string;
+    state: string;
+  }[];
 }
 
 /**

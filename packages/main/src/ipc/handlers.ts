@@ -32,6 +32,12 @@ import {
   getFtpClients,
 } from '../ftp/manager.js';
 import {
+  startMcpServer,
+  stopMcpServer,
+  getMcpStatus,
+  setMcpMainWindow,
+} from '../mcp/manager.js';
+import {
   setupSftpHandlers,
   setSftpMainWindow,
 } from '../sftp/manager.js';
@@ -62,6 +68,7 @@ export function setupIpcHandlers(): void {
   setTftpMainWindow(mainWindow);
   setNfsMainWindow(mainWindow);
   setFtpMainWindow(mainWindow);
+  setMcpMainWindow(mainWindow);
 
   // 监听窗口创建（所有子模块共享一个监听器）
   app.on('browser-window-created', (_, window) => {
@@ -72,6 +79,7 @@ export function setupIpcHandlers(): void {
       setTftpMainWindow(window);
       setNfsMainWindow(window);
       setFtpMainWindow(window);
+      setMcpMainWindow(window);
     }
   });
 
@@ -113,6 +121,9 @@ export function setupIpcHandlers(): void {
 
   // 文件操作
   setupFileHandlers();
+
+  // MCP 服务器
+  setupMcpHandlers();
 
   // SFTP 文件传输
   setupSftpHandlers();
@@ -594,6 +605,8 @@ function setupConnectionServerHandlers(): void {
       localPort,
       listenAddress,
       accessPassword,
+      apiPort,
+      apiProtocol,
     } = options;
 
     // 如果相同ID的服务器已存在，先销毁它
@@ -633,6 +646,7 @@ function setupConnectionServerHandlers(): void {
       listenAddress,
       accessPassword,
       autoReconnect: false,
+      ...(apiPort ? { apiPort, apiProtocol: apiProtocol || 'json-tcp' } : {}),
     });
 
     await connection.open();
@@ -674,9 +688,33 @@ function setupConnectionServerHandlers(): void {
         clientCount: 0,
         clients: [],
         hasPassword: false,
+        apiPort: undefined,
+        apiClientCount: 0,
+        apiClients: [],
       };
     }
     return (connection as ConnectionServerConnection).getStatus();
+  });
+}
+
+/**
+ * MCP 服务器处理器
+ */
+function setupMcpHandlers(): void {
+  ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port }) => {
+    try {
+      await startMcpServer(port);
+    } catch (error) {
+      throw error;
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_STOP, async () => {
+    await stopMcpServer();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_GET_STATUS, () => {
+    return getMcpStatus();
   });
 }
 

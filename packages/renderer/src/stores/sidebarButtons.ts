@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type SidebarButtonType = 'pty' | 'serial' | 'ssh' | 'telnet' | 'tftp' | 'nfs' | 'ftp';
+export type SidebarButtonType = 'pty' | 'serial' | 'ssh' | 'telnet' | 'tftp' | 'nfs' | 'ftp' | 'mcp';
 
 interface SidebarButtonConfig {
   type: SidebarButtonType;
@@ -26,6 +26,7 @@ const DEFAULT_BUTTONS: SidebarButtonConfig[] = [
   { type: 'tftp', order: 4 },
   { type: 'nfs', order: 5 },
   { type: 'ftp', order: 6 },
+  { type: 'mcp', order: 7 },
 ];
 
 export const useSidebarButtonsStore = create<SidebarButtonsState>()(

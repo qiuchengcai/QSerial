@@ -15,6 +15,7 @@ import { TftpDialog } from '../dialogs/TftpDialog';
 import { NfsDialog } from '../dialogs/NfsDialog';
 import { FtpDialog } from '../dialogs/FtpDialog';
 import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectDialog';
+import { McpDialog } from '../dialogs/McpDialog';
 import { globalError } from '../common/ErrorToast';
 
 const MIN_SIDEBAR_WIDTH = 120;
@@ -69,6 +70,7 @@ export const Sidebar: React.FC = () => {
   const [showNfsDialog, setShowNfsDialog] = useState(false);
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPtyDialog, setShowPtyDialog] = useState(false);
+  const [showMcpDialog, setShowMcpDialog] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingSession, setEditingSession] = useState<SavedSession | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SavedSession; index: number } | null>(null);
@@ -96,17 +98,26 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  // 查找使用指定串口路径的活动连接
-  const findActiveSerialSession = (serialPath: string): string | null => {
+  // 查找活跃会话的通用函数
+  const findActiveSession = (
+    type: ConnectionType,
+    match: (session: SessionInfo) => boolean,
+  ): string | null => {
     for (const [sessionId, session] of Object.entries(sessions)) {
-      if (session.connectionType === ConnectionType.SERIAL &&
-          session.serialPath === serialPath &&
+      if (session.connectionType === type &&
           (session.connectionState === ConnectionState.CONNECTED ||
-           session.connectionState === ConnectionState.CONNECTING)) {
+           session.connectionState === ConnectionState.CONNECTING) &&
+          match(session)) {
         return sessionId;
       }
     }
     return null;
+  };
+
+  // 查找使用指定串口路径的活动连接
+  const findActiveSerialSession = (serialPath: string): string | null => {
+    return findActiveSession(ConnectionType.SERIAL,
+      (s) => s.serialPath === serialPath);
   };
 
   const handleNewTerminal = () => {
@@ -257,6 +268,26 @@ export const Sidebar: React.FC = () => {
 
     if (savedSession.type === 'ssh' && savedSession.sshConfig) {
       const config = savedSession.sshConfig;
+      const activeSessionId = findActiveSession(ConnectionType.SSH,
+        (s) => s.host === config.host);
+
+      if (activeSessionId) {
+        setConnectingType('ssh');
+        try {
+          const session = sessions[activeSessionId];
+          if (session) {
+            await window.qserial.connection.destroy(session.connectionId);
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          closeSessionAndTab(activeSessionId);
+        } catch (err) {
+          console.error('Failed to close SSH connection:', err);
+        } finally {
+          setConnectingType(null);
+        }
+        return;
+      }
+
       setConnectingType('ssh');
 
       try {
@@ -290,6 +321,26 @@ export const Sidebar: React.FC = () => {
 
     if (savedSession.type === 'telnet' && savedSession.telnetConfig) {
       const config = savedSession.telnetConfig;
+      const activeSessionId = findActiveSession(ConnectionType.TELNET,
+        (s) => s.host === config.host);
+
+      if (activeSessionId) {
+        setConnectingType('telnet');
+        try {
+          const session = sessions[activeSessionId];
+          if (session) {
+            await window.qserial.connection.destroy(session.connectionId);
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          closeSessionAndTab(activeSessionId);
+        } catch (err) {
+          console.error('Failed to close Telnet connection:', err);
+        } finally {
+          setConnectingType(null);
+        }
+        return;
+      }
+
       setConnectingType('telnet');
 
       try {
@@ -319,6 +370,25 @@ export const Sidebar: React.FC = () => {
 
     if (savedSession.type === 'pty' && savedSession.ptyConfig) {
       const config = savedSession.ptyConfig;
+      const activeSessionId = findActiveSession(ConnectionType.PTY, () => true);
+
+      if (activeSessionId) {
+        setConnectingType('pty');
+        try {
+          const session = sessions[activeSessionId];
+          if (session) {
+            await window.qserial.connection.destroy(session.connectionId);
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          closeSessionAndTab(activeSessionId);
+        } catch (err) {
+          console.error('Failed to close PTY connection:', err);
+        } finally {
+          setConnectingType(null);
+        }
+        return;
+      }
+
       setConnectingType('pty');
 
       try {
@@ -640,6 +710,11 @@ export const Sidebar: React.FC = () => {
       collapsedLabel: 'FTP 服务器',
       onClick: () => setShowFtpDialog(true), disabled: false, isService: true,
     },
+    mcp: {
+      icon: '🤖', label: 'MCP AI',
+      collapsedLabel: 'MCP 服务器',
+      onClick: () => setShowMcpDialog(true), disabled: false, isService: true,
+    },
   };
 
   // 折叠状态下只显示图标按钮
@@ -703,6 +778,10 @@ export const Sidebar: React.FC = () => {
         <FtpDialog
           isOpen={showFtpDialog}
           onClose={() => setShowFtpDialog(false)}
+        />
+        <McpDialog
+          isOpen={showMcpDialog}
+          onClose={() => setShowMcpDialog(false)}
         />
         <PtyConnectDialog
           isOpen={showPtyDialog}
@@ -886,6 +965,10 @@ export const Sidebar: React.FC = () => {
       <FtpDialog
         isOpen={showFtpDialog}
         onClose={() => setShowFtpDialog(false)}
+      />
+      <McpDialog
+        isOpen={showMcpDialog}
+        onClose={() => setShowMcpDialog(false)}
       />
       <PtyConnectDialog
         isOpen={showPtyDialog}

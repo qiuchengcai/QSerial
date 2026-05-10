@@ -12,6 +12,7 @@ import { ConnectionFactory } from './connection/factory.js';
 import { destroyTftpManager } from './tftp/manager.js';
 import { initNfsManager, destroyNfsManager } from './nfs/manager.js';
 import { destroyFtpManager } from './ftp/manager.js';
+import { startMcpServer, destroyMcpManager } from './mcp/manager.js';
 import { ensureNativePatch } from './connection/native-patch.js';
 import { ensurePtyPatch } from './connection/pty-patch.js';
 
@@ -180,6 +181,17 @@ async function initialize(): Promise<void> {
   // 清理残留的 WinNFSd 进程（应用重启后可能仍有残留）
   initNfsManager();
   console.log('NFS manager initialized');
+
+  // 自动启动 MCP 服务器（如果用户已启用）
+  const mcpConfig = ConfigManager.get('mcp') as { enabled?: boolean; port?: number } | undefined;
+  if (mcpConfig?.enabled) {
+    try {
+      await startMcpServer(mcpConfig.port || 9800);
+      console.log('MCP server auto-started on port', mcpConfig.port || 9800);
+    } catch (err) {
+      console.error('MCP auto-start failed:', err);
+    }
+  }
 }
 
 // 应用就绪
@@ -224,6 +236,11 @@ app.on('before-quit', () => {
   } catch (error) {
     console.error('Error during cleanup:', error);
   }
+});
+
+// 应用退出前清理 MCP（异步）
+app.on('before-quit', async () => {
+  await destroyMcpManager();
 });
 
 // 异步清理（连接等）

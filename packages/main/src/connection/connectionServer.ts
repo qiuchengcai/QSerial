@@ -29,6 +29,13 @@ interface ClientInfo extends TelnetClientState {
   authBuffer: string;
 }
 
+interface JsonClientInfo {
+  socket: net.Socket;
+  address: string;
+  authenticated: boolean;
+  lineBuffer: string;
+}
+
 /**
  * 连接共享服务端类
  */
@@ -54,6 +61,8 @@ export class ConnectionServerConnection implements IConnection {
   private sourceConnectionDown = false;
   private writeQueue: Array<{ data: Buffer; clientId: string }> = [];
   private isWriting = false;
+  private jsonClients: Map<string, JsonClientInfo> = new Map();
+  private jsonTcpServer: net.Server | null = null;
 
   get state() {
     return this._state;
@@ -71,6 +80,10 @@ export class ConnectionServerConnection implements IConnection {
       await this._resolveSourceConnection();
 
       await this.startTcpServer();
+
+      if (this.options.apiPort) {
+        await this.startJsonApiServer();
+      }
 
       this._setState(ConnectionState.CONNECTED);
     } catch (error) {
@@ -113,6 +126,18 @@ export class ConnectionServerConnection implements IConnection {
       this.tcpServer = null;
     }
 
+    for (const [, clientInfo] of this.jsonClients) {
+      clientInfo.socket.destroy();
+    }
+    this.jsonClients.clear();
+
+    if (this.jsonTcpServer) {
+      await new Promise<void>((resolve) => {
+        this.jsonTcpServer!.close(() => resolve());
+      });
+      this.jsonTcpServer = null;
+    }
+
     this._unsubscribeSharedConnection();
 
     if (this.ownsSharedConnection && this.sharedConnection) {
@@ -147,11 +172,14 @@ export class ConnectionServerConnection implements IConnection {
     if (!this.sharedConnection) return;
 
     this.dataUnsubscriber = this.sharedConnection.onData((data) => {
+      // TELNET 客户端
       this.clients.forEach((clientInfo) => {
         if (!clientInfo.socket.destroyed && clientInfo.authenticated) {
           clientInfo.socket.write(data);
         }
       });
+      // JSON 客户端
+      this._broadcastJson({ type: 'data', data: data.toString('base64') });
       this.dataCallbacks.forEach((cb) => cb(data));
     });
 
@@ -165,24 +193,29 @@ export class ConnectionServerConnection implements IConnection {
           if (connRef && this.sharedConnection === connRef && connRef.state === ConnectionState.DISCONNECTED && !wasDown) {
             this.sourceConnectionDown = true;
             this._notifyClientsConnectionDown();
+            this._broadcastJson({ type: 'source_down' });
           }
         }, 100);
       } else if (state === ConnectionState.RECONNECTING) {
         if (!this.sourceConnectionDown) {
           this.sourceConnectionDown = true;
           this._notifyClientsConnectionDown();
+          this._broadcastJson({ type: 'source_down' });
         }
       } else if (state === ConnectionState.ERROR) {
         if (!this.sourceConnectionDown) {
           this.sourceConnectionDown = true;
           this._notifyClientsConnectionDown();
+          this._broadcastJson({ type: 'source_down' });
         }
+        this._broadcastJson({ type: 'error', message: '共享连接已断开' });
         this._notifyError(new Error('共享连接已断开'));
         this.close();
       } else if (state === ConnectionState.CONNECTED) {
         if (this.sourceConnectionDown) {
           this.sourceConnectionDown = false;
           this._notifyClientsConnectionRestored();
+          this._broadcastJson({ type: 'source_restored' });
         }
       }
     });
@@ -265,12 +298,16 @@ export class ConnectionServerConnection implements IConnection {
         socket.on('close', () => {
           if (clientInfo.authTimer) clearTimeout(clientInfo.authTimer);
           this.clients.delete(address);
+          this._notifyClientEvent('leave', 'telnet');
         });
 
         socket.on('error', () => {
           if (clientInfo.authTimer) clearTimeout(clientInfo.authTimer);
           this.clients.delete(address);
+          this._notifyClientEvent('leave', 'telnet');
         });
+
+        this._notifyClientEvent('join', 'telnet');
       });
 
       this.tcpServer.on('error', (err: NodeJS.ErrnoException) => {
@@ -297,6 +334,7 @@ export class ConnectionServerConnection implements IConnection {
     if (this.sharedConnection) {
       this.sharedConnection.write(item.data);
       this.dataCallbacks.forEach((cb) => cb(item.data));
+      this._notifyPeerInput('telnet', item.data);
     }
 
     setImmediate(() => {
@@ -329,6 +367,18 @@ export class ConnectionServerConnection implements IConnection {
         this.tcpServer!.close(() => resolve());
       });
       this.tcpServer = null;
+    }
+
+    for (const [, jc] of this.jsonClients) {
+      jc.socket.destroy();
+    }
+    this.jsonClients.clear();
+
+    if (this.jsonTcpServer) {
+      await new Promise<void>((resolve) => {
+        this.jsonTcpServer!.close(() => resolve());
+      });
+      this.jsonTcpServer = null;
     }
 
     this._unsubscribeSharedConnection();
@@ -400,6 +450,9 @@ export class ConnectionServerConnection implements IConnection {
     clientCount: number;
     clients: string[];
     hasPassword: boolean;
+    apiPort?: number;
+    apiClientCount: number;
+    apiClients: string[];
   } {
     let sourceDescription = '';
     if (this.sharedConnection) {
@@ -433,7 +486,179 @@ export class ConnectionServerConnection implements IConnection {
         .filter((c) => c.authenticated)
         .map((c) => c.address),
       hasPassword: !!this.options.accessPassword,
+      apiPort: this.options.apiPort,
+      apiClientCount: Array.from(this.jsonClients.values()).filter((c) => c.authenticated).length,
+      apiClients: Array.from(this.jsonClients.values())
+        .filter((c) => c.authenticated)
+        .map((c) => c.address),
     };
+  }
+
+  // ==================== JSON API 服务器 ====================
+
+  private async startJsonApiServer(): Promise<void> {
+    const listenAddress = this.options.listenAddress || '0.0.0.0';
+    const accessPassword = this.options.accessPassword;
+
+    return new Promise((resolve, reject) => {
+      this.jsonTcpServer = net.createServer((socket) => {
+        const address = `${socket.remoteAddress}:${socket.remotePort}`;
+        const clientInfo: JsonClientInfo = {
+          socket,
+          address,
+          authenticated: !accessPassword,
+          lineBuffer: '',
+        };
+
+        this.jsonClients.set(address, clientInfo);
+
+        if (accessPassword) {
+          this._sendJson(clientInfo, { type: 'auth_required' });
+        } else {
+          this._sendJson(clientInfo, {
+            type: 'hello',
+            serverId: this.id,
+            sourceType: this.options.sourceType,
+            sourceDesc: this._getSourceDescription(),
+          });
+          this._notifyClientEvent('join', 'json');
+        }
+
+        socket.on('data', (raw: Buffer) => {
+          clientInfo.lineBuffer += raw.toString();
+
+          let newlineIdx: number;
+          while ((newlineIdx = clientInfo.lineBuffer.indexOf('\n')) !== -1) {
+            const line = clientInfo.lineBuffer.slice(0, newlineIdx).trim();
+            clientInfo.lineBuffer = clientInfo.lineBuffer.slice(newlineIdx + 1);
+            if (!line) continue;
+
+            let msg: Record<string, unknown>;
+            try { msg = JSON.parse(line); } catch { continue; }
+
+            // 未认证时只接受 auth 消息
+            if (!clientInfo.authenticated) {
+              if (msg.type === 'auth' && accessPassword) {
+                if (msg.password === accessPassword) {
+                  clientInfo.authenticated = true;
+                  this._sendJson(clientInfo, { type: 'auth_ok' });
+                  this._sendJson(clientInfo, {
+                    type: 'hello',
+                    serverId: this.id,
+                    sourceType: this.options.sourceType,
+                    sourceDesc: this._getSourceDescription(),
+                  });
+                  this._notifyClientEvent('join', 'json');
+                } else {
+                  this._sendJson(clientInfo, { type: 'auth_fail', message: '密码错误' });
+                  socket.destroy();
+                  this.jsonClients.delete(address);
+                }
+              }
+              continue;
+            }
+
+            switch (msg.type) {
+              case 'write': {
+                const buf = Buffer.from(msg.data as string, 'base64');
+                if (this.sharedConnection) {
+                  this.sharedConnection.write(buf);
+                  this.dataCallbacks.forEach((cb) => cb(buf));
+                }
+                this._notifyPeerInput('json', buf);
+                break;
+              }
+              case 'write_text': {
+                const buf = Buffer.from(msg.text as string, 'utf-8');
+                if (this.sharedConnection) {
+                  this.sharedConnection.write(buf);
+                  this.dataCallbacks.forEach((cb) => cb(buf));
+                }
+                this._notifyPeerInput('json', buf);
+                break;
+              }
+              case 'resize':
+                if (this.sharedConnection && typeof msg.cols === 'number' && typeof msg.rows === 'number') {
+                  this.sharedConnection.resize(msg.cols, msg.rows);
+                }
+                break;
+            }
+          }
+        });
+
+        socket.on('close', () => {
+          this.jsonClients.delete(address);
+          if (clientInfo.authenticated) {
+            this._notifyClientEvent('leave', 'json');
+          }
+        });
+
+        socket.on('error', () => {
+          this.jsonClients.delete(address);
+          if (clientInfo.authenticated) {
+            this._notifyClientEvent('leave', 'json');
+          }
+        });
+      });
+
+      this.jsonTcpServer.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE') {
+          reject(new Error(`API 端口 ${this.options.apiPort} 已被占用`));
+        } else {
+          reject(new Error(`JSON API 服务器启动失败: ${err.message}`));
+        }
+      });
+
+      this.jsonTcpServer.listen(this.options.apiPort!, listenAddress, () => {
+        resolve();
+      });
+    });
+  }
+
+  private _getSourceDescription(): string {
+    if (!this.sharedConnection) return '';
+    const opts = this.sharedConnection.options as unknown as Record<string, unknown>;
+    switch (this.sharedConnection.type) {
+      case ConnectionType.SERIAL:
+        return `串口: ${(opts as { path?: string }).path || ''}`;
+      case ConnectionType.SSH:
+        return `SSH: ${(opts as { host?: string }).host || ''}:${(opts as { port?: number }).port || 22}`;
+      case ConnectionType.TELNET:
+        return `Telnet: ${(opts as { host?: string }).host || ''}:${(opts as { port?: number }).port || 23}`;
+      case ConnectionType.PTY:
+        return `本地终端: ${(opts as { shell?: string }).shell || ''}`;
+      default:
+        return `连接: ${this.sharedConnection.id}`;
+    }
+  }
+
+  private _sendJson(clientInfo: JsonClientInfo, msg: Record<string, unknown>): void {
+    if (!clientInfo.socket.destroyed) {
+      clientInfo.socket.write(JSON.stringify(msg) + '\n');
+    }
+  }
+
+  private _broadcastJson(msg: Record<string, unknown>, excludeAddress?: string): void {
+    this.jsonClients.forEach((jc) => {
+      if (jc.authenticated && jc.address !== excludeAddress) {
+        this._sendJson(jc, msg);
+      }
+    });
+  }
+
+  private _notifyPeerInput(source: string, data: Buffer): void {
+    this._broadcastJson({
+      type: 'peer_input',
+      source,
+      data: data.toString('base64'),
+    });
+  }
+
+  private _notifyClientEvent(action: 'join' | 'leave', source: string): void {
+    this._broadcastJson({
+      type: action === 'join' ? 'client_join' : 'client_leave',
+      source,
+    });
   }
 
   private _setState(state: ConnectionState): void {
