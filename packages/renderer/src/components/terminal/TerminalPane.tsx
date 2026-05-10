@@ -339,13 +339,15 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       unsubscribersRef.current = [];
       xtermRef.current = null;
       initializedRef.current = false;
-      if (openedRef.current) {
+      // 延迟 dispose，让 xterm 内部 setTimeout(0)（如 Viewport 构造）先执行完
+      // 避免 Viewport._renderService 在回调前就被清理导致 dimensions 读取崩溃
+      setTimeout(() => {
         try {
           xterm.dispose();
         } catch {
           // 忽略 dispose 错误
         }
-      }
+      }, 0);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId, sessionId]);
