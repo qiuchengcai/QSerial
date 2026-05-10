@@ -15,14 +15,6 @@ interface SerialShareDialogProps {
   defaultBaudRate?: number;
 }
 
-interface SshTunnelConfig {
-  host: string;
-  port: number;
-  username: string;
-  remotePort: number;
-  password?: string; // 可选，留空使用 ~/.ssh 下的默认密钥
-}
-
 const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
 export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
@@ -46,7 +38,6 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
     listenAddress: string;
     clientCount: number;
     clients: string[];
-    sshTunnelConnected: boolean;
     hasPassword: boolean;
   } | null>(null);
 
@@ -85,15 +76,6 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
     }
   }, [selectedPort, sessions]);
 
-  // SSH隧道配置 - 从配置文件加载最近使用的值
-  const [enableSshTunnel, setEnableSshTunnel] = useState(false);
-  const [sshConfig, setSshConfig] = useState<SshTunnelConfig>({
-    host: config.serialShare?.recentSshTunnel?.host || '',
-    port: config.serialShare?.recentSshTunnel?.port || 22,
-    username: config.serialShare?.recentSshTunnel?.username || 'root',
-    remotePort: config.serialShare?.recentSshTunnel?.remotePort || 8888,
-    password: '',
-  });
 
   // 根据选中的串口生成唯一的服务ID
   const serverId = selectedPort ? `serial-server-${selectedPort.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
@@ -152,14 +134,6 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
         localPort: number;
         listenAddress?: string;
         accessPassword?: string;
-        sshTunnel?: {
-          host: string;
-          port: number;
-          username: string;
-          remotePort: number;
-          privateKey?: string;
-          password?: string;
-        };
       } = {
         id: serverId,
         serialPath: selectedPort,
@@ -172,16 +146,6 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
         ...(accessPassword ? { accessPassword } : {}),
       };
 
-      if (enableSshTunnel && sshConfig.host) {
-        options.sshTunnel = {
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          remotePort: sshConfig.remotePort,
-          ...(sshConfig.password ? { password: sshConfig.password } : {}),
-        };
-      }
-
       // 后端会自动检测现有连接并复用
       await window.qserial.serialServer.start(options);
 
@@ -189,13 +153,6 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
       updateConfig('serialShare', {
         defaultLocalPort: localPort,
         defaultListenAddress: listenAddress,
-        recentSshTunnel: enableSshTunnel && sshConfig.host ? {
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          remotePort: sshConfig.remotePort,
-          savePassword: false, // 不保存密码到配置文件
-        } : undefined,
       });
 
       // 启动成功，显示提示对话框
@@ -343,93 +300,13 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
             </p>
           </div>
 
-          {/* SSH反向隧道 */}
-          <div className="border-t border-border/50 pt-4">
-            <label className="flex items-center gap-2.5 cursor-pointer mb-3">
-              <input
-                type="checkbox"
-                id="sshTunnel"
-                checked={enableSshTunnel}
-                onChange={(e) => setEnableSshTunnel(e.target.checked)}
-                disabled={isRunning}
-                className="dialog-checkbox"
-              />
-              <span className="text-sm font-medium">启用SSH反向隧道</span>
-            </label>
-
-            {enableSshTunnel && (
-              <div className="space-y-3 ml-6">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">远程服务器</label>
-                    <input
-                      type="text"
-                      value={sshConfig.host}
-                      onChange={(e) => setSshConfig((p) => ({ ...p, host: e.target.value }))}
-                      disabled={isRunning}
-                      className="dialog-input text-sm"
-                      placeholder="192.168.1.100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">SSH端口</label>
-                    <input
-                      type="number"
-                      value={sshConfig.port}
-                      onChange={(e) => setSshConfig((p) => ({ ...p, port: Number(e.target.value) }))}
-                      disabled={isRunning}
-                      className="dialog-input text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">用户名</label>
-                    <input
-                      type="text"
-                      value={sshConfig.username}
-                      onChange={(e) => setSshConfig((p) => ({ ...p, username: e.target.value }))}
-                      disabled={isRunning}
-                      className="dialog-input text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1.5">远程端口</label>
-                    <input
-                      type="number"
-                      value={sshConfig.remotePort}
-                      onChange={(e) => setSshConfig((p) => ({ ...p, remotePort: Number(e.target.value) }))}
-                      disabled={isRunning}
-                      className="dialog-input text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                    密码 <span className="text-text-secondary/50 font-normal">(可选)</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={sshConfig.password || ''}
-                    onChange={(e) => setSshConfig((p) => ({ ...p, password: e.target.value }))}
-                    disabled={isRunning}
-                    className="dialog-input text-sm"
-                    placeholder="留空则使用 ~/.ssh 下的默认密钥"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* 状态 */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
               <span className="text-sm">
                 {isRunning
-                  ? `运行中 - ${selectedPort} -> ${status?.listenAddress || '0.0.0.0'}:${localPort}${status?.sshTunnelConnected ? ` (SSH隧道已连接)` : ''}${status?.hasPassword ? ' [已设密码]' : ''}`
+                  ? `运行中 - ${selectedPort} -> ${status?.listenAddress || '0.0.0.0'}:${localPort}${status?.hasPassword ? ' [已设密码]' : ''}`
                   : '已停止'}
               </span>
             </div>
@@ -482,9 +359,8 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
           <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3 space-y-1">
             <p className="font-medium text-text-secondary/80">使用方式：</p>
             <p>1. 远程Linux服务器执行: telnet localhost {'{远程端口}'} 即可操作串口</p>
-            <p>2. 如启用SSH隧道，远程服务器需安装ssh并监听</p>
-            <p>3. Windows需先启用Telnet客户端: dism /online /Enable-Feature /FeatureName:TelnetClient</p>
-            <p>4. 也可使用 socat - localhost:{'{远程端口}'} 交互操作</p>
+            <p>2. Windows需先启用Telnet客户端: dism /online /Enable-Feature /FeatureName:TelnetClient</p>
+            <p>3. 也可使用 socat - localhost:{'{远程端口}'} 交互操作</p>
           </div>
         </div>
 
@@ -517,77 +393,43 @@ export const SerialShareDialog: React.FC<SerialShareDialogProps> = ({
                   {accessPassword && (
                     <p><span className="text-text-secondary">访问密码：</span>已设置</p>
                   )}
-                  {enableSshTunnel && sshConfig.host && (
-                    <p><span className="text-text-secondary">远程服务器：</span>{sshConfig.host}</p>
-                  )}
                 </div>
               </div>
 
-              {enableSshTunnel && sshConfig.host ? (
-                <>
-                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
-                    <p className="text-sm font-medium mb-2">在远程服务器 {sshConfig.host} 上执行：</p>
-                    <div className="bg-background rounded-md p-2 font-mono text-sm">
-                      telnet localhost {sshConfig.remotePort}
-                    </div>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(`telnet localhost ${sshConfig.remotePort}`)}
-                      className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
-                    >
-                      复制命令
-                    </button>
-                    {accessPassword && (
-                      <p className="text-xs text-yellow-500 mt-2">
-                        连接后直接输入密码 {accessPassword} 回车即可认证
-                      </p>
-                    )}
-                  </div>
+              <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
+                <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
+                <div className="bg-background rounded-md p-2 font-mono text-sm">
+                  telnet {'<本机IP>'} {localPort}
+                </div>
+                <p className="text-xs text-text-secondary mt-2">
+                  请将 {'<本机IP>'} 替换为本机的局域网 IP 地址
+                </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      const ip = await window.qserial.getLocalIp();
+                      await navigator.clipboard.writeText(`telnet ${ip} ${localPort}`);
+                    } catch {
+                      await navigator.clipboard.writeText(`telnet <本机IP> ${localPort}`);
+                    }
+                  }}
+                  className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
+                >
+                  复制命令
+                </button>
+                {accessPassword && (
+                  <p className="text-xs text-yellow-500 mt-2">
+                    连接后直接输入密码 {accessPassword} 回车即可认证
+                  </p>
+                )}
+              </div>
 
-                  <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
-                    <p className="font-medium text-text-secondary/80 mb-1">SSH反向隧道说明：</p>
-                    <p>已建立从远程服务器端口 {sshConfig.remotePort} 到本地端口 {localPort} 的反向隧道。</p>
-                    <p className="mt-1">在远程服务器上执行上述命令即可操作本地串口。</p>
-                    <p className="mt-1 text-yellow-500">推荐使用 telnet 客户端连接，支持完整的终端交互功能。</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
-                    <p className="text-sm font-medium mb-2">在同一局域网的设备上执行：</p>
-                    <div className="bg-background rounded-md p-2 font-mono text-sm">
-                      telnet {'<本机IP>'} {localPort}
-                    </div>
-                    <p className="text-xs text-text-secondary mt-2">
-                      请将 {'<本机IP>'} 替换为本机的局域网 IP 地址
-                    </p>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const ip = await window.qserial.getLocalIp();
-                          await navigator.clipboard.writeText(`telnet ${ip} ${localPort}`);
-                        } catch {
-                          await navigator.clipboard.writeText(`telnet <本机IP> ${localPort}`);
-                        }
-                      }}
-                      className="mt-2 px-3 py-1.5 text-sm bg-primary/20 hover:bg-primary/30 rounded-md transition-colors"
-                    >
-                      复制命令
-                    </button>
-                    {accessPassword && (
-                      <p className="text-xs text-yellow-500 mt-2">
-                        连接后直接输入密码 {accessPassword} 回车即可认证
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
-                    <p className="font-medium text-text-secondary/80 mb-1">本地局域网连接说明：</p>
-                    <p>同一局域网内的其他设备可通过上述命令连接串口。</p>
-                    <p className="mt-1">可在命令行执行 <code className="bg-background px-1 rounded">ipconfig</code> (Windows) 或 <code className="bg-background px-1 rounded">ifconfig</code> (Linux/Mac) 查看本机 IP。</p>
-                    <p className="mt-1 text-yellow-500">推荐使用 telnet 客户端连接，支持完整的终端交互功能。Windows 需先启用: dism /online /Enable-Feature /FeatureName:TelnetClient</p>
-                  </div>
-                </>
-              )}
+              <div className="text-xs text-text-secondary bg-background/50 rounded-lg p-3">
+                <p className="font-medium text-text-secondary/80 mb-1">本地局域网连接说明：</p>
+                <p>同一局域网内的其他设备可通过上述命令连接串口。</p>
+                <p className="mt-1">可在命令行执行 <code className="bg-background px-1 rounded">ipconfig</code> (Windows) 或 <code className="bg-background px-1 rounded">ifconfig</code> (Linux/Mac) 查看本机 IP。</p>
+                <p className="mt-1 text-yellow-500">推荐使用 telnet 客户端连接，支持完整的终端交互功能。Windows 需先启用: dism /online /Enable-Feature /FeatureName:TelnetClient</p>
+              </div>
             </div>
 
             <div className="flex justify-end mt-4 pt-4 border-t border-border">

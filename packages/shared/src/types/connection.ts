@@ -101,15 +101,6 @@ export interface SerialServerOptions extends BaseConnectionOptions {
   localPort: number; // 本地TCP监听端口
   listenAddress?: string; // 本地TCP监听地址，默认 '0.0.0.0'
   accessPassword?: string; // 访问密码，为空则无需认证
-  // SSH反向隧道选项
-  sshTunnel?: {
-    host: string; // 远程服务器地址
-    port: number; // SSH端口
-    username: string;
-    remotePort: number; // 远程转发端口
-    privateKey?: string;
-    password?: string;
-  };
 }
 
 /**
@@ -131,15 +122,6 @@ export interface ConnectionServerOptions extends BaseConnectionOptions {
   localPort: number; // 本地TCP监听端口
   listenAddress?: string; // 本地TCP监听地址，默认 '0.0.0.0'
   accessPassword?: string; // 访问密码，为空则无需认证
-  // SSH反向隧道选项
-  sshTunnel?: {
-    host: string; // 远程服务器地址
-    port: number; // SSH端口
-    username: string;
-    remotePort: number; // 远程转发端口
-    privateKey?: string;
-    password?: string;
-  };
 }
 
 /**

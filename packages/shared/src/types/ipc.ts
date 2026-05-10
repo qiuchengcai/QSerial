@@ -164,13 +164,6 @@ export interface IpcRequestMap {
     localPort: number;
     listenAddress?: string;
     accessPassword?: string;
-    sshTunnel?: {
-      host: string;
-      port: number;
-      username: string;
-      remotePort: number;
-      password?: string; // 可选，留空使用 ~/.ssh 下的默认密钥
-    };
   };
   [IPC_CHANNELS.SERIAL_SERVER_STOP]: { id: string };
   [IPC_CHANNELS.SERIAL_SERVER_STATUS]: { id: string };
@@ -188,13 +181,6 @@ export interface IpcRequestMap {
     localPort: number;
     listenAddress?: string;
     accessPassword?: string;
-    sshTunnel?: {
-      host: string;
-      port: number;
-      username: string;
-      remotePort: number;
-      password?: string;
-    };
   };
   [IPC_CHANNELS.CONNECTION_SERVER_STOP]: { id: string };
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: { id: string };
@@ -471,7 +457,6 @@ export interface SerialServerStatus {
   listenAddress: string;
   clientCount: number;
   clients: string[];
-  sshTunnelConnected: boolean;
   hasPassword: boolean;
 }
 
@@ -486,7 +471,6 @@ export interface ConnectionServerStatus {
   listenAddress: string;
   clientCount: number;
   clients: string[];
-  sshTunnelConnected: boolean;
   hasPassword: boolean;
 }
 

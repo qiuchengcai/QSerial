@@ -163,13 +163,6 @@ const api = {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
-      sshTunnel?: {
-        host: string;
-        port: number;
-        username: string;
-        remotePort: number;
-        password?: string; // 可选，留空使用 ~/.ssh 下的默认密钥
-      };
     }) => {
       return ipcRenderer.invoke(IPC_CHANNELS.SERIAL_SERVER_START, options);
     },
@@ -189,13 +182,6 @@ const api = {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
-      sshTunnel?: {
-        host: string;
-        port: number;
-        username: string;
-        remotePort: number;
-        password?: string;
-      };
     }) => {
       return ipcRenderer.invoke(IPC_CHANNELS.CONNECTION_SERVER_START, options);
     },

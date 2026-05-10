@@ -75,14 +75,6 @@ export interface SshSettings {
  */
 export interface SerialShareSettings {
   defaultLocalPort: number;
-  // 最近使用的SSH隧道配置
-  recentSshTunnel?: {
-    host: string;
-    port: number;
-    username: string;
-    remotePort: number;
-    savePassword: boolean;
-  };
 }
 
 /**
@@ -91,13 +83,6 @@ export interface SerialShareSettings {
 export interface ConnectionShareSettings {
   defaultLocalPort: number;
   defaultListenAddress?: string;
-  recentSshTunnel?: {
-    host: string;
-    port: number;
-    username: string;
-    remotePort: number;
-    savePassword: boolean;
-  };
 }
 
 /**

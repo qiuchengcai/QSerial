@@ -89,13 +89,6 @@ interface QSerialAPI {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
-      sshTunnel?: {
-        host: string;
-        port: number;
-        username: string;
-        remotePort: number;
-        password?: string; // 可选，留空使用 ~/.ssh 下的默认密钥
-      };
     }) => Promise<void>;
     stop: (id: string) => Promise<void>;
     getStatus: (id: string) => Promise<SerialServerStatus>;
@@ -111,13 +104,6 @@ interface QSerialAPI {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
-      sshTunnel?: {
-        host: string;
-        port: number;
-        username: string;
-        remotePort: number;
-        password?: string;
-      };
     }) => Promise<void>;
     stop: (id: string) => Promise<void>;
     getStatus: (id: string) => Promise<ConnectionServerStatus>;

@@ -1,13 +1,9 @@
 /**
  * 串口服务端连接
- * 将本地串口通过TCP共享，支持SSH反向隧道
+ * 将本地串口通过TCP共享
  */
 
 import * as net from 'net';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { Client } from 'ssh2';
 import { SerialPort } from 'serialport';
 import {
   ConnectionType,
@@ -35,18 +31,6 @@ const OPT_LINEMODE = 34;
 
 // ============== 常规常量 ==============
 
-// 默认密钥文件名列表（按优先级）
-const DEFAULT_KEY_NAMES = [
-  'id_ed25519',
-  'id_rsa',
-  'id_ecdsa',
-  'id_dsa',
-];
-
-/** SSH 重连配置 */
-const SSH_RECONNECT_MAX_ATTEMPTS = 5;
-const SSH_RECONNECT_BASE_DELAY = 3000; // 3s
-
 /** 客户端认证超时 */
 const AUTH_TIMEOUT = 10000; // 10s
 
@@ -60,27 +44,6 @@ function findIACSE(data: Buffer, offset: number): number {
     }
   }
   return -1;
-}
-
-/**
- * 获取用户默认 SSH 密钥列表
- */
-function getDefaultPrivateKeys(): Buffer[] {
-  const sshDir = path.join(os.homedir(), '.ssh');
-  const keys: Buffer[] = [];
-
-  for (const name of DEFAULT_KEY_NAMES) {
-    const keyPath = path.join(sshDir, name);
-    try {
-      if (fs.existsSync(keyPath)) {
-        keys.push(fs.readFileSync(keyPath));
-      }
-    } catch {
-      // 读取失败跳过
-    }
-  }
-
-  return keys;
 }
 
 interface ClientInfo {
@@ -107,7 +70,6 @@ export class SerialServerConnection implements IConnection {
   private _state: ConnectionState = ConnectionState.DISCONNECTED;
   private serialPort: SerialPort | null = null;
   private tcpServer: net.Server | null = null;
-  private sshClient: Client | null = null;
   private clients: Map<string, ClientInfo> = new Map();
   private dataCallbacks: Set<(data: Buffer) => void> = new Set();
   private stateCallbacks: Set<(state: ConnectionState) => void> = new Set();
@@ -118,9 +80,6 @@ export class SerialServerConnection implements IConnection {
   private stateUnsubscriber: (() => void) | null = null;
   private closeUnsubscriber: (() => void) | null = null;
   private errorUnsubscriber: (() => void) | null = null;
-  private sshReconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private sshReconnectAttempts = 0;
-  private isDestroyed = false;
   // 写入队列：串行化多客户端写入，避免数据帧交错
   private writeQueue: Array<{ data: Buffer; clientId: string }> = [];
   private isWriting = false;
@@ -147,10 +106,6 @@ export class SerialServerConnection implements IConnection {
 
       await this.startTcpServer();
 
-      if (this.options.sshTunnel) {
-        await this.setupSshTunnel();
-      }
-
       this._setState(ConnectionState.CONNECTED);
     } catch (error) {
       this._setState(ConnectionState.ERROR);
@@ -160,18 +115,11 @@ export class SerialServerConnection implements IConnection {
   }
 
   private async cleanupOnError(): Promise<void> {
-    this._clearSshReconnectTimer();
-
     if (this.tcpServer) {
       await new Promise<void>((resolve) => {
         this.tcpServer!.close(() => resolve());
       });
       this.tcpServer = null;
-    }
-
-    if (this.sshClient) {
-      this.sshClient.end();
-      this.sshClient = null;
     }
 
     if (this.serialPort && this.serialPort.isOpen) {
@@ -437,178 +385,7 @@ export class SerialServerConnection implements IConnection {
     });
   }
 
-  private async setupSshTunnel(): Promise<void> {
-    const tunnelConfig = this.options.sshTunnel;
-    if (!tunnelConfig) return;
-
-    await this._connectSsh(tunnelConfig);
-  }
-
-  private async _connectSsh(tunnelConfig: NonNullable<SerialServerOptions['sshTunnel']>): Promise<void> {
-    const defaultKeys = getDefaultPrivateKeys();
-
-    // 收集所有可用的认证配置
-    const authMethods: { privateKey?: Buffer; password?: string; name: string }[] = [];
-
-    const keyNames = ['id_ed25519', 'id_rsa', 'id_ecdsa', 'id_dsa'];
-    for (let i = 0; i < defaultKeys.length; i++) {
-      authMethods.push({ privateKey: defaultKeys[i], name: keyNames[i] || `key-${i}` });
-    }
-
-    if (tunnelConfig.password) {
-      authMethods.push({ password: tunnelConfig.password, name: 'password' });
-    }
-
-    if (authMethods.length === 0) {
-      throw new Error('未找到 SSH 密钥 (~/.ssh/id_*) 且未提供密码');
-    }
-
-    // 依次尝试每种认证方式
-    let lastError: Error | null = null;
-    let connected = false;
-
-    for (const auth of authMethods) {
-      if (connected) break;
-
-      try {
-        await new Promise<void>((connectResolve, connectReject) => {
-          let settled = false;
-
-          this.sshClient = new Client();
-
-          const timeout = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            this.sshClient?.end();
-            connectReject(new Error('SSH连接超时'));
-          }, 15000);
-
-          this.sshClient.on('ready', () => {
-            if (settled) return;
-            clearTimeout(timeout);
-            this.sshReconnectAttempts = 0; // 连接成功，重置重连计数
-
-            // 请求远程端口转发
-            this.sshClient!.forwardIn(
-              '127.0.0.1',
-              tunnelConfig.remotePort,
-              (err) => {
-                if (settled) return;
-                if (err) {
-                  settled = true;
-                  connectReject(new Error(`SSH隧道建立失败: ${err.message}`));
-                } else {
-                  settled = true;
-                  connected = true;
-                  connectResolve();
-                }
-              }
-            );
-          });
-
-          this.sshClient.on('tcp connection', (_info, accept) => {
-            const channel = accept();
-            if (!channel) return;
-
-            // 将SSH连接转发到本地TCP服务器
-            const socket = net.connect(this.options.localPort, '127.0.0.1', () => {
-              channel.pipe(socket);
-              socket.pipe(channel);
-            });
-
-            socket.on('error', () => {
-              channel.end();
-            });
-
-            channel.on('error', () => {
-              socket.end();
-            });
-          });
-
-          this.sshClient.on('close', () => {
-            clearTimeout(timeout);
-            // SSH 连接意外断开，尝试重连
-            if (connected && !this.isDestroyed && this._state === ConnectionState.CONNECTED) {
-              this._scheduleSshReconnect(tunnelConfig);
-            }
-          });
-
-          this.sshClient.on('error', (err) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timeout);
-            lastError = err;
-            connectReject(err);
-          });
-
-          const connectConfig: {
-            host: string;
-            port: number;
-            username: string;
-            privateKey?: Buffer;
-            password?: string;
-            tryKeyboard?: boolean;
-            readyTimeout: number;
-          } = {
-            host: tunnelConfig.host,
-            port: tunnelConfig.port,
-            username: tunnelConfig.username,
-            readyTimeout: 20000,
-          };
-
-          if (auth.privateKey) {
-            connectConfig.privateKey = auth.privateKey;
-          } else if (auth.password) {
-            connectConfig.password = auth.password;
-            connectConfig.tryKeyboard = true;
-          }
-
-          this.sshClient.connect(connectConfig);
-        });
-      } catch {
-        try { this.sshClient?.end(); } catch { /* ignore */ }
-        this.sshClient = null;
-        continue;
-      }
-    }
-
-    if (!connected) {
-      const errorMsg = (lastError as Error | null)?.message ?? '所有认证方式均失败';
-      throw new Error(`SSH连接失败: ${errorMsg}。请检查密钥或密码是否正确。`);
-    }
-  }
-
-  private _scheduleSshReconnect(tunnelConfig: NonNullable<SerialServerOptions['sshTunnel']>): void {
-    if (this.isDestroyed || this.sshReconnectAttempts >= SSH_RECONNECT_MAX_ATTEMPTS) {
-      this._notifyError(new Error(`SSH隧道断开，已达到最大重连次数 (${SSH_RECONNECT_MAX_ATTEMPTS})`));
-      return;
-    }
-
-    const delay = SSH_RECONNECT_BASE_DELAY * Math.pow(2, this.sshReconnectAttempts);
-    this.sshReconnectAttempts++;
-
-    this.sshReconnectTimer = setTimeout(async () => {
-      if (this.isDestroyed || this._state !== ConnectionState.CONNECTED) return;
-
-      try {
-        this.sshClient = null;
-        await this._connectSsh(tunnelConfig);
-      } catch {
-        // 重连失败，继续尝试
-        this._scheduleSshReconnect(tunnelConfig);
-      }
-    }, delay);
-  }
-
-  private _clearSshReconnectTimer(): void {
-    if (this.sshReconnectTimer) {
-      clearTimeout(this.sshReconnectTimer);
-      this.sshReconnectTimer = null;
-    }
-  }
-
   async close(): Promise<void> {
-    this._clearSshReconnectTimer();
 
     // 清理写入队列
     this.writeQueue = [];
@@ -631,12 +408,6 @@ export class SerialServerConnection implements IConnection {
       this.tcpServer = null;
     }
 
-    // 关闭SSH隧道
-    if (this.sshClient) {
-      this.sshClient.end();
-      this.sshClient = null;
-    }
-
     // 取消共享连接的监听
     this._unsubscribeSharedConnection();
 
@@ -655,8 +426,6 @@ export class SerialServerConnection implements IConnection {
   }
 
   destroy(): void {
-    this.isDestroyed = true;
-    this._clearSshReconnectTimer();
     this.close().catch(() => {});
     this.dataCallbacks.clear();
     this.stateCallbacks.clear();
@@ -714,7 +483,6 @@ export class SerialServerConnection implements IConnection {
     listenAddress: string;
     clientCount: number;
     clients: string[];
-    sshTunnelConnected: boolean;
     hasPassword: boolean;
   } {
     return {
@@ -726,7 +494,6 @@ export class SerialServerConnection implements IConnection {
       clients: Array.from(this.clients.values())
         .filter((c) => c.authenticated)
         .map((c) => c.address),
-      sshTunnelConnected: this.sshClient !== null,
       hasPassword: !!this.options.accessPassword,
     };
   }

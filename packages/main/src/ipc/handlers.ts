@@ -505,7 +505,7 @@ function setupLogHandlers(): void {
 function setupSerialServerHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SERIAL_SERVER_START, async (_, options) => {
     const { ConnectionType } = await import('@qserial/shared');
-    const { id, serialPath, baudRate, dataBits, stopBits, parity, localPort, listenAddress, accessPassword, sshTunnel } = options;
+    const { id, serialPath, baudRate, dataBits, stopBits, parity, localPort, listenAddress, accessPassword } = options;
 
     // 如果相同ID的服务器已存在，先销毁它
     const existingServer = ConnectionFactory.get(id);
@@ -534,7 +534,6 @@ function setupSerialServerHandlers(): void {
       localPort,
       listenAddress,
       accessPassword,
-      sshTunnel,
       autoReconnect: false,
     });
 
@@ -568,7 +567,7 @@ function setupSerialServerHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.SERIAL_SERVER_STATUS, async (_, { id }) => {
     const connection = ConnectionFactory.get(id);
-    if (!connection) return { running: false, serialPath: '', localPort: 0, clientCount: 0, sshTunnelConnected: false };
+    if (!connection) return { running: false, serialPath: '', localPort: 0, clientCount: 0 };
     return (connection as unknown as { getStatus: () => unknown }).getStatus();
   });
 }
@@ -614,7 +613,6 @@ function setupConnectionServerHandlers(): void {
       localPort,
       listenAddress,
       accessPassword,
-      sshTunnel,
     } = options;
 
     // 如果相同ID的服务器已存在，先销毁它
@@ -653,7 +651,6 @@ function setupConnectionServerHandlers(): void {
       localPort,
       listenAddress,
       accessPassword,
-      sshTunnel,
       autoReconnect: false,
     });
 
@@ -695,7 +692,6 @@ function setupConnectionServerHandlers(): void {
         listenAddress: '0.0.0.0',
         clientCount: 0,
         clients: [],
-        sshTunnelConnected: false,
         hasPassword: false,
       };
     }
