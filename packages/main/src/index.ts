@@ -12,6 +12,12 @@ import { ConnectionFactory } from './connection/factory.js';
 import { destroyTftpManager } from './tftp/manager.js';
 import { initNfsManager, destroyNfsManager } from './nfs/manager.js';
 import { destroyFtpManager } from './ftp/manager.js';
+import { ensurePtyPatch } from './connection/pty-patch.js';
+
+// ESM imports 已执行完毕，node-pty 模块已加载。
+// 在创建任何 PTY 连接之前 patch loadNativeModule，使其使用绝对路径 require
+// 以绕过 asar 虚拟文件系统中 .node 文件加载问题。
+ensurePtyPatch();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
