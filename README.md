@@ -1,11 +1,12 @@
 # QSerial
 
-一款现代化的跨平台终端工具，支持串口、SSH、Telnet、本地终端等多种连接方式，内置连接共享与文件传输服务（SFTP/FTP/TFTP/NFS）。
+一款现代化的跨平台终端工具，支持串口、SSH、Telnet、本地终端等多种连接方式，内置连接共享、文件传输服务（SFTP/FTP/TFTP/NFS）与 **MCP AI 服务器**，供 Claude Code、CodeBuddy 等 AI Agent 远程操作设备。
 
 ## 特性
 
-- 🔌 **多协议支持**: 本地终端 (PTY)、串口、SSH、Telnet — 6 种连接类型
-- 📡 **连接共享**: TCP 共享任意活跃连接，基于 TELNET 协议协商 + 密码认证 + SSH 反向隧道
+- 🔌 **多协议支持**: 本地终端 (PTY)、串口、SSH、Telnet
+- 🤖 **内置 MCP AI 服务器**: 13 个 MCP 工具，支持 streamableHttp / SSE 传输，AI 可创建连接、读写终端、自动登录、状态感知
+- 📡 **连接共享**: TCP 共享任意活跃连接 + JSON API 端口（供 AI 程序化操作），支持密码认证
 - 📁 **SFTP 文件传输**: SSH 连接内置 SFTP 文件浏览器，支持上传/下载/管理远程文件
 - 📦 **TFTP 服务器**: 内置 TFTP 服务器，传输参数优化（blockSize=65464、windowSize=64）
 - 🌐 **FTP 服务器**: 内置 FTP 服务器，支持用户名密码认证
@@ -13,7 +14,57 @@
 - 📑 **多标签管理**: 支持拖拽排序、分组管理
 - ⚡ **快捷按钮**: 支持多行命令逐条发送、行间延迟配置
 - 🎨 **主题定制**: 8 套预设主题，支持自定义
-- 💾 **会话管理**: 保存连接配置，快速重连
+- 💾 **会话管理**: 保存连接配置，点击快速切换（所有连接类型均支持开关切换）
+
+## MCP AI 服务器
+
+QSerial 启动后自动在 `0.0.0.0:9800` 启动 MCP 服务器，AI Agent 可直接远程操作设备。
+
+### 配置方式
+
+**Claude Code** — `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "qserial": {
+      "transport": "streamableHttp",
+      "url": "http://<host>:9800/mcp"
+    }
+  }
+}
+```
+
+**CodeBuddy** — `~/.codebuddy/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "qserial": {
+      "transport": "sse",
+      "url": "http://<host>:9800/sse"
+    }
+  }
+}
+```
+
+### MCP 工具 (13个)
+
+| 类别 | 工具 | 说明 |
+|------|------|------|
+| 连接管理 | `connection_create` | 创建串口/SSH/Telnet/PTY 连接 |
+| | `connection_disconnect` | 断开并销毁连接 |
+| | `connection_update` | 调整终端尺寸或串口波特率 |
+| | `connection_list` | 列出所有活跃连接 |
+| | `connection_info` | 查看连接详细信息 |
+| 数据交互 | `connection_write` | 发送命令/数据 |
+| | `connection_read` | 读取输出（读后清空） |
+| | `connection_peek` | 预览输出（不清空） |
+| | `connection_expect` | 等待特定模式出现 |
+| | `connection_clear` | 清空输出缓冲区 |
+| 状态感知 | `connection_state` | 分析交互状态（login/shell/booting） |
+| | `connection_login` | 自动化登录流程 |
+| 帮助 | `help` | 获取完整使用说明 |
+
+详细文档见 [AI 使用指南](docs/AI_USAGE.md)。
 
 ## 开发
 
@@ -31,31 +82,17 @@ pnpm install
 ### 开发模式
 
 ```bash
-# 构建共享包
 pnpm build:shared
-
-# 启动开发服务器
 pnpm dev
 ```
 
 ### 构建
 
 ```bash
-# 构建所有包
-pnpm build
-
-# 打包应用
-pnpm package:win      # Windows
-pnpm package:linux    # Linux
-pnpm package:mac      # macOS
-```
-
-### 原生模块编译
-
-项目包含原生模块（node-pty、serialport），如需重新编译：
-
-```bash
-pnpm rebuild node-pty @serialport/bindings-cpp
+pnpm build             # 构建所有包
+pnpm package:win       # 打包 Windows
+pnpm package:linux     # 打包 Linux
+pnpm package:mac       # 打包 macOS
 ```
 
 ## 项目结构
@@ -65,8 +102,9 @@ QSerial/
 ├── packages/
 │   ├── main/          # Electron 主进程
 │   │   └── src/
-│   │       ├── connection/   # 连接模块 (PTY/Serial/SSH/Telnet/SerialServer/ConnectionServer)
+│   │       ├── connection/   # 连接模块 (PTY/Serial/SSH/Telnet/Server)
 │   │       ├── config/       # 配置管理
+│   │       ├── mcp/          # MCP AI 服务器
 │   │       ├── sftp/         # SFTP 文件传输
 │   │       ├── ftp/          # FTP 服务器
 │   │       ├── nfs/          # NFS 服务器
@@ -86,39 +124,19 @@ QSerial/
 
 - **平台**: Windows / macOS / Linux
 - **框架**: Electron 28 + React 18
-- **语言**: TypeScript 5.3
+- **语言**: TypeScript 5
 - **终端**: xterm.js 5.x + addon-fit + addon-search + addon-web-links
 - **状态管理**: Zustand (persist 中间件)
 - **样式**: Tailwind CSS
 - **构建**: Vite 5 + electron-builder
-- **原生模块**: node-pty, serialport 12, ssh2, ftp-srv
-
-## 开发规范
-
-### 代码风格
-
-- TypeScript strict 模式
-- ESLint + Prettier 格式化
-- 函数式组件 + Hooks
-
-### 提交规范
-
-```
-<类型>: <中文描述>
-
-类型: 新增/修复/优化/重构/文档/样式/测试/构建/其他
-```
+- **原生模块**: node-pty, serialport, ssh2, ftp-srv
+- **MCP 协议**: JSON-RPC 2.0 over HTTP (SSE + streamableHttp)
 
 ## 文档
 
 | 文档 | 说明 |
 |------|------|
-| [项目结构](docs/project-structure.md) | 目录结构与文件说明 |
-| [架构设计文档](docs/architecture-design.md) | 系统架构设计 |
-| [用户指南](docs/user-guide.md) | 功能使用说明 |
-| [优化路线图](docs/optimization-roadmap.md) | 后续优化方向 |
-| [离线环境搭建指南](docs/offline-environment-setup.md) | 离线环境搭建 |
-| [Linux交叉编译Windows版本指南](docs/linux-cross-compile-windows.md) | 交叉编译 |
+| [AI 使用指南](docs/AI_USAGE.md) | MCP 工具参考与操作流程，供 AI Agent 阅读 |
 
 ## 许可证
 

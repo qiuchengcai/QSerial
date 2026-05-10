@@ -44,55 +44,50 @@ const HELP_TEXT = `# QSerial AI 使用指南
 QSerial 是一个终端连接管理工具，内置 MCP 服务器，供 AI Agent 远程操作串口、SSH、Telnet、本地终端等设备。
 AI 和人类可以同时操作同一个终端设备，互不阻塞。
 
-## 可用工具
+## 可用工具 (共13个)
 
-### connection_list — 列出所有连接
-列出 QSerial 中所有活跃的连接及其状态。返回每个连接的 id、type、name、state。
+### 连接管理
+- connection_create — 创建并连接新设备 (serial/ssh/telnet/pty)
+- connection_disconnect — 断开并销毁指定连接
+- connection_update — 调整终端尺寸或串口波特率
+- connection_list — 列出所有活跃连接及其状态
+- connection_info — 获取连接详细信息（类型、参数）
 
-### connection_info — 查看连接详情
-参数: { "id": "连接ID" }
-获取指定连接的详细信息（类型、状态、完整参数）。
+### 数据交互
+- connection_write — 发送命令/数据（末尾需 \\n）
+- connection_read — 读取输出缓冲区（读后清空）
+- connection_peek — 预览输出缓冲区（不清空）
+- connection_expect — 等待指定模式出现（带超时）
+- connection_clear — 清空输出缓冲区
 
-### connection_write — 发送命令
-参数: { "id": "连接ID", "data": "命令文本" }
-向连接发送数据或命令。重要：终端命令末尾必须包含 \\n 换行符。
-发送后自动等待 300ms 回显并返回。
+### 状态感知
+- connection_state — 分析交互状态: login_prompt/password_prompt/shell(root/user)/booting/program_running/idle
+- connection_login — 自动登录: 检测login:→发送用户名→检测Password:→发送密码→等待Shell就绪
 
-### connection_read — 读取输出
-参数: { "id": "连接ID" }
-读取设备的输出缓冲区，读取后自动清空。适合"发一条命令→读一次响应"的模式。
-
-### connection_peek — 预览输出
-参数: { "id": "连接ID", "max_bytes": 4096 }
-预览输出缓冲区内容，不清空。max_bytes 可选，默认 4096，返回最近 N 字节。
-
-### connection_expect — 模式匹配等待
-参数: { "id": "连接ID", "pattern": "匹配文本", "timeout": 30 }
-等待输出中出现指定文本（子串匹配）。timeout 可选，默认 30 秒。
-适合等待设备启动、登录提示等场景。
-
-### connection_clear — 清空缓冲区
-参数: { "id": "连接ID" }
-清空指定连接的输出缓冲区。
+### 帮助
+- help — 返回本文档
 
 ## 典型操作流程
 
-### 操作已有设备
-1. connection_list → 获取设备列表和 connection_id
+### 创建并操作设备
+1. connection_create → 创建 serial/ssh/telnet 连接，获取连接ID
 2. connection_peek → 了解当前终端显示内容
 3. connection_write → 发送命令（如 "cat /proc/version\\n"）
 4. connection_read → 读取命令输出
 
+### 自动登录设备
+1. connection_state → 查看当前状态（login_prompt? shell?）
+2. connection_login → 传入用户名密码，自动完成登录
+3. connection_write → 登录成功后直接操作
+
 ### 等待设备启动
-1. connection_expect → 等待 "login:" 提示（最多等 30s）
-2. connection_write → 发送用户名
-3. connection_expect → 等待 "Password:"
-4. connection_write → 发送密码
-5. connection_read → 读取登录后输出
+1. connection_state → 确认是否处于 booting 状态
+2. connection_expect → 等待 "login:" 提示
+3. connection_login → 自动完成登录
 
 ### 实时监控
-1. connection_peek → 查看当前状态（不消耗）
-2. connection_peek → 再次查看
+1. connection_peek → 查看当前状态（不消耗缓冲区）
+2. connection_state → 分析交互阶段
 3. connection_read → 需要处理时才消耗
 
 ## 连接类型
@@ -106,8 +101,9 @@ AI 和人类可以同时操作同一个终端设备，互不阻塞。
 ## 注意事项
 - 缓冲区上限 1MB，超出自动丢弃最早数据
 - 多个 AI 客户端可同时连接 MCP，互不影响
-- expect 会轮询缓冲区直到匹配或超时，期间不会丢失数据
-- 命令必须包含 \\n 结尾，否则不会执行`;
+- 命令必须包含 \\n 结尾，否则不会执行
+- connection_state 分析最近 64KB 输出，刚清屏可能返回 idle
+- connection_update 修改波特率时会自动断开重连`;
 
 // ==================== 工具定义 ====================
 
