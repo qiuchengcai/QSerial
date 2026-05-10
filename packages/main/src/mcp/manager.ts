@@ -905,17 +905,18 @@ export async function startMcpServer(port: number): Promise<void> {
 }
 
 export async function stopMcpServer(): Promise<void> {
+  // 先关闭所有 SSE 长连接，否则 server.close() 不会触发
+  for (const res of sseSessions.values()) {
+    if (!res.destroyed) res.end();
+  }
+  sseSessions.clear();
+
   if (mcpServer) {
     await new Promise<void>((resolve) => {
       mcpServer!.close(() => resolve());
     });
     mcpServer = null;
   }
-
-  for (const res of sseSessions.values()) {
-    if (!res.destroyed) res.end();
-  }
-  sseSessions.clear();
 
   for (const unsub of bufferSubscriptions.values()) {
     unsub();
