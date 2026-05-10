@@ -24,6 +24,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
     loadStatus,
   } = useMcpStore();
   const [localPort, setLocalPort] = useState(config.port);
+  const [localIp, setLocalIp] = useState('127.0.0.1');
 
   useEffect(() => {
     setLocalPort(config.port);
@@ -32,7 +33,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       loadStatus();
-      // 定期刷新连接列表
+      window.qserial.getLocalIp().then(setLocalIp).catch(() => setLocalIp('127.0.0.1'));
       const interval = setInterval(() => {
         if (useMcpStore.getState().running) {
           loadStatus();
@@ -185,13 +186,68 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* 提示 */}
-        <div className="text-xs text-text-secondary/60 px-5 pb-2 flex-shrink-0 space-y-0.5">
-          <p>· MCP (Model Context Protocol) 供 AI Agent 操作 QSerial 设备</p>
-          <p>· 端点：POST http://0.0.0.0:{config.port}/mcp (JSON-RPC)</p>
-          <p>· SSE 事件推送：GET http://0.0.0.0:{config.port}/sse</p>
-          <p>· 支持 7 个工具：连接列表、读写、预期匹配等</p>
-        </div>
+        {/* MCP 配置示例 */}
+        {running && (
+          <div className="px-5 pb-3 flex-shrink-0 space-y-3">
+            <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">MCP 配置</h4>
+
+            {/* Claude Code 配置 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-text-secondary">Claude Code — .mcp.json</span>
+                <button
+                  onClick={() => {
+                    const text = `{"mcpServers":{"qserial":{"transport":"streamableHttp","url":"http://${localIp}:${config.port}/mcp"}}}`;
+                    navigator.clipboard.writeText(text).catch(() => {});
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  复制
+                </button>
+              </div>
+              <pre className="text-[11px] bg-background rounded p-2 overflow-x-auto border border-border/50 whitespace-pre-wrap break-all">
+{`{
+  "mcpServers": {
+    "qserial": {
+      "transport": "streamableHttp",
+      "url": "http://${localIp}:${config.port}/mcp"
+    }
+  }
+}`}
+              </pre>
+            </div>
+
+            {/* CodeBuddy 配置 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-text-secondary">CodeBuddy — mcp.json</span>
+                <button
+                  onClick={() => {
+                    const text = `{"mcpServers":{"qserial":{"transport":"sse","url":"http://${localIp}:${config.port}/sse"}}}`;
+                    navigator.clipboard.writeText(text).catch(() => {});
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  复制
+                </button>
+              </div>
+              <pre className="text-[11px] bg-background rounded p-2 overflow-x-auto border border-border/50 whitespace-pre-wrap break-all">
+{`{
+  "mcpServers": {
+    "qserial": {
+      "transport": "sse",
+      "url": "http://${localIp}:${config.port}/sse"
+    }
+  }
+}`}
+              </pre>
+            </div>
+
+            <p className="text-xs text-text-secondary/60">
+              · {localIp}:{config.port} — MCP 支持 13 个工具，覆盖连接管理、数据交互、状态感知
+            </p>
+          </div>
+        )}
 
         {/* 关闭按钮 */}
         <div className="flex justify-end px-5 py-4 border-t border-border bg-background/30 flex-shrink-0">
