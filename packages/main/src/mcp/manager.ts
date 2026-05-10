@@ -188,6 +188,84 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'connection_create',
+    description: '创建并连接新设备。type=serial 需提供 path/baudRate；type=ssh 需提供 host/username/password；type=telnet 需提供 host/port；type=pty 可无额外参数。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', description: '连接类型：serial, ssh, telnet, pty' },
+        name: { type: 'string', description: '连接名称（可选）' },
+        // serial
+        path: { type: 'string', description: '[serial] 串口设备路径，如 /dev/ttyUSB0' },
+        baudRate: { type: 'integer', description: '[serial] 波特率，默认 9600' },
+        dataBits: { type: 'integer', description: '[serial] 数据位 5/6/7/8，默认 8' },
+        stopBits: { type: 'number', description: '[serial] 停止位 1/1.5/2，默认 1' },
+        parity: { type: 'string', description: '[serial] 校验位 none/even/odd/mark/space' },
+        // ssh
+        host: { type: 'string', description: '[ssh/telnet] 主机名或 IP' },
+        port: { type: 'integer', description: '[ssh/telnet] 端口，SSH 默认 22，Telnet 默认 23' },
+        username: { type: 'string', description: '[ssh] 用户名' },
+        password: { type: 'string', description: '[ssh] 密码' },
+        // pty
+        shell: { type: 'string', description: '[pty] Shell 路径，默认系统默认 shell' },
+      },
+      required: ['type'],
+    },
+  },
+  {
+    name: 'connection_disconnect',
+    description: '断开并销毁指定连接。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'connection_update',
+    description: '修改连接参数。支持调整终端尺寸 (cols/rows) 或串口波特率。修改波特率会断开重连。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        cols: { type: 'integer', description: '终端列数' },
+        rows: { type: 'integer', description: '终端行数' },
+        baudRate: { type: 'integer', description: '[serial] 新波特率' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'connection_state',
+    description: '分析连接的当前交互状态。检测终端处于登录界面、Shell、程序运行中等阶段。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'connection_login',
+    description: '自动化串口/Telnet 登录流程：等待登录提示→输入用户名→等待密码提示→输入密码，可选等待 Shell 提示符。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        username: { type: 'string', description: '登录用户名' },
+        password: { type: 'string', description: '登录密码' },
+        loginPrompt: { type: 'string', description: '登录提示符关键字，默认 "login:"' },
+        passwordPrompt: { type: 'string', description: '密码提示符关键字，默认 "Password:"' },
+        shellPrompt: { type: 'string', description: '登录成功后等待的 Shell 提示符，默认检测 # 或 $' },
+        timeout: { type: 'number', description: '每步超时秒数，默认 30' },
+      },
+      required: ['id', 'username', 'password'],
+    },
+  },
+  {
     name: 'help',
     description: '获取 QSerial AI 使用说明和完整操作指南。',
     inputSchema: { type: 'object', properties: {} },
@@ -434,6 +512,94 @@ function createMcpServer(port: number): http.Server {
   return server;
 }
 
+// ==================== 状态分析 ====================
+
+interface TerminalState {
+  state: 'login_prompt' | 'password_prompt' | 'shell' | 'program_running' | 'idle' | 'booting' | 'unknown';
+  shell_type?: string;
+  detected_prompts: string[];
+  details: string;
+}
+
+function analyzeState(output: string, connectionState: string): TerminalState {
+  if (connectionState !== 'connected') {
+    return { state: 'idle', detected_prompts: [], details: `连接状态: ${connectionState}` };
+  }
+
+  if (!output || output.trim().length === 0) {
+    return { state: 'idle', detected_prompts: [], details: '缓冲区为空，等待设备输出' };
+  }
+
+  const tail = output.slice(-1024).toLowerCase();
+  const detected: string[] = [];
+
+  // 密码提示
+  if (/password[:\s]/i.test(tail)) {
+    detected.push('password_prompt');
+  }
+
+  // 登录提示
+  if (/login[:\s]|username[:\s]/i.test(tail) && !detected.includes('password_prompt')) {
+    detected.push('login_prompt');
+  }
+
+  // Shell 提示符（最后一行）
+  const lastLine = (output.split('\n').filter(l => l.trim()).pop() || '').trim();
+  let shellType = '';
+  if (lastLine.endsWith('# ') || lastLine.match(/#\s*$/)) {
+    shellType = 'root';
+    detected.push('root_shell');
+  } else if (lastLine.endsWith('$ ') || lastLine.match(/\$\s*$/)) {
+    shellType = 'user';
+    detected.push('user_shell');
+  } else if (lastLine.endsWith('> ') || lastLine.match(/>\s*$/)) {
+    shellType = 'prompt';
+    detected.push('shell_prompt');
+  }
+
+  // 启动信息
+  const bootIndicators = ['booting', 'kernel', 'u-boot', 'uboot', 'starting kernel', 'bios', 'grub', 'systemd'];
+  const hasBootMsg = bootIndicators.some(k => tail.includes(k));
+
+  if (detected.includes('password_prompt')) {
+    return { state: 'password_prompt', shell_type: shellType || undefined, detected_prompts: detected, details: '等待输入密码' };
+  }
+  if (detected.includes('login_prompt')) {
+    return { state: 'login_prompt', shell_type: shellType || undefined, detected_prompts: detected, details: '等待输入用户名' };
+  }
+  if (shellType) {
+    return { state: 'shell', shell_type: shellType, detected_prompts: detected, details: `Shell 就绪 (${shellType})` };
+  }
+  if (hasBootMsg) {
+    return { state: 'booting', detected_prompts: detected, details: '设备正在启动中' };
+  }
+
+  // 有输出但无法归类 → 程序运行中
+  return { state: 'program_running', detected_prompts: detected, details: '设备有数据输出，未检测到 Shell 提示符或登录提示' };
+}
+
+// ==================== 辅助函数 ====================
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function waitPattern(id: string, pattern: string, timeout: number): Promise<{ matched: boolean; output: string }> {
+  const deadline = Date.now() + timeout * 1000;
+  let allOutput = '';
+  while (Date.now() < deadline) {
+    const chunk = consumeBuffer(id).toString('utf-8');
+    if (chunk) {
+      allOutput += chunk;
+      if (allOutput.toLowerCase().includes(pattern.toLowerCase())) {
+        return { matched: true, output: allOutput };
+      }
+    }
+    await sleep(100);
+  }
+  return { matched: false, output: allOutput };
+}
+
 // ==================== JSON-RPC 处理 ====================
 
 async function handleRpc(
@@ -559,6 +725,163 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const id = args.id as string;
         clearBuffer(id);
         return '缓冲区已清空';
+      }
+
+      case 'connection_create': {
+        const ctype = args.type as string;
+        if (!['serial', 'ssh', 'telnet', 'pty'].includes(ctype)) {
+          return `错误: 不支持的连接类型 "${ctype}"，支持: serial, ssh, telnet, pty`;
+        }
+
+        import(/* dynamic */ '@qserial/shared').then(() => {}); // ensure types loaded
+
+        const id = crypto.randomUUID();
+        const name = (args.name as string) || `${ctype.toUpperCase()} ${((args.host || args.path) as string) || ''}`;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const options: any = {
+          id,
+          name,
+          type: ctype,
+          autoReconnect: false,
+        };
+
+        if (ctype === 'serial') {
+          if (!args.path) return '错误: serial 类型需要 path 参数（串口设备路径）';
+          options.path = args.path as string;
+          options.baudRate = (args.baudRate as number) || 9600;
+          options.dataBits = (args.dataBits as number) || 8;
+          options.stopBits = (args.stopBits as number) || 1;
+          options.parity = (args.parity as string) || 'none';
+        } else if (ctype === 'ssh') {
+          if (!args.host) return '错误: ssh 类型需要 host 参数';
+          if (!args.username) return '错误: ssh 类型需要 username 参数';
+          options.host = args.host as string;
+          options.port = (args.port as number) || 22;
+          options.username = args.username as string;
+          if (args.password) options.password = args.password as string;
+        } else if (ctype === 'telnet') {
+          if (!args.host) return '错误: telnet 类型需要 host 参数';
+          options.host = args.host as string;
+          options.port = (args.port as number) || 23;
+        } else if (ctype === 'pty') {
+          options.shell = (args.shell as string) || (process.platform === 'win32' ? 'powershell.exe' : process.env.SHELL || '/bin/bash');
+          options.cols = 80;
+          options.rows = 24;
+        }
+
+        try {
+          const conn = await ConnectionFactory.create(options);
+          await conn.open();
+          ensureBuffer(id);
+          return JSON.stringify({ id, type: ctype, state: conn.state, message: '连接已创建并就绪' }, null, 2);
+        } catch (err) {
+          return `错误: 创建连接失败 — ${(err as Error).message}`;
+        }
+      }
+
+      case 'connection_disconnect': {
+        const id = args.id as string;
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        try {
+          await ConnectionFactory.destroy(id);
+          removeBuffer(id);
+          return `连接 ${id} 已断开并销毁`;
+        } catch (err) {
+          return `错误: 断开连接失败 — ${(err as Error).message}`;
+        }
+      }
+
+      case 'connection_update': {
+        const id = args.id as string;
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+
+        const parts: string[] = [];
+
+        // 调整终端尺寸
+        if (args.cols !== undefined || args.rows !== undefined) {
+          const cols = (args.cols as number) || 80;
+          const rows = (args.rows as number) || 24;
+          conn.resize(cols, rows);
+          parts.push(`终端尺寸调整为 ${cols}x${rows}`);
+        }
+
+        // 调整串口波特率（需断开重连）
+        if (args.baudRate !== undefined && conn.type === 'serial') {
+          const opts = conn.options as { baudRate?: number };
+          const oldBaud = opts.baudRate;
+          try {
+            await conn.close();
+            // 修改 options 中的波特率
+            opts.baudRate = args.baudRate as number;
+            await conn.open();
+            parts.push(`波特率从 ${oldBaud} 更新为 ${args.baudRate}`);
+          } catch (err) {
+            return `错误: 更新波特率失败 — ${(err as Error).message}`;
+          }
+        }
+
+        return parts.length > 0 ? parts.join('; ') : '错误: 未提供需要修改的参数（cols/rows/baudRate）';
+      }
+
+      case 'connection_state': {
+        const id = args.id as string;
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        ensureBuffer(id);
+        const output = peekBuffer(id, 65536).toString('utf-8');
+        const state = analyzeState(output, conn.state);
+        return JSON.stringify(state, null, 2);
+      }
+
+      case 'connection_login': {
+        const id = args.id as string;
+        const username = args.username as string;
+        const password = args.password as string;
+        const loginPrompt = (args.loginPrompt as string) || 'login:';
+        const passwordPrompt = (args.passwordPrompt as string) || 'Password:';
+        const shellPrompt = (args.shellPrompt as string) || '[#$>]';
+        const timeout = (args.timeout as number) || 30;
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        if (conn.state !== ConnectionState.CONNECTED) {
+          return `错误: 连接未就绪（当前状态：${conn.state}）`;
+        }
+        ensureBuffer(id);
+
+        // 步骤 1: 等待登录提示
+        const loginResult = await waitPattern(id, loginPrompt, timeout);
+        if (!loginResult.matched) {
+          return `错误: 超时未检测到登录提示 "${loginPrompt}"。当前内容:\n${loginResult.output.slice(-500)}`;
+        }
+
+        // 步骤 2: 输入用户名
+        conn.write(Buffer.from(username + '\n', 'utf-8'));
+        await sleep(500);
+        clearBuffer(id);
+
+        // 步骤 3: 等待密码提示
+        const passResult = await waitPattern(id, passwordPrompt, timeout);
+        if (!passResult.matched) {
+          return `错误: 超时未检测到密码提示 "${passwordPrompt}"。当前内容:\n${passResult.output.slice(-500)}`;
+        }
+
+        // 步骤 4: 输入密码
+        conn.write(Buffer.from(password + '\n', 'utf-8'));
+        await sleep(500);
+
+        // 步骤 5: 等待 Shell 提示符（可选）
+        const shellResult = await waitPattern(id, shellPrompt, timeout);
+        const output = consumeBuffer(id).toString('utf-8');
+
+        if (shellResult.matched) {
+          const state = analyzeState(output, conn.state);
+          return `登录成功。检测到 Shell 提示符，当前状态: ${state.shell_type || 'shell'}\n\n${output.slice(-300)}`;
+        }
+
+        return `已发送登录凭据（无报错）。当前输出:\n${output.slice(-500)}`;
       }
 
       case 'help': {
