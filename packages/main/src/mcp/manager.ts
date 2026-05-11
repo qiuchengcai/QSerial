@@ -115,50 +115,55 @@ const MCP_TOOLS = [
   },
   {
     name: 'connection_write',
-    description: '向指定连接发送数据或命令。注意：终端命令末尾需包含 \\n 换行符。',
+    description: '向指定连接发送数据或命令。支持发送前延迟和条件等待。注意：终端命令末尾需包含 \\n 换行符。',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
         data: { type: 'string', description: '要发送的文本，如 "ls -la\\n"' },
+        delay_ms: { type: 'integer', description: '发送前等待毫秒数，默认 0' },
+        wait_before: { type: 'string', description: '发送前等待输出中出现此文本（子串匹配），超时 10s' },
       },
-      required: ['id', 'data'],
+      required: ['data'],
     },
   },
   {
     name: 'connection_read',
-    description: '读取指定连接的输出缓冲区（读取后清空）。用于获取设备对上次命令的响应。',
+    description: '读取指定连接的输出缓冲区（读取后清空）。返回数据内容、字节数和时间戳。',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
       },
-      required: ['id'],
     },
   },
   {
     name: 'connection_peek',
-    description: '预览指定连接的输出内容（不清空缓冲区）。用于了解当前终端显示的內容。',
+    description: '预览指定连接的输出内容（不清空缓冲区）。返回数据内容、缓冲区总字节数。',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
         max_bytes: { type: 'integer', description: '最多返回字节数，默认 4096', default: 4096 },
       },
-      required: ['id'],
     },
   },
   {
     name: 'connection_expect',
-    description: '等待连接输出中出现指定模式（如 "login:" 或 "ERROR"），带超时。',
+    description: '等待连接输出中出现指定模式。支持普通子串匹配和正则表达式匹配。',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
-        pattern: { type: 'string', description: '要等待的文本模式（子串匹配）' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
+        pattern: { type: 'string', description: '要匹配的模式（子串或正则）' },
+        regex: { type: 'boolean', description: '为 true 时使用正则匹配（默认大小写不敏感）', default: false },
         timeout: { type: 'number', description: '超时秒数，默认 30', default: 30 },
       },
-      required: ['id', 'pattern'],
+      required: ['pattern'],
     },
   },
   {
@@ -168,8 +173,8 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
       },
-      required: ['id'],
     },
   },
   {
@@ -179,8 +184,8 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
       },
-      required: ['id'],
     },
   },
   {
@@ -215,8 +220,8 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
       },
-      required: ['id'],
     },
   },
   {
@@ -226,11 +231,11 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
         cols: { type: 'integer', description: '终端列数' },
         rows: { type: 'integer', description: '终端行数' },
         baudRate: { type: 'integer', description: '[serial] 新波特率' },
       },
-      required: ['id'],
     },
   },
   {
@@ -240,25 +245,27 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
       },
-      required: ['id'],
     },
   },
   {
     name: 'connection_login',
-    description: '自动化串口/Telnet 登录流程：等待登录提示→输入用户名→等待密码提示→输入密码，可选等待 Shell 提示符。',
+    description: '自动化串口/Telnet 登录流程。支持正则模式匹配，提供每步详细调试输出。',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
         username: { type: 'string', description: '登录用户名' },
         password: { type: 'string', description: '登录密码' },
-        loginPrompt: { type: 'string', description: '登录提示符关键字，默认 "login:"' },
-        passwordPrompt: { type: 'string', description: '密码提示符关键字，默认 "Password:"' },
-        shellPrompt: { type: 'string', description: '登录成功后等待的 Shell 提示符，默认检测 # 或 $' },
+        loginPrompt: { type: 'string', description: '登录提示正则，默认 "login[:\\s]|username[:\\s]"' },
+        passwordPrompt: { type: 'string', description: '密码提示正则，默认 "[Pp]assword[:\\s]"' },
+        shellPrompt: { type: 'string', description: 'Shell 提示正则，默认 "[#$>]\\\\s"', default: '[#$>]\\s' },
         timeout: { type: 'number', description: '每步超时秒数，默认 30' },
+        debug: { type: 'boolean', description: '为 true 时返回每步详细过程', default: true },
       },
-      required: ['id', 'username', 'password'],
+      required: ['username', 'password'],
     },
   },
   {
@@ -529,17 +536,14 @@ function analyzeState(output: string, connectionState: string): TerminalState {
   const tail = output.slice(-1024).toLowerCase();
   const detected: string[] = [];
 
-  // 密码提示
   if (/password[:\s]/i.test(tail)) {
     detected.push('password_prompt');
   }
 
-  // 登录提示
   if (/login[:\s]|username[:\s]/i.test(tail) && !detected.includes('password_prompt')) {
     detected.push('login_prompt');
   }
 
-  // Shell 提示符（最后一行）
   const lastLine = (output.split('\n').filter(l => l.trim()).pop() || '').trim();
   let shellType = '';
   if (lastLine.endsWith('# ') || lastLine.match(/#\s*$/)) {
@@ -553,7 +557,6 @@ function analyzeState(output: string, connectionState: string): TerminalState {
     detected.push('shell_prompt');
   }
 
-  // 启动信息
   const bootIndicators = ['booting', 'kernel', 'u-boot', 'uboot', 'starting kernel', 'bios', 'grub', 'systemd'];
   const hasBootMsg = bootIndicators.some(k => tail.includes(k));
 
@@ -570,24 +573,46 @@ function analyzeState(output: string, connectionState: string): TerminalState {
     return { state: 'booting', detected_prompts: detected, details: '设备正在启动中' };
   }
 
-  // 有输出但无法归类 → 程序运行中
   return { state: 'program_running', detected_prompts: detected, details: '设备有数据输出，未检测到 Shell 提示符或登录提示' };
 }
 
 // ==================== 辅助函数 ====================
 
+function resolveId(args: Record<string, unknown>): string {
+  return (args.id || args.connectionId) as string;
+}
+
+function bufferSize(id: string): number {
+  const buf = buffers.get(id);
+  if (!buf) return 0;
+  return buf.reduce((s, b) => s + b.length, 0);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
 }
 
-async function waitPattern(id: string, pattern: string, timeout: number): Promise<{ matched: boolean; output: string }> {
+function matchPattern(text: string, pattern: string, isRegex: boolean): boolean {
+  if (isRegex) {
+    try {
+      return new RegExp(pattern, 'i').test(text);
+    } catch {
+      return text.toLowerCase().includes(pattern.toLowerCase());
+    }
+  }
+  return text.toLowerCase().includes(pattern.toLowerCase());
+}
+
+async function waitPattern(
+  id: string, pattern: string, timeout: number, isRegex = false,
+): Promise<{ matched: boolean; output: string }> {
   const deadline = Date.now() + timeout * 1000;
   let allOutput = '';
   while (Date.now() < deadline) {
     const chunk = consumeBuffer(id).toString('utf-8');
     if (chunk) {
       allOutput += chunk;
-      if (allOutput.toLowerCase().includes(pattern.toLowerCase())) {
+      if (matchPattern(allOutput, pattern, isRegex)) {
         return { matched: true, output: allOutput };
       }
     }
@@ -652,59 +677,94 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       }
 
       case 'connection_write': {
-        const id = args.id as string;
+        const id = resolveId(args);
         const data = args.data as string;
+        if (!id) return '错误: 未提供连接 id';
+        if (!data) return '错误: 未提供 data 参数';
         const conn = ConnectionFactory.get(id);
         if (!conn) return `错误: 找不到连接 ${id}`;
         if (conn.state !== ConnectionState.CONNECTED) {
           return `错误: 连接 ${id} 未就绪（当前状态：${conn.state}）`;
         }
         ensureBuffer(id);
+
+        // 条件等待：发送前等待指定提示符
+        if (args.wait_before) {
+          const wbPattern = args.wait_before as string;
+          const wbResult = await waitPattern(id, wbPattern, 10, false);
+          if (!wbResult.matched) {
+            return `错误: 等待 "${wbPattern}" 超时 (10s)。最后输出:\n${wbResult.output.slice(-500)}`;
+          }
+        }
+
+        // 发送前延迟
+        if (args.delay_ms) {
+          await sleep(args.delay_ms as number);
+        }
+
         conn.write(Buffer.from(data, 'utf-8'));
-        await new Promise((r) => setTimeout(r, 300));
+        await sleep(300);
         const output = consumeBuffer(id).toString('utf-8');
-        return output || `已发送 (${data.length} 字符)，无立即回显`;
+        const meta = `sent=${data.length}B, replied=${output.length}B, ts=${Date.now()}`;
+        return output
+          ? `${output}\n\n[${meta}]`
+          : `已发送 (${data.length} 字符)，无立即回显 [${meta}]`;
       }
 
       case 'connection_read': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         if (!ConnectionFactory.get(id)) return `错误: 找不到连接 ${id}`;
         ensureBuffer(id);
+        const totalBefore = bufferSize(id);
         const output = consumeBuffer(id).toString('utf-8');
-        return output || '(无新输出)';
+        const meta = `bytes=${output.length}, total_before_read=${totalBefore}, ts=${Date.now()}`;
+        return output
+          ? `${output}\n[${meta}]`
+          : `(无新输出) [${meta}]`;
       }
 
       case 'connection_peek': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         const maxBytes = (args.max_bytes as number) || 4096;
         if (!ConnectionFactory.get(id)) return `错误: 找不到连接 ${id}`;
         ensureBuffer(id);
+        const totalBytes = bufferSize(id);
         const output = peekBuffer(id, maxBytes).toString('utf-8');
-        return output || '(缓冲区为空)';
+        const meta = `shown=${output.length}, buffer_total=${totalBytes}, ts=${Date.now()}`;
+        return output
+          ? `${output}\n[${meta}]`
+          : `(缓冲区为空) [${meta}]`;
       }
 
       case 'connection_expect': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         const pattern = args.pattern as string;
+        if (!pattern) return '错误: 未提供 pattern 参数';
+        const isRegex = args.regex === true;
         const timeout = (args.timeout as number) || 30;
         const conn = ConnectionFactory.get(id);
         if (!conn) return `错误: 找不到连接 ${id}`;
         ensureBuffer(id);
 
-        const deadline = Date.now() + timeout * 1000;
-        while (Date.now() < deadline) {
-          const output = consumeBuffer(id).toString('utf-8');
-          if (output && output.includes(pattern)) {
-            return output;
-          }
-          await new Promise((r) => setTimeout(r, 100));
+        const result = await waitPattern(id, pattern, timeout, isRegex);
+
+        if (result.matched) {
+          return `${result.output}\n[匹配 "${pattern}" (${isRegex ? 'regex' : 'substr'}), 耗时=${result.output.length}B]`;
         }
+
+        // 超时：提供更多诊断信息
         const remaining = consumeBuffer(id).toString('utf-8');
-        return `错误: 超时 (${timeout}s) 未匹配到 "${pattern}"。最后输出:\n${remaining.slice(-1000)}`;
+        const all = result.output + remaining;
+        const tail = all.slice(-1000);
+        return `错误: 超时 (${timeout}s) 未匹配/${isRegex ? 'regex' : 'substr'}: "${pattern}"。最后 1000 字节:\n${tail}`;
       }
 
       case 'connection_info': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
         if (!conn) return `错误: 找不到连接 ${id}`;
         const opts = conn.options as ConnectionOptions;
@@ -718,7 +778,8 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       }
 
       case 'connection_clear': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         clearBuffer(id);
         return '缓冲区已清空';
       }
@@ -728,8 +789,6 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         if (!['serial', 'ssh', 'telnet', 'pty'].includes(ctype)) {
           return `错误: 不支持的连接类型 "${ctype}"，支持: serial, ssh, telnet, pty`;
         }
-
-        import(/* dynamic */ '@qserial/shared').then(() => {}); // ensure types loaded
 
         const id = crypto.randomUUID();
         const name = (args.name as string) || `${ctype.toUpperCase()} ${((args.host || args.path) as string) || ''}`;
@@ -777,7 +836,8 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       }
 
       case 'connection_disconnect': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
         if (!conn) return `错误: 找不到连接 ${id}`;
         try {
@@ -790,13 +850,13 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       }
 
       case 'connection_update': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
         if (!conn) return `错误: 找不到连接 ${id}`;
 
         const parts: string[] = [];
 
-        // 调整终端尺寸
         if (args.cols !== undefined || args.rows !== undefined) {
           const cols = (args.cols as number) || 80;
           const rows = (args.rows as number) || 24;
@@ -804,13 +864,11 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           parts.push(`终端尺寸调整为 ${cols}x${rows}`);
         }
 
-        // 调整串口波特率（需断开重连）
         if (args.baudRate !== undefined && conn.type === 'serial') {
           const opts = conn.options as { baudRate?: number };
           const oldBaud = opts.baudRate;
           try {
             await conn.close();
-            // 修改 options 中的波特率
             opts.baudRate = args.baudRate as number;
             await conn.open();
             parts.push(`波特率从 ${oldBaud} 更新为 ${args.baudRate}`);
@@ -823,23 +881,30 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       }
 
       case 'connection_state': {
-        const id = args.id as string;
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
         if (!conn) return `错误: 找不到连接 ${id}`;
         ensureBuffer(id);
+        const totalBytes = bufferSize(id);
         const output = peekBuffer(id, 65536).toString('utf-8');
         const state = analyzeState(output, conn.state);
-        return JSON.stringify(state, null, 2);
+        return JSON.stringify({ ...state, buffer_bytes: totalBytes, output_tail_bytes: output.length }, null, 2);
       }
 
       case 'connection_login': {
-        const id = args.id as string;
+        const id = resolveId(args);
         const username = args.username as string;
         const password = args.password as string;
-        const loginPrompt = (args.loginPrompt as string) || 'login:';
-        const passwordPrompt = (args.passwordPrompt as string) || 'Password:';
-        const shellPrompt = (args.shellPrompt as string) || '[#$>]';
+        if (!id) return '错误: 未提供连接 id';
+        if (!username) return '错误: 未提供 username 参数';
+        if (!password) return '错误: 未提供 password 参数';
+
+        const loginPrompt = (args.loginPrompt as string) || 'login[:\\s]|username[:\\s]';
+        const passwordPrompt = (args.passwordPrompt as string) || '[Pp]assword[:\\s]';
+        const shellPrompt = (args.shellPrompt as string) || '[#$>]\\s';
         const timeout = (args.timeout as number) || 30;
+        const debug = args.debug !== false;
         const conn = ConnectionFactory.get(id);
         if (!conn) return `错误: 找不到连接 ${id}`;
         if (conn.state !== ConnectionState.CONNECTED) {
@@ -847,37 +912,65 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
         ensureBuffer(id);
 
+        const steps: string[] = [];
+        const addStep = (s: string) => { if (debug) steps.push(s); };
+
+        addStep(`[1/5] 等待登录提示 (regex: "${loginPrompt}", timeout=${timeout}s)...`);
+
         // 步骤 1: 等待登录提示
-        const loginResult = await waitPattern(id, loginPrompt, timeout);
+        const loginResult = await waitPattern(id, loginPrompt, timeout, true);
         if (!loginResult.matched) {
+          if (debug) {
+            return [
+              ...steps,
+              `[失败] 超时未匹配登录提示`,
+              `当前输出 (500B): ${loginResult.output.slice(-500)}`,
+              `提示: 尝试先用 connection_peek 查看终端内容，确认提示符格式`,
+            ].join('\n');
+          }
           return `错误: 超时未检测到登录提示 "${loginPrompt}"。当前内容:\n${loginResult.output.slice(-500)}`;
         }
+        addStep(`[2/5] 检测到登录提示，发送用户名 "${username}" (输出 ${loginResult.output.length}B)`);
 
-        // 步骤 2: 输入用户名
+        // 步骤 2: 发送用户名
         conn.write(Buffer.from(username + '\n', 'utf-8'));
-        await sleep(500);
+        await sleep(300);
         clearBuffer(id);
 
         // 步骤 3: 等待密码提示
-        const passResult = await waitPattern(id, passwordPrompt, timeout);
+        addStep(`[3/5] 等待密码提示 (regex: "${passwordPrompt}", timeout=${timeout}s)...`);
+        const passResult = await waitPattern(id, passwordPrompt, timeout, true);
         if (!passResult.matched) {
+          if (debug) {
+            return [
+              ...steps,
+              `[失败] 超时未匹配密码提示`,
+              `用户名已发送，但未检测到密码提示`,
+              `当前输出 (500B): ${passResult.output.slice(-500)}`,
+              `提示: 检查用户名是否正确，或使用 connection_peek 查看终端`,
+            ].join('\n');
+          }
           return `错误: 超时未检测到密码提示 "${passwordPrompt}"。当前内容:\n${passResult.output.slice(-500)}`;
         }
+        addStep(`[4/5] 检测到密码提示，发送密码 (输出 ${passResult.output.length}B)`);
 
-        // 步骤 4: 输入密码
+        // 步骤 4: 发送密码
         conn.write(Buffer.from(password + '\n', 'utf-8'));
-        await sleep(500);
+        await sleep(300);
 
-        // 步骤 5: 等待 Shell 提示符（可选）
-        const shellResult = await waitPattern(id, shellPrompt, timeout);
+        // 步骤 5: 等待 Shell 提示符
+        addStep(`[5/5] 等待 Shell 提示符 (regex: "${shellPrompt}", timeout=${timeout}s)...`);
+        const shellResult = await waitPattern(id, shellPrompt, timeout, true);
         const output = consumeBuffer(id).toString('utf-8');
 
         if (shellResult.matched) {
           const state = analyzeState(output, conn.state);
-          return `登录成功。检测到 Shell 提示符，当前状态: ${state.shell_type || 'shell'}\n\n${output.slice(-300)}`;
+          addStep(`[完成] 登录成功，Shell 类型: ${state.shell_type || 'detected'}`);
+          return steps.join('\n') + `\n\n登录成功。\n${output.slice(-300)}`;
         }
 
-        return `已发送登录凭据（无报错）。当前输出:\n${output.slice(-500)}`;
+        addStep(`[完成] 凭据已发送（Shell 提示未检测到，可能已登录）`);
+        return steps.join('\n') + `\n\n${output.slice(-500)}`;
       }
 
       case 'help': {
