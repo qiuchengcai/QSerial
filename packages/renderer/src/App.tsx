@@ -50,6 +50,9 @@ export const App: React.FC = () => {
 
     // 纹理变量
     root.style.setProperty('--texture-background', texture || 'none');
+
+    // 主题切换过渡 (仅在非首次应用时添加)
+    root.style.transition = 'background-color 150ms ease, color 150ms ease, border-color 150ms ease';
   }, [currentTheme, config.terminal.fontFamily]);
 
   return <Layout />;

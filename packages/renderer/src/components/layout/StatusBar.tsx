@@ -119,7 +119,11 @@ export const StatusBar: React.FC = () => {
 
         {/* TFTP 服务器状态 */}
         {tftpRunning && !activeTransfer && (
-          <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
+          <div
+            className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-tftp'))}
+            title="TFTP 服务器运行中 — 点击打开"
+          >
             <span className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-text-secondary">TFTP</span>
           </div>
@@ -127,7 +131,11 @@ export const StatusBar: React.FC = () => {
 
         {/* NFS 服务器状态 */}
         {nfsRunning && (
-          <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
+          <div
+            className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-nfs'))}
+            title="NFS 服务器运行中 — 点击打开"
+          >
             <span className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-text-secondary">NFS</span>
           </div>
@@ -135,7 +143,11 @@ export const StatusBar: React.FC = () => {
 
         {/* FTP 服务器状态 */}
         {ftpRunning && (
-          <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
+          <div
+            className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-ftp'))}
+            title="FTP 服务器运行中 — 点击打开"
+          >
             <span className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-text-secondary">FTP</span>
           </div>
@@ -143,7 +155,11 @@ export const StatusBar: React.FC = () => {
 
         {/* MCP 服务器状态 */}
         {mcpRunning && (
-          <div className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border">
+          <div
+            className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-mcp'))}
+            title="MCP 服务器运行中 — 点击打开"
+          >
             <span className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-text-secondary">MCP</span>
           </div>

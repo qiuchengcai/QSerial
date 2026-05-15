@@ -2,7 +2,7 @@
  * 侧边栏组件
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useSavedSessionsStore, type SavedSession } from '@/stores/sessions';
 import { useSidebarButtonsStore, type SidebarButtonType } from '@/stores/sidebarButtons';
@@ -78,6 +78,31 @@ export const Sidebar: React.FC = () => {
   const { buttons: sidebarButtons } = useSidebarButtonsStore();
   const terminalConfig = useConfigStore(s => s.config.terminal);
   const reorderSessions = savedSessionsState?.reorderSessions;
+
+  // 监听状态栏和菜单栏事件
+  useEffect(() => {
+    const handlers: Record<string, () => void> = {
+      'qserial:open-tftp': () => setShowTftpDialog(true),
+      'qserial:open-nfs': () => setShowNfsDialog(true),
+      'qserial:open-ftp': () => setShowFtpDialog(true),
+      'qserial:open-mcp': () => setShowMcpDialog(true),
+      'qserial:open-serial': () => setShowSerialDialog(true),
+      'qserial:open-ssh': () => setShowSshDialog(true),
+      'qserial:open-telnet': () => setShowTelnetDialog(true),
+      'qserial:open-pty': () => setShowPtyDialog(true),
+      'qserial:toggle-sidebar': () => setIsCollapsed((p) => !p),
+    };
+
+    for (const [event, handler] of Object.entries(handlers)) {
+      window.addEventListener(event, handler);
+    }
+
+    return () => {
+      for (const [event, handler] of Object.entries(handlers)) {
+        window.removeEventListener(event, handler);
+      }
+    };
+  }, []);
 
   // 连接失败时自动清理 tab/session 的辅助函数
   const connectWithCleanup = async (
