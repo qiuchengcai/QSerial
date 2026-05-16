@@ -103,9 +103,7 @@ function createWindow(): void {
   // 设置 CSP：开发模式允许 Vite HMR，生产模式严格限制
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const isDev = process.env.NODE_ENV === 'development';
-    const csp = isDev
-      ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:5173 wss://localhost:5173; img-src 'self' data:; font-src 'self' data:;"
-      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;";
+    const csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;" + (isDev ? " connect-src 'self' ws://localhost:5173 wss://localhost:5173" : "");
     callback({
       responseHeaders: {
         ...details.responseHeaders,

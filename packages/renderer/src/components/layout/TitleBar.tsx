@@ -49,9 +49,10 @@ export const TitleBar: React.FC = () => {
     <div className="h-[var(--titlebar-height)] bg-surface flex items-center select-none app-drag flex-shrink-0 border-b border-border">
       {/* Logo */}
       <div className="flex items-center px-3 gap-2 app-no-drag">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" className="text-primary flex-shrink-0">
-          <rect x="1.875" y="1.875" width="4.6875" height="11.25" rx="0.9375" stroke="currentColor" strokeWidth="1.4"/>
-          <rect x="8.4375" y="1.875" width="4.6875" height="11.25" rx="0.9375" stroke="currentColor" strokeWidth="1.4"/>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="text-primary flex-shrink-0">
+          <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.6"/>
+          <path d="M7 11l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <rect x="13" y="14.5" width="5" height="1.8" rx="0.9" fill="currentColor" opacity="0.5"/>
         </svg>
         <span className="text-xs font-bold text-text-secondary">QSerial</span>
       </div>

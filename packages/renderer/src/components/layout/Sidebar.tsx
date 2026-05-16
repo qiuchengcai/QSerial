@@ -34,6 +34,7 @@ export const Sidebar: React.FC = () => {
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
+  const quickConnectingRef = useRef(false);
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -151,6 +152,9 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleQuickConnect = async (savedSession: SavedSession) => {
+    if (quickConnectingRef.current) return;
+    quickConnectingRef.current = true;
+    try {
     const cfg = savedSession;
     if (cfg.type === 'serial' && cfg.serialConfig) {
       const c = cfg.serialConfig;
@@ -203,6 +207,9 @@ export const Sidebar: React.FC = () => {
       } catch (error) { globalError.show('本地终端快速连接失败: ' + (error as Error).message); }
       setConnectingType(null);
       return;
+    }
+    } finally {
+      quickConnectingRef.current = false;
     }
   };
 
@@ -284,7 +291,14 @@ export const Sidebar: React.FC = () => {
           return cfg ? <button key={btn.type} onClick={cfg.onClick} disabled={'disabled' in cfg && cfg.disabled} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm" title={cfg.label}>{cfg.icon}</button> : null;
         })}
         {/* Dialogs */}
-        <Dialogs />
+        <SerialConnectDialog isOpen={showSerialDialog} onClose={() => { setShowSerialDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleSerialUpdate : handleSerialConnect} editSession={editingSession?.type === 'serial' ? editingSession : null} />
+        <SshConnectDialog isOpen={showSshDialog} onClose={() => { setShowSshDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleSshUpdate : handleSshConnect} editSession={editingSession?.type === 'ssh' ? editingSession : null} />
+        <TelnetConnectDialog isOpen={showTelnetDialog} onClose={() => { setShowTelnetDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleTelnetUpdate : handleTelnetConnect} editSession={editingSession?.type === 'telnet' ? editingSession : null} />
+        <TftpDialog isOpen={showTftpDialog} onClose={() => setShowTftpDialog(false)} />
+        <NfsDialog isOpen={showNfsDialog} onClose={() => setShowNfsDialog(false)} />
+        <FtpDialog isOpen={showFtpDialog} onClose={() => setShowFtpDialog(false)} />
+        <McpDialog isOpen={showMcpDialog} onClose={() => setShowMcpDialog(false)} />
+        <PtyConnectDialog isOpen={showPtyDialog} onClose={() => { setShowPtyDialog(false); setEditingSession(null); }} onConnect={editingSession ? handlePtyUpdate : handlePtyConnect} editSession={editingSession?.type === 'pty' ? editingSession : null} />
       </div>
     );
   }
@@ -419,7 +433,14 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Dialogs */}
-      <Dialogs />
+      <SerialConnectDialog isOpen={showSerialDialog} onClose={() => { setShowSerialDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleSerialUpdate : handleSerialConnect} editSession={editingSession?.type === 'serial' ? editingSession : null} />
+      <SshConnectDialog isOpen={showSshDialog} onClose={() => { setShowSshDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleSshUpdate : handleSshConnect} editSession={editingSession?.type === 'ssh' ? editingSession : null} />
+      <TelnetConnectDialog isOpen={showTelnetDialog} onClose={() => { setShowTelnetDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleTelnetUpdate : handleTelnetConnect} editSession={editingSession?.type === 'telnet' ? editingSession : null} />
+      <TftpDialog isOpen={showTftpDialog} onClose={() => setShowTftpDialog(false)} />
+      <NfsDialog isOpen={showNfsDialog} onClose={() => setShowNfsDialog(false)} />
+      <FtpDialog isOpen={showFtpDialog} onClose={() => setShowFtpDialog(false)} />
+      <McpDialog isOpen={showMcpDialog} onClose={() => setShowMcpDialog(false)} />
+      <PtyConnectDialog isOpen={showPtyDialog} onClose={() => { setShowPtyDialog(false); setEditingSession(null); }} onConnect={editingSession ? handlePtyUpdate : handlePtyConnect} editSession={editingSession?.type === 'pty' ? editingSession : null} />
 
       {/* 右键菜单 */}
       {contextMenu && (
@@ -439,20 +460,4 @@ export const Sidebar: React.FC = () => {
       <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
     </div>
   );
-
-  // 内联 Dialogs 组件
-  function Dialogs() {
-    return (
-      <>
-        <SerialConnectDialog isOpen={showSerialDialog} onClose={() => { setShowSerialDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleSerialUpdate : handleSerialConnect} editSession={editingSession?.type === 'serial' ? editingSession : null} />
-        <SshConnectDialog isOpen={showSshDialog} onClose={() => { setShowSshDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleSshUpdate : handleSshConnect} editSession={editingSession?.type === 'ssh' ? editingSession : null} />
-        <TelnetConnectDialog isOpen={showTelnetDialog} onClose={() => { setShowTelnetDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleTelnetUpdate : handleTelnetConnect} editSession={editingSession?.type === 'telnet' ? editingSession : null} />
-        <TftpDialog isOpen={showTftpDialog} onClose={() => setShowTftpDialog(false)} />
-        <NfsDialog isOpen={showNfsDialog} onClose={() => setShowNfsDialog(false)} />
-        <FtpDialog isOpen={showFtpDialog} onClose={() => setShowFtpDialog(false)} />
-        <McpDialog isOpen={showMcpDialog} onClose={() => setShowMcpDialog(false)} />
-        <PtyConnectDialog isOpen={showPtyDialog} onClose={() => { setShowPtyDialog(false); setEditingSession(null); }} onConnect={editingSession ? handlePtyUpdate : handlePtyConnect} editSession={editingSession?.type === 'pty' ? editingSession : null} />
-      </>
-    );
-  }
 };
