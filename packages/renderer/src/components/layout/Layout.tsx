@@ -1,12 +1,12 @@
 /**
- * 布局组件
+ * 布局组件 — 对齐设计稿：Header 合并 Tabs + 工具按钮，QuickButtonBar 在终端顶部，StatusBar 全宽
  */
 
 import React, { useEffect } from 'react';
 import { TitleBar } from './TitleBar';
 import { Sidebar } from './Sidebar';
 import { MainContent } from './MainContent';
-import { MenuBar } from './MenuBar';
+import { StatusBar } from './StatusBar';
 import type { MenuItem } from './MenuBar';
 import { QuickButtonBar } from '../terminal/QuickButtonBar';
 import { useQuickButtonsStore } from '@/stores/quickButtons';
@@ -33,7 +33,6 @@ export const Layout: React.FC = () => {
   const isVertical = quickButtonsState?.direction === 'vertical';
   const { errorMessage, dismiss } = useGlobalError();
 
-  // 获取当前活动会话用于菜单项状态
   const terminalState = useTerminalStore();
   const tabs = terminalState?.tabs || [];
   const activeTabId = terminalState?.activeTabId;
@@ -48,7 +47,7 @@ export const Layout: React.FC = () => {
   const isLogging = activeSession?.logEnabled ?? false;
   const { config } = useConfigStore();
 
-  // 菜单定义
+  // 菜单定义（传递给 Header 的菜单下拉）
   const menuItems: Array<{ label: string; items: MenuItem[] }> = [
     {
       label: '文件(&F)',
@@ -70,8 +69,8 @@ export const Layout: React.FC = () => {
     {
       label: '编辑(&E)',
       items: [
-        { label: '复制(&C)', shortcut: 'Ctrl+Shift+C', enabled: !!activeSession, action: () => { /* xterm 标准行为 */ } },
-        { label: '粘贴(&P)', shortcut: 'Ctrl+Shift+V', enabled: !!activeSession && isConnected, action: () => { /* xterm 标准行为 */ } },
+        { label: '复制(&C)', shortcut: 'Ctrl+Shift+C', enabled: !!activeSession, action: () => {} },
+        { label: '粘贴(&P)', shortcut: 'Ctrl+Shift+V', enabled: !!activeSession && isConnected, action: () => {} },
         { separator: true },
         { label: '查找(&F)', shortcut: 'Ctrl+Shift+F', enabled: !!activeSession, action: () => dispatch('qserial:search') },
         { label: '清空缓冲区(&L)', enabled: !!activeSession, action: () => dispatch('qserial:clear-buffer') },
@@ -114,15 +113,9 @@ export const Layout: React.FC = () => {
         { label: 'SFTP 文件浏览器(&F)', enabled: isSshConnected, action: () => {
           if (isSshConnected && activeSession) {
             const sftpStore = useSftpStore.getState();
-            const existingSession = Object.values(sftpStore.sessions).find(
-              (s) => s.connectionId === activeSession.connectionId
-            );
-            if (existingSession) {
-              sftpStore.setPanelVisible(true);
-              sftpStore.setActiveSession(existingSession.sftpId);
-            } else {
-              sftpStore.createSession(activeSession.connectionId);
-            }
+            const ex = Object.values(sftpStore.sessions).find((s) => s.connectionId === activeSession.connectionId);
+            if (ex) { sftpStore.setPanelVisible(true); sftpStore.setActiveSession(ex.sftpId); }
+            else { sftpStore.createSession(activeSession.connectionId); }
           }
         }},
       ],
@@ -154,50 +147,58 @@ export const Layout: React.FC = () => {
     },
   ];
 
-  // 全局快捷键
   useGlobalShortcuts();
 
-  // 监听设置对话框事件
   useEffect(() => {
     const handler = () => setShowSettings(true);
     window.addEventListener('qserial:open-settings', handler);
     return () => window.removeEventListener('qserial:open-settings', handler);
   }, []);
 
-  // 全局监听 TFTP 状态和传输事件
   useEffect(() => {
     if (!window.qserial?.tftp) return;
     const unsubStatus = window.qserial.tftp.onStatusChange((event) => {
-      if (event.running) {
-        useTftpStore.getState().setRunning(true);
-      } else {
-        useTftpStore.getState().setError(event.error);
-      }
+      if (event.running) useTftpStore.getState().setRunning(true);
+      else useTftpStore.getState().setError(event.error);
     });
     const unsubTransfer = window.qserial.tftp.onTransfer((event) => {
       useTftpStore.getState().handleTransferEvent(event as TftpTransferEvent);
     });
-    return () => {
-      unsubStatus();
-      unsubTransfer();
-    };
+    return () => { unsubStatus(); unsubTransfer(); };
   }, []);
 
   return (
     <div className={`h-screen flex flex-col bg-background overflow-hidden ${hasTexture ? 'has-texture' : ''}`}>
-      {/* 标题栏 */}
-      <TitleBar />
+      {/* 统一 Header：Logo + Tabs + 工具按钮 + 菜单 + 窗口控制 */}
+      <TitleBar menuItems={menuItems} />
 
-      {/* 菜单栏 */}
-      <MenuBar menus={menuItems} />
-
-      {/* 主内容区 */}
+      {/* 主内容区：Sidebar + MainContent + 垂直快捷按钮 */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* 侧边栏 */}
         <Sidebar />
 
-        {/* 终端区域 */}
-        <MainContent />
+        <div className="flex-1 min-h-0 flex flex-col bg-background">
+          {/* 快捷按钮栏（设计稿：在终端顶部） */}
+          {!isVertical && tabs.length > 0 && (
+            <div className="flex-shrink-0 border-b border-border bg-surface">
+              <div className="flex items-center">
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="flex-shrink-0 h-[var(--buttonbar-height)] flex items-center gap-2 px-3 border-r border-border hover:bg-hover transition-colors group"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
+                    <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" strokeWidth="1.2" />
+                    <path d="M13.3 10a1.1 1.1 0 00.2 1.2l.04.04a1.35 1.35 0 11-1.9 1.9l-.04-.04a1.1 1.1 0 00-1.2-.2 1.1 1.1 0 00-.67 1.01v.11a1.35 1.35 0 11-2.7 0v-.06a1.1 1.1 0 00-.72-1.01 1.1 1.1 0 00-1.2.2l-.04.04a1.35 1.35 0 11-1.9-1.9l.04-.04a1.1 1.1 0 00.2-1.2 1.1 1.1 0 00-1.01-.67h-.11a1.35 1.35 0 110-2.7h.06a1.1 1.1 0 001.01-.72 1.1 1.1 0 00-.2-1.2l-.04-.04a1.35 1.35 0 111.9-1.9l.04.04a1.1 1.1 0 001.2.2h.05a1.1 1.1 0 00.67-1.01v-.11a1.35 1.35 0 012.7 0v.06a1.1 1.1 0 00.72 1.01 1.1 1.1 0 001.2-.2l.04-.04a1.35 1.35 0 111.9 1.9l-.04.04a1.1 1.1 0 00-.2 1.2v.05a1.1 1.1 0 001.01.67h.11a1.35 1.35 0 010 2.7h-.06a1.1 1.1 0 00-1.01.72z" stroke="currentColor" strokeWidth="1" />
+                  </svg>
+                  <span className="text-xs text-text-secondary group-hover:text-text">设置</span>
+                </button>
+                <QuickButtonBar direction="horizontal" />
+              </div>
+            </div>
+          )}
+
+          {/* 主内容 */}
+          <MainContent />
+        </div>
 
         {/* 垂直模式的快捷按钮面板 */}
         {isVertical && (
@@ -219,28 +220,10 @@ export const Layout: React.FC = () => {
         )}
       </div>
 
-      {/* 底部栏：设置 + 快捷按钮（仅水平模式） */}
-      {!isVertical && (
-        <div className="flex items-center border-t border-border bg-surface flex-shrink-0">
-          <button
-            onClick={() => setShowSettings(true)}
-            className="flex-shrink-0 w-[var(--sidebar-width)] h-[var(--buttonbar-height)] flex items-center gap-2 px-3 border-r border-border hover:bg-hover transition-colors group"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-secondary group-hover:text-text flex-shrink-0">
-              <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M13.3 10a1.1 1.1 0 00.2 1.2l.04.04a1.35 1.35 0 11-1.9 1.9l-.04-.04a1.1 1.1 0 00-1.2-.2 1.1 1.1 0 00-.67 1.01v.11a1.35 1.35 0 11-2.7 0v-.06a1.1 1.1 0 00-.72-1.01 1.1 1.1 0 00-1.2.2l-.04.04a1.35 1.35 0 11-1.9-1.9l.04-.04a1.1 1.1 0 00.2-1.2 1.1 1.1 0 00-1.01-.67h-.11a1.35 1.35 0 110-2.7h.06a1.1 1.1 0 001.01-.72 1.1 1.1 0 00-.2-1.2l-.04-.04a1.35 1.35 0 111.9-1.9l.04.04a1.1 1.1 0 001.2.2h.05a1.1 1.1 0 00.67-1.01v-.11a1.35 1.35 0 012.7 0v.06a1.1 1.1 0 00.72 1.01 1.1 1.1 0 001.2-.2l.04-.04a1.35 1.35 0 111.9 1.9l-.04.04a1.1 1.1 0 00-.2 1.2v.05a1.1 1.1 0 001.01.67h.11a1.35 1.35 0 010 2.7h-.06a1.1 1.1 0 00-1.01.72z" stroke="currentColor" strokeWidth="1" />
-            </svg>
-            <span className="text-xs text-text-secondary group-hover:text-text">设置</span>
-          </button>
-          <QuickButtonBar direction="horizontal" />
-        </div>
-      )}
+      {/* 全宽 StatusBar 在底部 */}
+      {tabs.length > 0 && <StatusBar />}
 
-      <SettingsDialog
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
-
+      <SettingsDialog isOpen={showSettings} onClose={() => setShowSettings(false)} />
       <ErrorToast message={errorMessage} onDismiss={dismiss} />
     </div>
   );

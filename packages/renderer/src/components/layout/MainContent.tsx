@@ -1,12 +1,10 @@
 /**
- * 主内容区组件
+ * 主内容区组件 — TabBar 和 StatusBar 已移至 Header/Layout
  */
 
 import React, { useMemo } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
-import { TabBar } from '../tabs/TabBar';
 import { TerminalPane } from '../terminal/TerminalPane';
-import { StatusBar } from '../layout/StatusBar';
 import { SftpPanel } from '../sftp';
 import { useSftpStore } from '@/stores/sftp';
 
@@ -15,7 +13,6 @@ export const MainContent: React.FC = () => {
   const activeTabId = useTerminalStore(state => state.activeTabId);
   const { panelVisible } = useSftpStore();
 
-  // 展平所有标签页中的终端面板（避免嵌套数组导致 React reconciliation 问题）
   const terminalPanes = useMemo(() => {
     const panes: React.ReactNode[] = [];
     const sessions = useTerminalStore.getState().sessions;
@@ -47,24 +44,18 @@ export const MainContent: React.FC = () => {
               {/* Logo */}
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/8 border border-primary/15 mb-6">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-primary">
-                  {/* 终端窗口图标 */}
                   <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.6" />
-                  {/* 窗口按钮 */}
                   <circle cx="6.5" cy="8" r="1.3" fill="currentColor" opacity="0.5" />
                   <circle cx="10.5" cy="8" r="1.3" fill="currentColor" opacity="0.5" />
                   <circle cx="14.5" cy="8" r="1.3" fill="currentColor" opacity="0.5" />
-                  {/* 提示符 */}
                   <path d="M5 13 L8 15 L5 17" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-                  {/* 光标 */}
                   <rect x="10" y="12.5" width="8" height="1.6" rx="0.8" fill="currentColor" opacity="0.35" />
                 </svg>
               </div>
-              {/* 标题区 */}
               <h1 className="text-xl font-bold text-text mb-1 tracking-tight">QSerial</h1>
               <p className="text-sm text-text-secondary mb-8">
                 现代化串口 · SSH · Telnet 终端调试工具
               </p>
-              {/* 操作按钮 */}
               <div className="flex flex-col gap-2.5 mb-8">
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-pty'))}
@@ -88,7 +79,6 @@ export const MainContent: React.FC = () => {
                   SSH 连接
                 </button>
               </div>
-              {/* 快捷键 */}
               <div className="inline-flex items-center gap-4 px-4 py-2 rounded-lg bg-surface/50 border border-border/50">
                 <span className="flex items-center gap-1.5 text-[11px] text-text-secondary/60">
                   <kbd className="px-1.5 py-0.5 rounded bg-surface border border-border text-[10px] font-mono text-text-secondary/70">Ctrl+N</kbd>
@@ -103,18 +93,9 @@ export const MainContent: React.FC = () => {
             </div>
           </div>
         ) : (
-          <>
-            {/* Tab 栏 */}
-            <TabBar />
-
-            {/* 状态栏 */}
-            <StatusBar />
-
-            {/* 终端内容 */}
-            <div className="flex-1 min-h-0 relative overflow-hidden bg-background">
-              {terminalPanes}
-            </div>
-          </>
+          <div className="flex-1 min-h-0 relative overflow-hidden bg-background">
+            {terminalPanes}
+          </div>
         )}
       </div>
 
