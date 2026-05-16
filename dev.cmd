@@ -21,7 +21,7 @@ if %errorlevel% neq 0 (
 echo Starting dev environment...
 echo.
 
-bash "%~dp0dev.sh"
+bash ./dev.sh
 set ERR=%errorlevel%
 
 if %ERR% neq 0 (
