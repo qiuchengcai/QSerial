@@ -606,8 +606,6 @@ function setupConnectionServerHandlers(): void {
       localPort,
       listenAddress,
       accessPassword,
-      apiPort,
-      apiProtocol,
     } = options;
 
     // 如果相同ID的服务器已存在，先销毁它
@@ -647,7 +645,6 @@ function setupConnectionServerHandlers(): void {
       listenAddress,
       accessPassword,
       autoReconnect: false,
-      ...(apiPort ? { apiPort, apiProtocol: apiProtocol || 'json-tcp' } : {}),
     });
 
     await connection.open();
@@ -689,9 +686,6 @@ function setupConnectionServerHandlers(): void {
         clientCount: 0,
         clients: [],
         hasPassword: false,
-        apiPort: undefined,
-        apiClientCount: 0,
-        apiClients: [],
       };
     }
     return (connection as ConnectionServerConnection).getStatus();

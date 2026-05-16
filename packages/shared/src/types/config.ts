@@ -83,7 +83,6 @@ export interface SerialShareSettings {
  */
 export interface ConnectionShareSettings {
   defaultLocalPort: number;
-  defaultApiPort?: number;
   defaultListenAddress?: string;
 }
 
@@ -157,7 +156,6 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   connectionShare: {
     defaultLocalPort: 8888,
-    defaultApiPort: 8889,
     defaultListenAddress: '0.0.0.0',
   },
 

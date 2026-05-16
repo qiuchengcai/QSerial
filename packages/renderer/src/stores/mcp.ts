@@ -96,11 +96,11 @@ export const useMcpStore = create<McpState & McpActions>()(
           const { starting, stopping, running: currentRunning } = get();
           if (starting || stopping) return;
           if (status.running) {
-            set({
+            set((state) => ({
               running: true,
-              config: { port: status.port },
+              config: { ...state.config, port: status.port ?? state.config.port },
               connections: status.connections,
-            });
+            }));
           } else {
             if (currentRunning) {
               console.log('[MCP] loadStatus: main process reports not running, syncing state to false');

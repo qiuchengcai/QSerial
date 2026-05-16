@@ -182,8 +182,6 @@ const api = {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
-      apiPort?: number;
-      apiProtocol?: 'json-tcp';
     }) => {
       return ipcRenderer.invoke(IPC_CHANNELS.CONNECTION_SERVER_START, options);
     },
@@ -195,8 +193,8 @@ const api = {
 
 	  // MCP 服务器
 	  mcp: {
-	    start: (port: number) =>
-	      ipcRenderer.invoke(IPC_CHANNELS.MCP_START, { port }),
+	    start: (port: number, listenAddress?: string, authPassword?: string) =>
+	      ipcRenderer.invoke(IPC_CHANNELS.MCP_START, { port, listenAddress, authPassword }),
 	    stop: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_STOP),
 	    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_GET_STATUS),
 	    onStatusChange: (callback: (event: { running: boolean; port: number }) => void) => {

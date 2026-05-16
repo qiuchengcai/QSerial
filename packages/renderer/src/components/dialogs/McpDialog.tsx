@@ -133,7 +133,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
     stopServer,
     loadStatus,
   } = useMcpStore();
-  const [localPort, setLocalPort] = useState(config.port);
+  const [localPort, setLocalPort] = useState(config.port || 9800);
   const [localIp, setLocalIp] = useState('127.0.0.1');
   const [localListenAddress, setLocalListenAddress] = useState(config.listenAddress);
   const [localAuthPassword, setLocalAuthPassword] = useState(config.authPassword);
@@ -142,7 +142,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
   const [selectedClient, setSelectedClient] = useState<'claude' | 'codebuddy'>('claude');
 
   useEffect(() => {
-    setLocalPort(config.port);
+    setLocalPort(config.port || 9800);
     setLocalListenAddress(config.listenAddress);
     setLocalAuthPassword(config.authPassword);
   }, [config]);
@@ -388,7 +388,14 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
                         const cfg = selectedClient === 'claude'
                           ? `{"mcpServers":{"qserial":{"type":"streamable-http","url":"http://${localIp}:${config.port}/mcp"${headersBlock}}}}`
                           : `{"mcpServers":{"qserial":{"type":"sse","url":"http://${localIp}:${config.port}/sse${tokenSuffix}"}}}`;
-                        navigator.clipboard.writeText(cfg).catch(() => {});
+                        const ta = document.createElement('textarea');
+                        ta.value = cfg;
+                        ta.style.position = 'fixed';
+                        ta.style.opacity = '0';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); } catch { /* ignore */ }
+                        ta.remove();
                       }}
                       className="text-xs text-primary hover:text-primary/80 transition-colors"
                     >

@@ -104,15 +104,13 @@ interface QSerialAPI {
       localPort: number;
       listenAddress?: string;
       accessPassword?: string;
-      apiPort?: number;
-      apiProtocol?: 'json-tcp';
     }) => Promise<void>;
     stop: (id: string) => Promise<void>;
     getStatus: (id: string) => Promise<ConnectionServerStatus>;
   };
 
   mcp: {
-    start: (port: number) => Promise<void>;
+    start: (port: number, listenAddress?: string, authPassword?: string) => Promise<void>;
     stop: () => Promise<void>;
     getStatus: () => Promise<McpServerStatus>;
     onStatusChange: (callback: (event: { running: boolean; port: number }) => void) => () => void;

@@ -61,9 +61,6 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
     clientCount: number;
     clients: string[];
     hasPassword: boolean;
-    apiPort?: number;
-    apiClientCount: number;
-    apiClients: string[];
   } | null>(null);
 
   // 获取活跃会话列表
@@ -73,8 +70,6 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
   // 服务配置
   const localPort = config.connectionShare?.defaultLocalPort || config.serialShare?.defaultLocalPort || 8888;
   const [localPortValue, setLocalPortValue] = useState(localPort);
-  const apiPortDefault = config.connectionShare?.defaultApiPort || (localPort + 1);
-  const [apiPortValue, setApiPortValue] = useState(apiPortDefault);
   const [listenAddress, setListenAddress] = useState(
     config.connectionShare?.defaultListenAddress || config.serialShare?.defaultListenAddress || '0.0.0.0'
   );
@@ -174,8 +169,6 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
         existingConnectionId: session.connectionId,
         localPort: localPortValue,
         listenAddress,
-        apiPort: apiPortValue,
-        apiProtocol: 'json-tcp' as const,
         ...(accessPassword ? { accessPassword } : {}),
       };
 
@@ -184,7 +177,6 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
       // 保存配置
       updateConfig('connectionShare', {
         defaultLocalPort: localPortValue,
-        defaultApiPort: apiPortValue,
         defaultListenAddress: listenAddress,
       });
 
@@ -282,25 +274,6 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
             />
           </div>
 
-          {/* API 端口 */}
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1.5">
-              JSON API 端口 <span className="text-text-secondary/50 font-normal">(AI/程序化客户端)</span>
-            </label>
-            <input
-              type="number"
-              value={apiPortValue}
-              onChange={(e) => setApiPortValue(Number(e.target.value))}
-              disabled={isRunning}
-              className="dialog-input"
-              min={1}
-              max={65535}
-            />
-            <p className="text-xs text-text-secondary/50 mt-1">
-              局域网内 AI Agent 可通过此端口以结构化 JSON 协议操作设备。留 0 则不启用
-            </p>
-          </div>
-
           {/* 监听地址 */}
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">监听地址</label>
@@ -354,17 +327,9 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                 ))}
               </div>
             )}
-            {isRunning && status && status.apiClients.length > 0 && (
-              <div className="ml-5 text-xs text-text-secondary space-y-0.5">
-                <p className="font-medium text-text-secondary/80">JSON API 客户端 ({status.apiClientCount})：</p>
-                {status.apiClients.map((addr) => (
-                  <p key={addr} className="ml-2 font-mono">{addr}</p>
-                ))}
-              </div>
-            )}
-            {isRunning && status && (status.clientCount + status.apiClientCount) > 1 && (
+            {isRunning && status && status.clientCount > 1 && (
               <p className="ml-5 text-xs text-yellow-500">
-                人类和AI同时操作时，设备回显双方可见。多客户端同时发送指令可能导致数据混乱
+                多客户端同时操作时，设备回显双方可见。同时发送指令可能导致数据混乱
               </p>
             )}
           </div>
@@ -433,7 +398,6 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                 <div className="space-y-1 text-sm">
                   <p><span className="text-text-secondary">数据源：</span>{status?.sourceDescription || '未知'}</p>
                   <p><span className="text-text-secondary">TELNET 端口：</span>{listenAddress}:{localPortValue}</p>
-                  <p><span className="text-text-secondary">JSON API 端口：</span>{listenAddress}:{apiPortValue}</p>
                   {accessPassword && (
                     <p><span className="text-text-secondary">访问密码：</span>已设置</p>
                   )}

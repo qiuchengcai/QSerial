@@ -124,9 +124,6 @@ export interface ConnectionServerOptions extends BaseConnectionOptions {
   localPort: number; // 本地TCP监听端口
   listenAddress?: string; // 本地TCP监听地址，默认 '0.0.0.0'
   accessPassword?: string; // 访问密码，为空则无需认证
-  // AI/程序化 API 端口（JSON 协议，供 AI Agent 使用）
-  apiPort?: number;
-  apiProtocol?: 'json-tcp';
 }
 
 /**

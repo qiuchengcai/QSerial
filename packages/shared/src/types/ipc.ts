@@ -187,8 +187,6 @@ export interface IpcRequestMap {
     localPort: number;
     listenAddress?: string;
     accessPassword?: string;
-    apiPort?: number;
-    apiProtocol?: 'json-tcp';
   };
   [IPC_CHANNELS.CONNECTION_SERVER_STOP]: { id: string };
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: { id: string };
@@ -486,9 +484,6 @@ export interface ConnectionServerStatus {
   clientCount: number;
   clients: string[];
   hasPassword: boolean;
-  apiPort?: number;
-  apiClientCount: number;
-  apiClients: string[];
 }
 
 /**

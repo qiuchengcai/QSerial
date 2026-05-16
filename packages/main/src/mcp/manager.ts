@@ -302,13 +302,12 @@ const MCP_TOOLS = [
   },
   {
     name: 'connection_share_start',
-    description: '为指定连接启动 TCP 共享服务。共享后可通过 Telnet 或 JSON API 端口远程访问该连接。密码默认使用 MCP 认证 token。',
+    description: '为指定连接启动 TCP Telnet 共享服务。共享后可通过 Telnet 远程访问该连接。密码默认使用 MCP 认证 token。',
     inputSchema: {
       type: 'object',
       properties: {
         connection_id: { type: 'string', description: '要共享的源连接 ID' },
         local_port: { type: 'integer', description: 'TCP Telnet 监听端口' },
-        api_port: { type: 'integer', description: 'JSON API 端口（可选），供程序化访问' },
         listen_address: { type: 'string', description: '监听地址，默认 0.0.0.0', default: '0.0.0.0' },
         password: { type: 'string', description: '访问密码，默认使用 MCP 认证 token' },
       },
@@ -436,8 +435,7 @@ function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean
 
 // ==================== HTTP 服务器 ====================
 
-function createMcpServer(port: number, listenAddress: string): http.Server {
-  const bindAddr = listenAddress || '127.0.0.1';
+function createMcpServer(): http.Server {
   const server = http.createServer((req, res) => {
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -593,13 +591,6 @@ function createMcpServer(port: number, listenAddress: string): http.Server {
 
     res.writeHead(404);
     res.end('Not Found');
-  });
-
-  server.listen(port, bindAddr, () => {
-    mcpRunning = true;
-    mcpPort = port;
-    mcpListenAddress = bindAddr;
-    sendStatus();
   });
 
   server.on('error', (err: NodeJS.ErrnoException) => {
@@ -1128,7 +1119,6 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
 
         const serverId = crypto.randomUUID();
-        const apiPort = args.api_port as number | undefined;
         const listenAddress = (args.listen_address as string) || '0.0.0.0';
         const password = (args.password as string) || mcpAuthPassword || undefined;
 
@@ -1142,7 +1132,6 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           listenAddress,
           accessPassword: password,
         };
-        if (apiPort) options.apiPort = apiPort;
 
         try {
           const serverConn = await ConnectionFactory.create(options);
@@ -1161,7 +1150,6 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
             clients: status.clients,
             has_password: !!options.accessPassword,
             telnet_cmd: `telnet ${status.listenAddress} ${status.localPort}`,
-            api_endpoint: apiPort ? `${status.listenAddress}:${apiPort}` : null,
           }, null, 2);
         } catch (err) {
           return `错误: 启动共享失败 — ${(err as Error).message}`;
@@ -1230,7 +1218,27 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
   mcpListenAddress = listenAddress || '127.0.0.1';
   ConnectionFactory.onDestroy((conn) => removeBuffer(conn.id));
 
-  mcpServer = createMcpServer(port, mcpListenAddress);
+  const bindAddr = mcpListenAddress;
+  const server = createMcpServer();
+
+  // 等待 listen 真正成功，而非乐观假设
+  await new Promise<void>((resolve, reject) => {
+    server.listen(port, bindAddr, () => {
+      mcpRunning = true;
+      mcpPort = port;
+      mcpListenAddress = bindAddr;
+      sendStatus();
+      resolve();
+    });
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      console.error('[MCP] Server listen error:', err.message);
+      reject(new Error(err.code === 'EADDRINUSE'
+        ? `端口 ${port} 已被占用，请选择其他端口`
+        : `MCP 服务器启动失败: ${err.message}`));
+    });
+  });
+
+  mcpServer = server;
 }
 
 export async function stopMcpServer(): Promise<void> {

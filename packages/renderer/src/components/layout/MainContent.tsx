@@ -44,7 +44,7 @@ export const MainContent: React.FC = () => {
             <div className="text-center select-none max-w-sm">
               {/* Logo */}
               <div className="inline-flex items-center justify-center w-[72px] h-[72px] rounded-2xl bg-primary/[0.07] border border-primary/[0.12] mb-5">
-                <QIcon size={36} />
+                <QIcon size={56} className="text-primary" />
               </div>
               <h1 className="text-xl font-bold text-text mb-1.5 tracking-tight">QSerial</h1>
               <p className="text-sm text-text-secondary/60 mb-7">
