@@ -60,25 +60,6 @@ export const TitleBar: React.FC = () => {
     <div className="bg-surface flex flex-col select-none app-drag flex-shrink-0 border-b border-border">
       {/* ====== 第一行：标题信息栏 ====== */}
       <div className="h-8 flex items-center px-2 gap-0.5">
-        {/* macOS 风格窗口控制圆点 */}
-        <div className="flex items-center gap-[5px] px-1 app-no-drag">
-          <button
-            onClick={() => window.qserial.window.close()}
-            className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-90 transition-all"
-            title="关闭"
-          />
-          <button
-            onClick={() => window.qserial.window.minimize()}
-            className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-90 transition-all"
-            title="最小化"
-          />
-          <button
-            onClick={() => window.qserial.window.maximize()}
-            className="w-3 h-3 rounded-full bg-[#29c840] hover:brightness-90 transition-all"
-            title="最大化"
-          />
-        </div>
-
         {/* Logo + 品牌 */}
         <div className="flex items-center gap-1.5 ml-2 flex-shrink-0 app-no-drag">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-primary flex-shrink-0">
@@ -116,6 +97,25 @@ export const TitleBar: React.FC = () => {
             </>
           )}
           <span className="text-[10px] text-text-tertiary/40">v0.2.0</span>
+        </div>
+
+        {/* macOS 风格窗口控制圆点 */}
+        <div className="flex items-center gap-[5px] px-2 ml-1 app-no-drag">
+          <button
+            onClick={() => window.qserial.window.minimize()}
+            className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-90 transition-all"
+            title="最小化"
+          />
+          <button
+            onClick={() => window.qserial.window.maximize()}
+            className="w-3 h-3 rounded-full bg-[#29c840] hover:brightness-90 transition-all"
+            title="最大化"
+          />
+          <button
+            onClick={() => window.qserial.window.close()}
+            className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-90 transition-all"
+            title="关闭"
+          />
         </div>
       </div>
 
