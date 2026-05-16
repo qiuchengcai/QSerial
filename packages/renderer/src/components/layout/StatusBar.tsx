@@ -62,9 +62,12 @@ export const StatusBar: React.FC = () => {
   };
 
   return (
-    <div className="h-[var(--statusbar-height)] bg-surface border-t border-border flex items-center justify-between px-3.5 text-[10px] flex-shrink-0">
+    <div className="h-[var(--statusbar-height)] bg-surface border-t border-border flex items-center justify-between px-3.5 text-[10px] flex-shrink-0 statusbar-glow">
       {/* 左侧信息 */}
       <div className="flex items-center gap-3 min-w-0">
+        {!activeSession && (
+          <span className="text-text-tertiary/60 truncate">未连接</span>
+        )}
         {activeSession && (
           <>
             {/* 连接状态指示点 */}

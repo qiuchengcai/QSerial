@@ -18,6 +18,7 @@ import {
   processTelnetData,
   processPasswordAuth,
   OPT_TTYPE,
+  OPT_NAWS,
 } from './telnet-utils.js';
 import type { TelnetClientState } from './telnet-utils.js';
 
@@ -287,6 +288,11 @@ export class ConnectionServerConnection implements IConnection {
               if (opt === OPT_TTYPE && subData.length > 1 && subData[0] === 0) {
                 // 终端类型信息接收，无需特殊处理
               }
+              if (opt === OPT_NAWS && subData.length >= 4) {
+                const cols = (subData[0] << 8) | subData[1];
+                const rows = (subData[2] << 8) | subData[3];
+                this.sharedConnection?.resize(cols, rows);
+              }
             },
           );
           if (userData.length > 0) {
@@ -417,8 +423,10 @@ export class ConnectionServerConnection implements IConnection {
     this.write(Buffer.from(hex, 'hex'));
   }
 
-  resize(_cols: number, _rows: number): void {
-    // 共享服务端不需要resize
+  resize(cols: number, rows: number): void {
+    if (this.sharedConnection) {
+      this.sharedConnection.resize(cols, rows);
+    }
   }
 
   onData(callback: (data: Buffer) => void): () => void {
@@ -481,7 +489,7 @@ export class ConnectionServerConnection implements IConnection {
       sourceDescription,
       localPort: this.options.localPort,
       listenAddress: this.options.listenAddress || '0.0.0.0',
-      clientCount: this.clients.size,
+      clientCount: Array.from(this.clients.values()).filter((c) => c.authenticated).length,
       clients: Array.from(this.clients.values())
         .filter((c) => c.authenticated)
         .map((c) => c.address),

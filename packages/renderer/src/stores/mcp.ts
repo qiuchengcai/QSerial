@@ -9,6 +9,8 @@ import type { ConnectionType } from '@qserial/shared';
 
 interface McpConfig {
   port: number;
+  listenAddress: string;
+  authPassword: string;
 }
 
 interface McpConnection {
@@ -38,6 +40,8 @@ interface McpActions {
 
 const DEFAULT_CONFIG: McpConfig = {
   port: 9800,
+  listenAddress: '127.0.0.1',
+  authPassword: '',
 };
 
 export const useMcpStore = create<McpState & McpActions>()(
@@ -69,7 +73,7 @@ export const useMcpStore = create<McpState & McpActions>()(
         if (starting) return;
         set({ starting: true, stopping: false, error: undefined });
         try {
-          await window.qserial.mcp.start(config.port);
+          await window.qserial.mcp.start(config.port, config.listenAddress, config.authPassword || undefined);
           set({ running: true, starting: false, error: undefined });
         } catch (error) {
           set({ error: (error as Error).message, running: false, starting: false });

@@ -9,6 +9,9 @@
  */
 
 import { spawn } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+import { app } from 'electron';
 
 /**
  * 通过 PowerShell FolderBrowserDialog 选择目录
@@ -90,11 +93,16 @@ $dialog.Dispose()
  */
 function runPowerShell(script: string): Promise<string | null> {
   return new Promise((resolve) => {
+    // 写入 UTF-8 临时脚本文件，避过 -Command 参数的中文编码丢失
+    const tmpFile = path.join(app.getPath('temp'), `qserial-dialog-${Date.now()}.ps1`);
+    const utf8Script = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n${script}`;
+    fs.writeFileSync(tmpFile, utf8Script, 'utf-8');
+
     const proc = spawn('powershell.exe', [
       '-NoProfile',
       '-NonInteractive',
       '-ExecutionPolicy', 'Bypass',
-      '-Command', script,
+      '-File', tmpFile,
     ], {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -112,6 +120,8 @@ function runPowerShell(script: string): Promise<string | null> {
     });
 
     proc.on('close', (code) => {
+      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+
       if (code !== 0 && stderr) {
         console.error('[native-dialog] PowerShell error:', stderr.trim());
       }
@@ -125,6 +135,7 @@ function runPowerShell(script: string): Promise<string | null> {
     });
 
     proc.on('error', (err) => {
+      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
       console.error('[native-dialog] Failed to spawn PowerShell:', err);
       resolve(null);
     });

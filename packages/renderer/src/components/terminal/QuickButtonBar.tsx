@@ -86,126 +86,163 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
 
   return (
     <div className="dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="dialog-content bg-surface border border-border rounded-xl p-4 w-80">
-        <h3 className="text-sm font-medium mb-4">
-          {editingButton ? '编辑按钮' : '添加按钮'}
-        </h3>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-text-secondary mb-1">名称</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="dialog-input"
-              placeholder="按钮名称"
-              autoFocus
-            />
+      <div className="bg-surface border border-border/80 rounded-xl shadow-md w-[420px]">
+        {/* 标题 */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-medium">
+            {editingButton ? '编辑按钮' : '添加按钮'}
+          </h3>
+        </div>
+
+        <div className="p-4 space-y-4 overflow-y-auto max-h-[70vh]">
+          {/* 名称 + 描述 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-text-secondary mb-1.5 font-medium">名称</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="dialog-input"
+                placeholder="按钮名称"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-text-secondary mb-1.5 font-medium">描述</label>
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="dialog-input"
+                placeholder="可选"
+              />
+            </div>
           </div>
+
+          {/* 命令 */}
           <div>
-            <label className="block text-xs text-text-secondary mb-1">命令（每行一条，支持多行）</label>
+            <label className="block text-xs text-text-secondary mb-1.5 font-medium">命令</label>
             <textarea
               value={command}
               onChange={(e) => setCommand(e.target.value)}
-              className="dialog-input min-h-[60px] resize-y"
-              placeholder={"要发送的命令\n支持 \\xHH \\n \\r 转义序列"}
+              className="dialog-input min-h-[72px] resize-y"
+              placeholder={"要发送的命令（每行一条，支持 \\xHH \\n \\r 转义）"}
               rows={3}
             />
-          </div>
-          <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
-            <input
-              type="checkbox"
-              checked={noNewline}
-              onChange={(e) => setNoNewline(e.target.checked)}
-              className="w-3.5 h-3.5 accent-primary"
-            />
-            <span>不自动追加换行（手动用 \n 控制换行）</span>
-          </label>
-          {command.includes('\n') && (
-            <div>
-              <label className="block text-xs text-text-secondary mb-1">行间延迟 (ms)</label>
-              <input
-                type="number"
-                value={delay}
-                onChange={(e) => setDelay(Number(e.target.value) || 100)}
-                className="dialog-input w-20"
-                min={0}
-                step={50}
-              />
-            </div>
-          )}
-          <div>
-            <label className="block text-xs text-text-secondary mb-1">描述 (可选)</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="dialog-input"
-              placeholder="按钮描述"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-text-secondary mb-2">按钮颜色</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c.value || 'default'}
-                  type="button"
-                  onClick={() => {
-                    setColor(c.value);
-                    setTextColor(c.textColor);
-                    setCustomColor('');
-                  }}
-                  className={`w-6 h-6 rounded-md border-2 transition-all ${
-                    color === c.value && !customColor ? 'border-primary scale-110' : 'border-transparent'
-                  }`}
-                  style={{
-                    backgroundColor: c.value || 'var(--color-surface)',
-                    border: c.value ? undefined : '1px solid var(--color-border)',
-                  }}
-                  title={c.name}
+            <div className="flex items-center gap-3 mt-1.5">
+              <label className="flex items-center gap-1.5 text-[11px] text-text-secondary cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={noNewline}
+                  onChange={(e) => setNoNewline(e.target.checked)}
+                  className="dialog-checkbox w-3.5 h-3.5"
                 />
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-text-secondary">自定义:</label>
-              <input
-                type="color"
-                value={customColor || color || '#3B82F6'}
-                onChange={(e) => {
-                  setCustomColor(e.target.value);
-                  setColor('');
-                }}
-                className="w-8 h-6 rounded cursor-pointer"
-              />
-              {customColor && (
-                <span className="text-xs text-text-secondary">{customColor}</span>
+                不追加换行
+              </label>
+              {command.includes('\n') && (
+                <label className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+                  <span>延迟</span>
+                  <input
+                    type="number"
+                    value={delay}
+                    onChange={(e) => setDelay(Number(e.target.value) || 100)}
+                    className="dialog-input w-16 h-6 text-[11px] px-1.5 py-0"
+                    min={0}
+                    step={50}
+                  />
+                  <span>ms</span>
+                </label>
               )}
             </div>
           </div>
-          {/* 预览 */}
+
+          {/* 颜色选择 */}
           <div>
-            <label className="block text-xs text-text-secondary mb-1">预览</label>
+            <label className="block text-xs text-text-secondary mb-1.5 font-medium">按钮颜色</label>
+            <div className="flex flex-wrap gap-2.5 mb-2.5">
+              {PRESET_COLORS.map((c) => {
+                const isActive = color === c.value && !customColor;
+                return (
+                  <button
+                    key={c.value || 'default'}
+                    type="button"
+                    onClick={() => {
+                      setColor(c.value);
+                      setTextColor(c.textColor);
+                      setCustomColor('');
+                    }}
+                    className={`w-7 h-7 rounded-lg transition-all ${
+                      isActive
+                        ? 'ring-2 ring-primary ring-offset-2 ring-offset-[var(--color-surface)] scale-110'
+                        : 'ring-1 ring-transparent hover:scale-105'
+                    }`}
+                    style={{
+                      backgroundColor: c.value || 'var(--color-surface)',
+                      border: c.value ? 'none' : '1px solid var(--color-border)',
+                    }}
+                    title={c.name}
+                  />
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-text-secondary">自定义</span>
+              <div className="relative">
+                <input
+                  type="color"
+                  value={customColor || color || '#3B82F6'}
+                  onChange={(e) => {
+                    setCustomColor(e.target.value);
+                    setColor('');
+                  }}
+                  className="w-7 h-7 rounded-lg cursor-pointer border border-border"
+                />
+              </div>
+              {customColor && (
+                <span className="text-[11px] font-mono text-text-secondary/60">{customColor}</span>
+              )}
+            </div>
+          </div>
+
+          {/* 实时预览 */}
+          <div className="bg-background/50 rounded-lg border border-border/50 p-3">
+            <label className="block text-[11px] text-text-secondary/60 mb-2">预览</label>
             <button
               type="button"
-              className="h-6 px-2 text-xs rounded-md border border-border whitespace-nowrap"
-              style={{
-                backgroundColor: customColor || color || undefined,
-                color: customColor
-                  ? (isLightColor(customColor) ? '#000000' : '#FFFFFF')
-                  : (textColor || undefined),
-              }}
+              className="h-7 pl-2.5 pr-3 text-[11px] rounded-[5px] whitespace-nowrap transition-all flex items-center gap-1.5 font-mono tracking-tight"
+              style={(() => {
+                const activeColor = customColor || color;
+                if (!activeColor) {
+                  return {
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-secondary)',
+                  };
+                }
+                return {
+                  backgroundColor: `${activeColor}40`,
+                  border: `1px solid ${activeColor}60`,
+                  color: '#e8eaed',
+                };
+              })()}
             >
+              {(() => {
+                const activeColor = customColor || color;
+                return activeColor ? <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: activeColor }} /> : null;
+              })()}
               {name || '按钮名称'}
             </button>
           </div>
         </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs">取消</button>
+
+        {/* 底部操作 */}
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-background/30">
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs px-4 py-1.5">取消</button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || !command.trim()}
-            className="dialog-btn dialog-btn-primary text-xs"
+            className="dialog-btn dialog-btn-primary text-xs px-4 py-1.5"
           >
             保存
           </button>
@@ -236,10 +273,12 @@ const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup
 
   return (
     <div className="dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="dialog-content bg-surface border border-border rounded-xl p-4 w-72">
-        <h3 className="text-sm font-medium mb-4">{editingGroup ? '编辑分组' : '新建分组'}</h3>
-        <div>
-          <label className="block text-xs text-text-secondary mb-1">分组名称</label>
+      <div className="bg-surface border border-border/80 rounded-xl shadow-md w-[360px]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-medium">{editingGroup ? '编辑分组' : '新建分组'}</h3>
+        </div>
+        <div className="p-4">
+          <label className="block text-xs text-text-secondary mb-1.5 font-medium">分组名称</label>
           <input
             type="text"
             value={name}
@@ -247,14 +286,15 @@ const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup
             className="dialog-input"
             placeholder="分组名称"
             autoFocus
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
           />
         </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs">取消</button>
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-background/30">
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs px-4 py-1.5">取消</button>
           <button
             onClick={handleSave}
             disabled={!name.trim()}
-            className="dialog-btn dialog-btn-primary text-xs"
+            className="dialog-btn dialog-btn-primary text-xs px-4 py-1.5"
           >
             保存
           </button>
@@ -459,22 +499,45 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
           <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
             {isConnected && groups[activeGroupIndex] ? (
               <div className="flex flex-col gap-1 p-1.5">
-                {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
-                  <button
-                    key={button.id}
-                    onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
-                    onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
-                    className="h-7 px-2.5 text-xs rounded-md hover:brightness-110 whitespace-nowrap transition-all w-full text-left truncate"
-                    style={{
-                      backgroundColor: button.color || 'var(--color-background-tertiary)',
-                      color: button.textColor || 'var(--color-text-tertiary)',
-                      fontWeight: 500,
-                    }}
-                    title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
-                  >
-                    {button.name}
-                  </button>
-                ))}
+                {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => {
+                  const fc = button.color || '';
+                  const isDefault = !fc;
+                  return (
+                    <button
+                      key={button.id}
+                      onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
+                      onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
+                      className={`h-7 pl-2.5 pr-2.5 text-[11px] rounded-[5px] whitespace-nowrap transition-all w-full text-left truncate flex items-center gap-1.5 ${
+                        isDefault ? 'hover:bg-hover text-text-secondary' : 'hover:-translate-y-[0.5px] active:translate-y-0'
+                      }`}
+                      style={isDefault ? {
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--color-border)',
+                      } : {
+                        backgroundColor: `${fc}40`,
+                        border: `1px solid ${fc}60`,
+                        color: '#e8eaed',
+                      }}
+                      title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
+                      onMouseEnter={(e) => {
+                        if (fc) {
+                          const el = e.currentTarget;
+                          el.style.borderColor = fc;
+                          el.style.boxShadow = `0 0 0 1px ${fc}30, 0 0 14px ${fc}15`;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (fc) {
+                          e.currentTarget.style.borderColor = `${fc}60`;
+                          e.currentTarget.style.boxShadow = 'none';
+                        }
+                      }}
+                    >
+                      {fc && <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: fc }} />}
+                      <span className="font-mono tracking-tight truncate">{button.name}</span>
+                    </button>
+                  );
+                }                )}
                 <button
                   onClick={() => {
                     setActiveGroupId(groups[activeGroupIndex].id);
@@ -516,13 +579,13 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
         </div>
       ) : (
         // 水平模式：三区布局（分组管理 | 命令按钮 | 工具）
-        <div className="h-[var(--buttonbar-height)] flex items-center px-2.5 gap-0 flex-1 min-w-0">
+        <div className="h-[var(--buttonbar-height)] flex items-center px-2 gap-0 flex-1 min-w-0">
           {/* 左区 — 分组管理 */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className="text-text-secondary/50 flex-shrink-0">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-text-secondary/30 flex-shrink-0">
               <path d="M2 4h4l1.5-2h6.5v10H2V4z" stroke="currentColor" strokeWidth="1" fill="none" />
             </svg>
-            <span className="text-[10px] text-text-tertiary font-medium">命令组</span>
+            <span className="text-[11px] text-text-secondary/50 font-medium">组</span>
             <select
               value={groups.length > 0 ? activeGroupIndex : -1}
               onChange={(e) => setActiveGroupIndex(Number(e.target.value))}
@@ -531,8 +594,8 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                   handleContextMenu(e, 'group', groups[activeGroupIndex].id, undefined, undefined, activeGroupIndex);
                 }
               }}
-              className="h-6 px-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer appearance-none"
-              style={{ paddingRight: '18px', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=%278%27 height=%275%27 viewBox=%270 0 8 5%27 fill=%27none%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath d=%27M1 1l3 3 3-3%27 stroke=%27%23888780%27 stroke-width=%271.2%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
+              className="h-6 px-2 text-[11px] bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer appearance-none min-w-[56px]"
+              style={{ paddingRight: '18px', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=%278%27 height=%275%27 viewBox=%270 0 8 5%27 fill=%27none%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath d=%27M1 1l3 3 3-3%27 stroke=%27%23888780%27 stroke-width=%271%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 5px center' }}
             >
               {groups.length === 0 ? (
                 <option value={-1} disabled>暂无分组</option>
@@ -545,59 +608,85 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
             {groups.length > 0 && (
               <button
                 onClick={handleGroupMenuClick}
-                className="h-6 w-5 rounded hover:bg-hover transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary/40 hover:text-text-secondary"
+                className="h-6 w-4 rounded hover:bg-hover transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary/20 hover:text-text-secondary/50"
                 title="分组操作"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                  <circle cx="5" cy="2" r="0.9" /><circle cx="5" cy="5" r="0.9" /><circle cx="5" cy="8" r="0.9" />
+                  <circle cx="5" cy="2" r="0.8" /><circle cx="5" cy="5" r="0.8" /><circle cx="5" cy="8" r="0.8" />
                 </svg>
               </button>
             )}
-            <div className="w-px h-5 bg-border mx-1" />
+            <div className="w-px h-4 bg-border/60 mx-1.5" />
           </div>
 
           {/* 中区 — 命令按钮 / 引导提示 */}
           {isConnected && groups[activeGroupIndex] ? (
             <div className="flex items-center gap-1 flex-1 overflow-x-auto scrollbar-hide min-w-0">
-              {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
-                <button
-                  key={button.id}
-                  onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
-                  onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
-                  className="h-6 px-2.5 text-xs rounded-md hover:brightness-110 whitespace-nowrap transition-all flex-shrink-0"
-                  style={{
-                    backgroundColor: button.color || 'var(--color-background-tertiary)',
-                    color: button.textColor || 'var(--color-text-tertiary)',
-                    fontWeight: 500,
-                  }}
-                  title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
-                >
-                  {button.name}
-                </button>
-              ))}
+              {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => {
+                const fc = button.color || '';
+                const isDefault = !fc;
+                return (
+                  <button
+                    key={button.id}
+                    onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
+                    onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
+                    className={`h-[26px] pl-2 pr-2.5 text-[11px] rounded-[5px] whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 ${
+                      isDefault ? 'hover:bg-hover text-text-secondary' : 'hover:-translate-y-[0.5px] active:translate-y-0'
+                    }`}
+                    style={isDefault ? {
+                      backgroundColor: 'transparent',
+                      border: '1px solid var(--color-border)',
+                    } : {
+                      backgroundColor: `${fc}40`,
+                      border: `1px solid ${fc}60`,
+                      color: '#e8eaed',
+                    }}
+                    title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
+                    onMouseEnter={(e) => {
+                      if (fc) {
+                        const el = e.currentTarget;
+                        el.style.borderColor = fc;
+                        el.style.boxShadow = `0 0 0 1px ${fc}30, 0 0 14px ${fc}15`;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (fc) {
+                        e.currentTarget.style.borderColor = `${fc}60`;
+                        e.currentTarget.style.boxShadow = 'none';
+                      }
+                    }}
+                  >
+                    {fc && <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: fc }} />}
+                    <span className="font-mono tracking-tight">{button.name}</span>
+                  </button>
+                );
+              })}
               <button
                 onClick={() => {
                   setActiveGroupId(groups[activeGroupIndex].id);
                   setEditingButton(null);
                   setShowButtonDialog(true);
                 }}
-                className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-tertiary"
+                className="h-[26px] w-[26px] text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-tertiary hover:text-text-secondary"
                 title="添加按钮"
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <svg width="11" height="11" viewBox="0 0 10 10" fill="none">
                   <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
               </button>
             </div>
           ) : (
-            <span className="text-xs text-text-tertiary/60 italic px-1 flex-1 min-w-0 truncate">创建终端连接后可发送快捷命令</span>
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-text-tertiary/30 flex-shrink-0"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1"/><path d="M6 4v3M6 8.5v.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
+              <span className="text-[11px] text-text-tertiary/50 px-0.5 truncate">连接终端后使用快捷命令</span>
+            </div>
           )}
 
           {/* 右区 — 工具 */}
-          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+          <div className="flex items-center gap-1 flex-shrink-0 ml-2 pl-2 border-l border-border">
             <button
               onClick={() => setDirection?.('vertical')}
-              className="h-6 w-6 text-xs rounded-md border border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary"
+              className="h-[26px] w-[26px] text-xs rounded-md border border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary/60 hover:text-text-secondary"
               title="切换为垂直布局"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -612,10 +701,10 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                 setEditingGroup(null);
                 setShowGroupDialog(true);
               }}
-              className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-tertiary"
+              className="h-[26px] w-[26px] text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-tertiary hover:text-text-secondary"
               title="添加分组"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <svg width="11" height="11" viewBox="0 0 10 10" fill="none">
                 <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
             </button>

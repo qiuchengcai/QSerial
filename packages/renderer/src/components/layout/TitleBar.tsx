@@ -72,8 +72,8 @@ export const TitleBar: React.FC = () => {
           return (
             <div
               key={tab.id}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 h-[30px] cursor-pointer rounded-md text-xs transition-colors ${
-                isActive ? 'bg-primary/[0.08] border border-primary/20 text-primary' : 'hover:bg-hover text-text-secondary'
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 h-[30px] cursor-pointer rounded-md text-xs transition-all ${
+                isActive ? 'bg-[var(--color-primary-dim)] border border-primary/25 text-primary shadow-sm' : 'hover:bg-hover text-text-secondary'
               }`}
               onClick={() => setActiveTab(tab.id)}
               onContextMenu={(e) => {
@@ -82,7 +82,7 @@ export const TitleBar: React.FC = () => {
               }}
             >
               <span className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${connected ? 'bg-success' : 'bg-text-secondary/40'}`} />
-              <span className="truncate max-w-[100px]">{tab.name}</span>
+              <span className="truncate max-w-[160px]" title={tab.name}>{tab.name}</span>
               <button
                 onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
                 className={`w-4 h-4 flex items-center justify-center rounded hover:bg-active text-text-secondary hover:text-text ${isActive ? 'opacity-100' : 'opacity-0'} hover:opacity-100`}

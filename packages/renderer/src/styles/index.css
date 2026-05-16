@@ -9,18 +9,24 @@
 :root {
   /* Colors - GitHub Dark (from Pixso design) */
   --color-primary: #58a6ff;
+  --color-primary-dim: rgba(88, 166, 255, 0.12);
   --color-secondary: #484f58;
   --color-accent: #bc8cff;
+  --color-accent-dim: rgba(188, 140, 255, 0.1);
   --color-background: #0d1117;
   --color-surface: #161b22;
+  --color-surface-raised: #1c2128;
   --color-text: #c9d1d9;
   --color-text-secondary: #8b949e;
+  --color-text-tertiary: #6e7681;
   --color-border: #30363d;
+  --color-border-subtle: #21262d;
   --color-hover: #1c2128;
   --color-active: #292e36;
   --color-error: #ff7b72;
   --color-warning: #d29922;
   --color-success: #3fb950;
+  --color-success-dim: rgba(63, 185, 80, 0.15);
 
   /* Fonts */
   --font-sans: 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -29,11 +35,17 @@
   /* Sizes - aligned with Pixso design */
   --titlebar-height: 40px;
   --menubar-height: 28px;
-  --sidebar-width: 200px;
-  --statusbar-height: 30px;
+  --sidebar-width: 210px;
+  --statusbar-height: 28px;
   --tab-height: 40px;
-  --buttonbar-height: 32px;
+  --buttonbar-height: 34px;
   --buttonbar-width: 140px;
+
+  /* Shadows & Effects */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --glow-success: 0 0 6px rgba(63, 185, 80, 0.4);
+  --glow-primary: 0 0 6px rgba(88, 166, 255, 0.3);
 }
 
 /* Reset */
@@ -346,4 +358,52 @@ body,
   opacity: 0.03;
   pointer-events: none;
   z-index: -1;
+}
+
+/* Service status glow animation */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.4); }
+  50% { box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.1); }
+}
+
+.service-dot-active {
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+/* Sidebar button hover lift */
+.sidebar-btn {
+  transition: all 0.15s ease;
+}
+
+.sidebar-btn:hover {
+  background: var(--color-hover);
+  transform: translateX(2px);
+}
+
+.sidebar-btn:active {
+  transform: translateX(1px);
+}
+
+/* Section header style */
+.section-header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  padding: 0 4px;
+  margin-bottom: 6px;
+}
+
+/* Saved session item */
+.session-item {
+  transition: all 0.15s ease;
+}
+
+.session-item:hover {
+  transform: translateX(2px);
+}
+
+/* Status bar subtle top glow */
+.statusbar-glow {
+  box-shadow: inset 0 1px 0 rgba(88, 166, 255, 0.06);
 }

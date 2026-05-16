@@ -58,6 +58,8 @@ export class SerialServerConnection implements IConnection {
   constructor(options: SerialServerOptions) {
     this.id = options.id;
     this.options = options;
+    console.warn('[DEPRECATED] SerialServerConnection is deprecated. Use ConnectionServerConnection instead. ' +
+      'See ConnectionShareDialog for the new API.');
   }
 
   async open(sharedConnection?: IConnection): Promise<void> {

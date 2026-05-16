@@ -20,6 +20,7 @@ import { NfsDialog } from '../dialogs/NfsDialog';
 import { FtpDialog } from '../dialogs/FtpDialog';
 import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectDialog';
 import { McpDialog } from '../dialogs/McpDialog';
+import { ConnectionShareDialog } from '../dialogs/ConnectionShareDialog';
 import { globalError } from '../common/ErrorToast';
 
 const MIN_SIDEBAR_WIDTH = 140;
@@ -75,6 +76,7 @@ export const Sidebar: React.FC = () => {
   const [showFtpDialog, setShowFtpDialog] = useState(false);
   const [showPtyDialog, setShowPtyDialog] = useState(false);
   const [showMcpDialog, setShowMcpDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingSession, setEditingSession] = useState<SavedSession | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SavedSession; index: number } | null>(null);
@@ -94,6 +96,7 @@ export const Sidebar: React.FC = () => {
       'qserial:open-nfs': () => setShowNfsDialog(true),
       'qserial:open-ftp': () => setShowFtpDialog(true),
       'qserial:open-mcp': () => setShowMcpDialog(true),
+      'qserial:open-share': () => setShowShareDialog(true),
       'qserial:open-serial': () => setShowSerialDialog(true),
       'qserial:open-ssh': () => setShowSshDialog(true),
       'qserial:open-telnet': () => setShowTelnetDialog(true),
@@ -257,12 +260,19 @@ export const Sidebar: React.FC = () => {
   const handleTelnetUpdate = (opts: any) => { if (editingSession && opts.saveConfig && opts.configName) updateSession(editingSession.id, { name: opts.configName, telnetConfig: { host: opts.host, port: opts.port } }); handleTelnetConnect(opts); setEditingSession(null); };
   const handlePtyUpdate = (opts: any) => { if (editingSession && opts.saveConfig && opts.configName) updateSession(editingSession.id, { name: opts.configName, ptyConfig: { shell: opts.shell, cwd: opts.cwd } }); handlePtyConnect(opts); setEditingSession(null); };
 
-  // 按钮配置
-  const connButtons: Array<{ type: SidebarButtonType; icon: string; label: string; onClick: () => void; disabled: boolean }> = [
-    { type: 'pty', icon: '💻', label: connectingType === 'pty' ? '连接中...' : '本地终端', onClick: () => setShowPtyDialog(true), disabled: connectingType === 'pty' },
-    { type: 'serial', icon: '🔌', label: '串口连接', onClick: () => setShowSerialDialog(true), disabled: connectingType === 'serial' },
-    { type: 'ssh', icon: '🌐', label: 'SSH 连接', onClick: () => setShowSshDialog(true), disabled: connectingType === 'ssh' },
-    { type: 'telnet', icon: '📡', label: 'Telnet 连接', onClick: () => setShowTelnetDialog(true), disabled: connectingType === 'telnet' },
+  // 按钮配置 - 每种连接类型配专属色
+  const typeColors: Record<string, string> = {
+    pty: 'text-primary',
+    serial: 'text-success',
+    ssh: 'text-accent',
+    telnet: 'text-warning',
+  };
+
+  const connButtons: Array<{ type: SidebarButtonType; icon: React.ReactNode; label: string; onClick: () => void; disabled: boolean }> = [
+    { type: 'pty', icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.2"/><path d="M5 7.5l2 2-2 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 11.5h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>, label: connectingType === 'pty' ? '连接中...' : '本地终端', onClick: () => setShowPtyDialog(true), disabled: connectingType === 'pty' },
+    { type: 'serial', icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="3" cy="8" r="1.5" stroke="currentColor" strokeWidth="1"/><circle cx="13" cy="8" r="1.5" stroke="currentColor" strokeWidth="1"/><path d="M5 5.5h6M5 10.5h6" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity="0.5"/></svg>, label: '串口连接', onClick: () => setShowSerialDialog(true), disabled: connectingType === 'serial' },
+    { type: 'ssh', icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M5 8h1.5M8 8h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="12" cy="6" r="0.8" fill="currentColor" opacity="0.5"/></svg>, label: 'SSH 连接', onClick: () => setShowSshDialog(true), disabled: connectingType === 'ssh' },
+    { type: 'telnet', icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v4M8 14v-4M2 8h4M14 8h-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>, label: 'Telnet 连接', onClick: () => setShowTelnetDialog(true), disabled: connectingType === 'telnet' },
   ];
 
   // Collapsed state
@@ -274,7 +284,7 @@ export const Sidebar: React.FC = () => {
         </button>
         {sidebarButtons.map((btn) => {
           const cfg = connButtons.find(b => b.type === btn.type);
-          return cfg ? <button key={btn.type} onClick={cfg.onClick} disabled={'disabled' in cfg && cfg.disabled} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm" title={cfg.label}>{cfg.icon}</button> : null;
+          return cfg ? <button key={btn.type} onClick={cfg.onClick} disabled={'disabled' in cfg && cfg.disabled} className={`w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 transition-colors ${typeColors[btn.type] || 'text-text-secondary'} hover:brightness-125`} title={cfg.label}>{cfg.icon}</button> : null;
         })}
         {/* Dialogs */}
         <SerialConnectDialog isOpen={showSerialDialog} onClose={() => { setShowSerialDialog(false); setEditingSession(null); }} onConnect={editingSession ? handleSerialUpdate : handleSerialConnect} editSession={editingSession?.type === 'serial' ? editingSession : null} />
@@ -284,6 +294,7 @@ export const Sidebar: React.FC = () => {
         <NfsDialog isOpen={showNfsDialog} onClose={() => setShowNfsDialog(false)} />
         <FtpDialog isOpen={showFtpDialog} onClose={() => setShowFtpDialog(false)} />
         <McpDialog isOpen={showMcpDialog} onClose={() => setShowMcpDialog(false)} />
+        <ConnectionShareDialog isOpen={showShareDialog} onClose={() => setShowShareDialog(false)} />
         <PtyConnectDialog isOpen={showPtyDialog} onClose={() => { setShowPtyDialog(false); setEditingSession(null); }} onConnect={editingSession ? handlePtyUpdate : handlePtyConnect} editSession={editingSession?.type === 'pty' ? editingSession : null} />
       </div>
     );
@@ -315,8 +326,8 @@ export const Sidebar: React.FC = () => {
 
       {/* 连接内容 */}
       <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
-          <div className="p-2 border-b border-border">
-            <h3 className="text-[10px] uppercase tracking-wider text-text-secondary font-medium mb-1.5 px-1">新建连接</h3>
+          <div className="p-2.5 border-b border-border">
+            <h3 className="section-header">新建连接</h3>
             <div className="flex flex-col gap-0.5">
               {connButtons.map((btn) => (
                 <button
@@ -326,7 +337,7 @@ export const Sidebar: React.FC = () => {
                   className={`sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left ${btn.disabled ? 'opacity-50' : ''} group`}
                   title={btn.label}
                 >
-                  <span className="text-sm flex-shrink-0">{btn.icon}</span>
+                  <span className={`flex-shrink-0 ${typeColors[btn.type] || 'text-text-secondary'} group-hover:brightness-125 transition-all`}>{btn.icon}</span>
                   <span className="text-xs truncate">{btn.label}</span>
                 </button>
               ))}
@@ -334,8 +345,8 @@ export const Sidebar: React.FC = () => {
           </div>
 
           {/* 保存的会话 */}
-          <div className="flex-1 overflow-y-auto p-2">
-            <h3 className="text-[10px] uppercase tracking-wider text-text-secondary font-medium mb-1.5 px-1">配置</h3>
+          <div className="flex-1 overflow-y-auto p-2.5">
+            <h3 className="section-header">已保存配置</h3>
             {savedSessions.length === 0 ? (
               <div className="text-xs text-text-secondary px-2 py-3 text-center opacity-60">暂无保存的配置</div>
             ) : (
@@ -345,7 +356,7 @@ export const Sidebar: React.FC = () => {
                   return (
                     <div
                       key={session.id}
-                      className={`group flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${connected ? 'bg-green-500/10 hover:bg-green-500/15' : 'hover:bg-hover'}`}
+                      className={`session-item group flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${connected ? 'bg-green-500/10 hover:bg-green-500/15' : 'hover:bg-hover'}`}
                       onClick={() => handleQuickConnect(session)}
                       onContextMenu={(e) => handleContextMenu(e, session, index)}
                     >
@@ -374,23 +385,44 @@ export const Sidebar: React.FC = () => {
         </div>
 
       {/* 底部服务状态区（始终可见） */}
-      <div className="flex-shrink-0 border-t border-border p-2">
-        <h3 className="text-[10px] uppercase tracking-wider text-text-secondary font-medium mb-1.5 px-1">服务状态</h3>
-        <div className="flex flex-col gap-0.5">
+      <div className="flex-shrink-0 border-t border-border p-2.5">
+        <h3 className="section-header">服务</h3>
+        <div className="flex flex-col gap-1">
           {[
-            { label: 'TFTP', port: 69, running: tftpRunning, onClick: () => setShowTftpDialog(true) },
-            { label: 'NFS', port: 2049, running: nfsRunning, onClick: () => setShowNfsDialog(true) },
-            { label: 'FTP', port: 21, running: ftpRunning, onClick: () => setShowFtpDialog(true) },
-            { label: 'MCP AI', port: 0, running: mcpRunning, onClick: () => setShowMcpDialog(true) },
+            {
+              label: 'TFTP', port: 69, running: tftpRunning, onClick: () => setShowTftpDialog(true),
+              icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v10M4 7l4 4 4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12v2h12v-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+              color: 'text-primary',
+            },
+            {
+              label: 'NFS', port: 2049, running: nfsRunning, onClick: () => setShowNfsDialog(true),
+              icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 5l5-3 5 3v7l-5 3-5-3V5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M3 5l5 3M13 5l-5 3M8 8v6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+              color: 'text-accent',
+            },
+            {
+              label: 'FTP', port: 21, running: ftpRunning, onClick: () => setShowFtpDialog(true),
+              icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M6 4V2.5A.5.5 0 016.5 2h3a.5.5 0 01.5.5V4" stroke="currentColor" strokeWidth="1.2"/><path d="M5 9l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+              color: 'text-success',
+            },
+            {
+              label: 'MCP AI', port: 9800, running: mcpRunning, onClick: () => setShowMcpDialog(true),
+              icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/><circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="8" r="1.2" fill="currentColor" opacity="0.4"/></svg>,
+              color: 'text-warning',
+            },
           ].map((svc) => (
             <div
               key={svc.label}
               onClick={svc.onClick}
-              className="flex items-center gap-2 px-2.5 py-1 rounded-md hover:bg-hover cursor-pointer transition-colors group"
+              className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-all group ${svc.running ? 'bg-[var(--color-success-dim)] hover:bg-green-500/20' : 'hover:bg-hover'}`}
             >
-              <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${svc.running ? 'bg-green-500' : 'bg-text-secondary/30'}`} />
-              <span className="text-xs text-text-secondary flex-1">{svc.label}</span>
-              {svc.port > 0 && <span className="text-[10px] text-text-secondary/50 font-mono">:{svc.port}</span>}
+              <span className={`flex-shrink-0 ${svc.color} ${svc.running ? 'opacity-90' : 'opacity-40'} group-hover:opacity-100 transition-opacity`}>{svc.icon}</span>
+              <span className={`text-xs flex-1 transition-colors ${svc.running ? 'text-green-400 font-medium' : 'text-text-secondary'}`}>{svc.label}</span>
+              {svc.running && svc.port > 0 && (
+                <span className="text-[10px] text-green-400/60 font-mono bg-green-500/10 px-1.5 py-0.5 rounded">:{svc.port}</span>
+              )}
+              {!svc.running && (
+                <span className="text-[10px] text-text-secondary/30 opacity-0 group-hover:opacity-100 transition-opacity">{svc.label === 'MCP AI' ? '配置' : '启动'}</span>
+              )}
             </div>
           ))}
         </div>

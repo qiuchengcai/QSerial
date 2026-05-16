@@ -91,7 +91,7 @@ export const FtpDialog: React.FC<FtpDialogProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
-      <div className="dialog-content bg-surface rounded-xl w-[480px] max-h-[80vh] flex flex-col border border-white/5">
+      <div className="bg-surface rounded-xl shadow-md w-[500px] max-h-[85vh] flex flex-col border border-border/80">
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -181,54 +181,47 @@ export const FtpDialog: React.FC<FtpDialogProps> = ({ isOpen, onClose }) => {
                 />
               </div>
 
-              {/* 状态 */}
-              <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${starting ? 'bg-yellow-500 animate-pulse' : 'bg-gray-500'}`} />
-                <span className="text-sm">
-                  {starting ? '启动中...' : '已停止'}
-                </span>
-              </div>
-
-              {/* 错误信息 */}
-              {error && (
-                <div className="flex items-center gap-2 text-sm text-error bg-error/10 border-l-2 border-error px-3 py-2.5 rounded-r-lg">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="flex-shrink-0">
-                    <path d="M7 0a7 7 0 100 14A7 7 0 007 0zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.75 4v3.5a.75.75 0 01-1.5 0V4a.75.75 0 011.5 0z"/>
-                  </svg>
-                  {error}
+              {/* 状态 + 启动 */}
+              <div className="bg-background/40 rounded-lg border border-border/50 p-4 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-[9px] h-[9px] rounded-full ${starting ? 'bg-yellow-400 animate-pulse' : 'bg-text-secondary/20'}`} />
+                  <span className="text-sm font-medium">
+                    {starting ? '启动中...' : '已停止'}
+                  </span>
                 </div>
-              )}
-
-              {/* 启动按钮 */}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleStart}
-                  disabled={!localRootDir || starting}
-                  className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50"
-                >
-                  {starting ? '启动中...' : '启动'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleStart}
+                    disabled={!localRootDir || starting}
+                    className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50 text-sm"
+                  >
+                    {starting ? '启动中...' : '启动'}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
-            /* 运行状态：紧凑信息栏 + 停止按钮 */
-            <div className="space-y-2.5">
+            /* 运行状态：紧凑信息卡片 */
+            <div className="bg-background/40 rounded-lg border border-border/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-green-500" />
+                <div className="flex items-center gap-2.5">
+                  <span className="w-[9px] h-[9px] rounded-full bg-green-400 service-dot-active" />
                   <span className="text-sm font-medium">运行中</span>
                 </div>
                 <button
                   onClick={handleStop}
-                  className="dialog-btn bg-error text-white hover:bg-error/80 rounded-md px-4"
+                  className="dialog-btn bg-error text-white hover:bg-error/80 rounded-md text-sm"
+                  style={{ padding: '6px 16px' }}
                 >
                   停止
                 </button>
               </div>
               <div className="flex items-center gap-3 text-xs text-text-secondary">
-                <span>端口: {config.port}</span>
-                <span className="text-border">|</span>
-                <span className="truncate" title={config.rootDir}>目录: {config.rootDir}</span>
+                <span className="font-mono text-text-secondary/70">:{config.port}</span>
+                <span className="text-border/50">·</span>
+                <span className="truncate font-mono text-text-secondary/70" title={config.rootDir}>{config.rootDir}</span>
+                <span className="text-border/50">·</span>
+                <span>{config.username === 'anonymous' ? '匿名' : config.username}</span>
               </div>
               {error && (
                 <div className="flex items-center gap-2 text-sm text-error bg-error/10 border-l-2 border-error px-3 py-2 rounded-r-lg">
@@ -246,68 +239,62 @@ export const FtpDialog: React.FC<FtpDialogProps> = ({ isOpen, onClose }) => {
         {running && (
           <div className="px-5 pb-4 flex-1 min-h-0 flex flex-col space-y-3 overflow-y-auto">
             {/* 连接提示 */}
-            <div className="bg-primary/10 border border-primary/20 rounded-lg">
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-primary/15">
+            <div className="border border-primary/15 rounded-lg overflow-hidden">
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/5">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary flex-shrink-0">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                 </svg>
-                <span className="text-xs font-medium text-primary">设备连接指南</span>
+                <span className="text-xs font-medium text-primary">连接指南</span>
               </div>
-
-              <div className="px-3 pt-2.5 pb-1 space-y-1 text-xs text-text-secondary">
-                <p>1. 确保设备与本机在同一网络</p>
-                <p>2. 在设备终端执行以下命令：</p>
-              </div>
-
-              <div className="px-3 pb-2.5">
-                <div className="bg-background/70 rounded-md">
-                  <div className="flex items-center justify-between px-2.5 py-1 border-b border-white/5">
-                    <span className="text-[10px] text-text-secondary/50 font-mono">SHELL</span>
-                    <button
-                      onClick={() => handleCopy(
-                        config.username === 'anonymous'
-                          ? `ftp ${localIp || '<本机IP>'}`
-                          : `ftp ${config.username}@${localIp || '<本机IP>'}`,
-                        'cmd'
-                      )}
-                      className="text-[10px] text-primary hover:text-primary/80 transition-colors"
-                    >
-                      {copied === 'cmd' ? '✓ 已复制' : '复制'}
-                    </button>
-                  </div>
-                  <div className="px-2.5 py-2 font-mono text-xs text-text select-all">
-                    <div className="leading-relaxed">
-                      $ ftp {config.username === 'anonymous'
-                        ? localIp || '&lt;本机IP&gt;'
-                        : `${config.username}@${localIp || '<本机IP>'}`}
+              <div className="divide-y divide-primary/10">
+                {/* FTP 命令 */}
+                <div className="p-1.5">
+                  <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                    <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/20 bg-background/40">
+                      <span className="text-[10px] text-text-secondary/40 font-mono">FTP 连接</span>
+                      <button
+                        onClick={() => handleCopy(
+                          config.username === 'anonymous'
+                            ? `ftp ${localIp || '<本机IP>'}`
+                            : `ftp ${config.username}@${localIp || '<本机IP>'}`,
+                          'cmd'
+                        )}
+                        className="text-[10px] text-primary hover:text-primary/80 transition-colors"
+                      >
+                        {copied === 'cmd' ? '已复制' : '复制'}
+                      </button>
+                    </div>
+                    <div className="px-2.5 py-2 font-mono text-xs text-text">
+                      <div className="leading-relaxed">
+                        <span className="text-text-secondary/40">$ </span>ftp {config.username === 'anonymous' ? localIp || '&lt;本机IP&gt;' : `${config.username}@${localIp || '<本机IP>'}`}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="border-t border-primary/15 px-3 py-2 space-y-1">
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="text-text-secondary/60">本机 IP</span>
-                  <span className="text-text font-mono cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => handleCopy(localIp || '', 'ip')}>
-                    {localIp || '获取中...'}
-                    {copied === 'ip' && <span className="ml-1 text-primary">✓</span>}
-                  </span>
+                {/* 连接信息 */}
+                <div className="p-1.5">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/20 bg-background/40">
+                        <span className="text-[10px] text-text-secondary/40 font-mono">IP</span>
+                        <button onClick={() => handleCopy(localIp || '', 'ip')} className="text-[10px] text-primary hover:text-primary/80 transition-colors">{copied === 'ip' ? '已复制' : '复制'}</button>
+                      </div>
+                      <div className="px-2 py-2 font-mono text-xs text-text"><div className="leading-relaxed">{localIp || '获取中...'}</div></div>
+                    </div>
+                    <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/20 bg-background/40">
+                        <span className="text-[10px] text-text-secondary/40 font-mono">端口</span>
+                      </div>
+                      <div className="px-2 py-2 font-mono text-xs text-text"><div className="leading-relaxed">{config.port}</div></div>
+                    </div>
+                    <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/20 bg-background/40">
+                        <span className="text-[10px] text-text-secondary/40 font-mono">认证</span>
+                      </div>
+                      <div className="px-2 py-2 font-mono text-xs text-text"><div className="leading-relaxed">{config.username === 'anonymous' ? '匿名' : config.username}</div></div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="text-text-secondary/60">端口</span>
-                  <span className="text-text font-mono">{config.port}</span>
-                </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="text-text-secondary/60">认证</span>
-                  <span className="text-text font-mono">{config.username === 'anonymous' ? '匿名' : config.username}</span>
-                </div>
-              </div>
-
-              <div className="border-t border-primary/15 px-3 py-2 text-[11px] text-text-secondary/50">
-                FTP 适合批量文件传输，支持目录浏览和断点续传
               </div>
             </div>
 
@@ -324,10 +311,11 @@ export const FtpDialog: React.FC<FtpDialogProps> = ({ isOpen, onClose }) => {
                   </button>
                 )}
               </div>
-              <div className="border border-border/50 rounded-lg bg-background/50 max-h-24 overflow-y-auto">
+              <div className="border border-border/50 rounded-lg bg-background/50 overflow-y-auto" style={{ minHeight: clients.length > 0 ? 'auto' : '56px' }}>
                 {clients.length === 0 ? (
-                  <div className="text-sm text-text-secondary/50 p-2.5 text-center">
-                    等待客户端连接...
+                  <div className="flex flex-col items-center justify-center gap-1.5 py-3 text-text-secondary/30">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span className="text-xs">等待客户端连接</span>
                   </div>
                 ) : (
                   <div className="divide-y divide-border/50">

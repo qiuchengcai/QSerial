@@ -88,7 +88,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     });
 
     const fitAddon = new FitAddon();
-    xterm.loadAddon(fitAddon);
+    // 不在 open 前 loadAddon：xterm-addon-fit 会 wrap open() 在内
+    // 部异步 Viewport 初始化完成前调用 fit()，导致 _renderService 未定义
 
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
@@ -132,17 +133,39 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       terminal.write('\r\n');
     };
 
-    // 使用 requestAnimationFrame 确保 DOM 完全准备好
-    requestAnimationFrame(() => {
+    // 等待容器有实际尺寸后再 open xterm
+    const openXterm = () => {
+      // mountId 守卫：只处理当前 mount 的调用，防止旧 mount 残留的 setTimeout/ResizeObserver
+      if (mountCountRef.current !== mountId) return;
       if (disposedRef.current || !xtermRef.current || !containerRef.current) return;
 
       const container = containerRef.current;
+      if (container.clientWidth === 0 || container.clientHeight === 0) {
+        // 容器尺寸还没就绪，使用 ResizeObserver 继续等待
+        const ro = new ResizeObserver(() => {
+          if (mountCountRef.current !== mountId) { ro.disconnect(); return; }
+          if (container.clientWidth > 0 && container.clientHeight > 0) {
+            ro.disconnect();
+            openXterm();
+          }
+        });
+        ro.observe(container);
+        unsubscribersRef.current.push(() => ro.disconnect());
+        return;
+      }
 
       try {
         xterm.open(container);
         openedRef.current = true;
+        // open 之后再加载 FitAddon，避免 addon wrap open() 后 Viewport 异步初始化竞态
+        xterm.loadAddon(fitAddon);
+        // 延迟一帧 fit，确保 Viewport 内部异步初始化(setTimeout→rAF)完成
+        requestAnimationFrame(() => {
+          if (mountCountRef.current !== mountId) return;
+          try { fitAddon.fit(); } catch { /* ignore */ }
+        });
       } catch (e) {
-        console.error('Failed to open terminal:', e);
+        console.error('[TerminalPane] Failed to open terminal:', e);
         return;
       }
 
@@ -220,7 +243,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
           console.error('[TerminalPane] Failed to get state:', err);
         }
       }, 50);
-    });
+    };
+
+    // 启动
+    openXterm();
 
     // 添加复制粘贴支持
     xterm.attachCustomKeyEventHandler((event) => {
@@ -338,17 +364,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       resizeObserver.disconnect();
       unsubscribersRef.current.forEach((unsub) => unsub());
       unsubscribersRef.current = [];
+      // 同步 dispose，避免 rAF 延迟导致 StrictMode 双挂载时新旧实例冲突
+      try { xterm.dispose(); } catch { /* ignore */ }
       xtermRef.current = null;
       initializedRef.current = false;
-      // 延迟 dispose，让 xterm 内部 setTimeout(0)（如 Viewport 构造）先执行完
-      // 避免 Viewport._renderService 在回调前就被清理导致 dimensions 读取崩溃
-      setTimeout(() => {
-        try {
-          xterm.dispose();
-        } catch {
-          // 忽略 dispose 错误
-        }
-      }, 0);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId, sessionId]);
@@ -459,24 +478,30 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
           <button
             onClick={isLogging ? handleStopLog : handleStartLog}
             disabled={logStarting}
-            className={`px-2 py-1 border rounded text-xs transition-colors ${
+            className={`px-2 py-1 border rounded text-xs transition-colors flex items-center gap-1.5 ${
               isLogging
                 ? 'bg-red-500/80 border-red-400 text-white hover:bg-red-600/80'
                 : 'bg-surface/80 border-border hover:bg-hover'
             }`}
             title={isLogging ? '停止日志记录' : '开始日志记录'}
           >
-            {logStarting ? '⏳ 启动中...' : isLogging ? '⏹ 停止日志' : '📝 开始日志'}
+            {logStarting ? (
+              <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/><path d="M6 3v3l2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>启动中...</>
+            ) : isLogging ? (
+              <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 2.5v7" stroke="currentColor" strokeWidth="0.8"/><path d="M7.5 2.5v7" stroke="currentColor" strokeWidth="0.8"/></svg>停止日志</>
+            ) : (
+              <><svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary"><path d="M2 2.5h6l2 2v6H2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M2 10.5v-8h4l.5 1.5H10" stroke="currentColor" strokeWidth="1.2"/><path d="M4 8l1.5 1.5L8 6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>开始日志</>
+            )}
           </button>
 
           {/* 连接共享按钮 - 所有活跃连接可共享 */}
           {canShare && (
             <button
               onClick={() => setShowSerialShareDialog(true)}
-              className="px-2 py-1 border rounded text-xs transition-colors bg-surface/80 border-border hover:bg-hover"
+              className="px-2 py-1 border rounded text-xs transition-colors bg-surface/80 border-border hover:bg-hover flex items-center gap-1.5"
               title="连接共享"
             >
-              🔗 共享
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-accent"><path d="M7 2.5l3 3-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M10 5.5H5a2 2 0 00-2 2v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="3" cy="9.5" r="1.2" stroke="currentColor" strokeWidth="0.8"/></svg>共享
             </button>
           )}
 
@@ -487,14 +512,18 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
             <button
               onClick={handleReconnect}
               disabled={reconnectLoading}
-              className={`px-2 py-1 border rounded text-xs transition-colors ${
+              className={`px-2 py-1 border rounded text-xs transition-colors flex items-center gap-1.5 ${
                 reconnectLoading
                   ? 'bg-surface/80 border-border opacity-50'
                   : 'bg-blue-500/80 border-blue-400 text-white hover:bg-blue-600/80'
               }`}
               title="重新连接"
             >
-              {reconnectLoading ? '⏳ 连接中...' : '🔄 重连'}
+              {reconnectLoading ? (
+                <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/><path d="M6 3v3l2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>连接中...</>
+              ) : (
+                <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 5A4 4 0 019 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9.5 7A4 4 0 013 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9 1.5l1.5 2-2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 10.5l-1.5-2 2-1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>重连</>
+              )}
             </button>
           )}
         </div>

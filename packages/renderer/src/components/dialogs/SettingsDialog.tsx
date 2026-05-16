@@ -25,7 +25,7 @@ interface ExportedConfig {
   tftp: { port: number; rootDir: string };
 }
 
-type SectionId = 'appearance' | 'behavior' | 'terminal' | 'serial' | 'ssh' | 'share' | 'mcp' | 'tftp' | 'window' | 'manage';
+type SectionId = 'appearance' | 'behavior' | 'terminal' | 'serial' | 'ssh' | 'share' | 'manage';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'appearance', label: '外观' },
@@ -34,9 +34,6 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'serial', label: '串口' },
   { id: 'ssh', label: 'SSH' },
   { id: 'share', label: '连接共享' },
-  { id: 'mcp', label: 'MCP' },
-  { id: 'tftp', label: 'TFTP' },
-  { id: 'window', label: '窗口' },
   { id: 'manage', label: '配置管理' },
 ];
 
@@ -88,14 +85,6 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const [shareApiPort, setShareApiPort] = useState(config.connectionShare.defaultApiPort ?? config.connectionShare.defaultLocalPort + 1);
   const [shareAddress, setShareAddress] = useState(config.connectionShare.defaultListenAddress ?? '0.0.0.0');
 
-  const [mcpEnabled, setMcpEnabled] = useState(config.mcp.enabled);
-  const [mcpPort, setMcpPort] = useState(config.mcp.port);
-
-  const [tftpPort, setTftpPort] = useState(tftpConfig.port);
-  const [tftpRootDir, setTftpRootDir] = useState(tftpConfig.rootDir);
-
-  const [windowMaximized, setWindowMaximized] = useState(config.window.maximized);
-
   const [importError, setImportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
 
@@ -130,12 +119,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     setSharePort(c.connectionShare.defaultLocalPort);
     setShareApiPort(c.connectionShare.defaultApiPort ?? c.connectionShare.defaultLocalPort + 1);
     setShareAddress(c.connectionShare.defaultListenAddress ?? '0.0.0.0');
-    setMcpEnabled(c.mcp.enabled);
-    setMcpPort(c.mcp.port);
-    setTftpPort(tftpConfig.port);
-    setTftpRootDir(tftpConfig.rootDir);
-    setWindowMaximized(c.window.maximized);
-  }, [config, tftpConfig]);
+  }, [config]);
 
   if (!isOpen) return null;
 
@@ -534,32 +518,34 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
-      <div className="dialog-content bg-surface rounded-xl w-[660px] max-h-[88vh] overflow-hidden border border-white/5 flex">
+      <div className="bg-surface rounded-xl shadow-md w-[660px] max-h-[88vh] min-h-[420px] overflow-hidden border border-border/80 flex">
         {/* 左侧导航 */}
-        <div className="w-28 flex-shrink-0 border-r border-border bg-background/30 py-3">
-          <div className="px-3 mb-2">
+        <div className="w-[130px] flex-shrink-0 border-r border-border bg-background/30 flex flex-col">
+          <div className="px-3.5 pt-3.5 pb-2.5 border-b border-border/50">
             <h2 className="text-sm font-semibold">设置</h2>
           </div>
+          <div className="flex-1 overflow-y-auto py-1.5">
           {SECTIONS.map((section) => (
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+              className={`w-full text-left px-3.5 py-1.5 text-xs transition-all ${
                 activeSection === section.id
-                  ? 'bg-primary/10 text-primary border-r-2 border-primary font-medium'
+                  ? 'bg-primary/10 text-primary border-r-[2.5px] border-primary font-medium'
                   : 'text-text-secondary hover:bg-hover hover:text-text'
               }`}
             >
               {section.label}
             </button>
           ))}
+          </div>
         </div>
 
         {/* 右侧内容 */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0 bg-surface">
             <h3 className="text-sm font-medium">{SECTIONS.find((s) => s.id === activeSection)?.label}</h3>
-            <button onClick={onClose} className="dialog-close w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text transition-colors">
+            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text hover:bg-hover transition-colors">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M1 1l12 12M13 1L1 13"/>
               </svg>
@@ -571,9 +557,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           </div>
 
           {/* 底部按钮 */}
-          <div className="flex justify-end gap-2.5 px-5 py-4 border-t border-border bg-background/30 flex-shrink-0">
-            <button onClick={onClose} className="dialog-btn dialog-btn-secondary">取消</button>
-            <button onClick={handleSave} className="dialog-btn dialog-btn-primary">保存</button>
+          <div className="flex justify-end gap-2.5 px-5 py-3.5 border-t border-border bg-background/30 flex-shrink-0">
+            <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-sm px-4">取消</button>
+            <button onClick={handleSave} className="dialog-btn dialog-btn-primary text-sm px-4">保存</button>
           </div>
         </div>
       </div>

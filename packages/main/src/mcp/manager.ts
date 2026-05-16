@@ -17,6 +17,37 @@ let mainWindow: BrowserWindow | null = null;
 let mcpServer: http.Server | null = null;
 let mcpRunning = false;
 let mcpPort = 9800;
+let mcpListenAddress = '127.0.0.1';
+let mcpAuthPassword = '';
+
+// 简易令牌桶限流：每秒最多 30 个请求，突发最多 50
+const rateLimitTokens = new Map<string, { tokens: number; lastRefill: number }>();
+const RATE_LIMIT_MAX = 50;
+const RATE_LIMIT_REFILL_RATE = 30; // tokens per second
+
+function checkRateLimit(clientId: string): boolean {
+  const now = Date.now();
+  let bucket = rateLimitTokens.get(clientId);
+  if (!bucket) {
+    bucket = { tokens: RATE_LIMIT_MAX, lastRefill: now };
+    rateLimitTokens.set(clientId, bucket);
+  }
+  // 补充令牌
+  const elapsed = (now - bucket.lastRefill) / 1000;
+  bucket.tokens = Math.min(RATE_LIMIT_MAX, bucket.tokens + elapsed * RATE_LIMIT_REFILL_RATE);
+  bucket.lastRefill = now;
+  if (bucket.tokens < 1) return false;
+  bucket.tokens -= 1;
+  return true;
+}
+
+// 定期清理过期的限流桶（每 5 分钟清理一次）
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of rateLimitTokens) {
+    if (now - bucket.lastRefill > 300_000) rateLimitTokens.delete(key);
+  }
+}, 300_000).unref();
 
 // SSE 会话：sessionId → response
 const sseSessions = new Map<string, http.ServerResponse>();
@@ -28,6 +59,8 @@ const bufferSubscriptions = new Map<string, () => void>();
 export interface McpServerStatus {
   running: boolean;
   port: number;
+  listenAddress: string;
+  needsAuth: boolean;
   connections: {
     id: string;
     type: string;
@@ -124,6 +157,7 @@ const MCP_TOOLS = [
         data: { type: 'string', description: '要发送的文本，如 "ls -la\\n"' },
         delay_ms: { type: 'integer', description: '发送前等待毫秒数，默认 0' },
         wait_before: { type: 'string', description: '发送前等待输出中出现此文本（子串匹配），超时 10s' },
+        response_timeout_ms: { type: 'integer', description: '等待回显最大毫秒数，默认 500。有新数据立即返回，不等到超时' },
       },
       required: ['data'],
     },
@@ -354,14 +388,37 @@ function sendSse(sessionId: string, event: string, data: string): void {
   }
 }
 
+// ==================== 认证检查 ====================
+
+function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  if (!mcpAuthPassword) return true;
+  const auth = req.headers.authorization;
+  if (!auth) {
+    res.writeHead(401, {
+      'Content-Type': 'application/json',
+      'WWW-Authenticate': 'Bearer realm="QSerial MCP"',
+    });
+    res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32001, message: '未授权：需要 Bearer token 认证' } }));
+    return false;
+  }
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
+  if (token !== mcpAuthPassword) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32002, message: '认证失败：token 不匹配' } }));
+    return false;
+  }
+  return true;
+}
+
 // ==================== HTTP 服务器 ====================
 
-function createMcpServer(port: number): http.Server {
+function createMcpServer(port: number, listenAddress: string): http.Server {
+  const bindAddr = listenAddress || '127.0.0.1';
   const server = http.createServer((req, res) => {
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -373,6 +430,16 @@ function createMcpServer(port: number): http.Server {
 
     // ── SSE 会话端点 (MCP SSE transport) ──
     if (req.method === 'GET' && urlPath === '/sse') {
+      const rawUrl2 = req.url || '/';
+      const queryIdx = rawUrl2.indexOf('?');
+      const queryString = queryIdx >= 0 ? rawUrl2.slice(queryIdx + 1) : '';
+      const sseParams = new URLSearchParams(queryString);
+      const sseToken = sseParams.get('token');
+      if (mcpAuthPassword && sseToken !== mcpAuthPassword) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: '认证失败：token 不匹配' }));
+        return;
+      }
       const sessionId = crypto.randomUUID();
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -393,6 +460,7 @@ function createMcpServer(port: number): http.Server {
 
     // ── 消息端点 (MCP SSE transport: POST JSON-RPC, 响应通过 SSE 返回) ──
     if (req.method === 'POST' && urlPath === '/messages') {
+      if (!checkAuth(req, res)) return;
       const rawUrl = req.url || '/';
       const queryIdx = rawUrl.indexOf('?');
       const queryString = queryIdx >= 0 ? rawUrl.slice(queryIdx + 1) : '';
@@ -414,7 +482,7 @@ function createMcpServer(port: number): http.Server {
 
         const reqId = reqData.id;
         const method = reqData.method;
-        const rpcParams = reqData.params || {};
+        const rpcParams = { ...reqData.params || {}, _sessionId: sessionId, _clientIp: req.socket.remoteAddress };
 
         try {
           const result = await handleRpc(method, rpcParams, reqId);
@@ -462,6 +530,7 @@ function createMcpServer(port: number): http.Server {
 
     // ── 直接 JSON-RPC 端点 (streamableHttp / 向后兼容) ──
     if (req.method === 'POST' && (urlPath === '/mcp' || urlPath === '/')) {
+      if (!checkAuth(req, res)) return;
       let body = '';
       req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
 
@@ -477,7 +546,7 @@ function createMcpServer(port: number): http.Server {
 
         const reqId = reqData.id;
         const method = reqData.method;
-        const rpcParams = reqData.params || {};
+        const rpcParams = { ...reqData.params || {}, _clientIp: req.socket.remoteAddress };
 
         handleRpc(method, rpcParams, reqId)
           .then((result) => {
@@ -502,9 +571,10 @@ function createMcpServer(port: number): http.Server {
     res.end('Not Found');
   });
 
-  server.listen(port, '0.0.0.0', () => {
+  server.listen(port, bindAddr, () => {
     mcpRunning = true;
     mcpPort = port;
+    mcpListenAddress = bindAddr;
     sendStatus();
   });
 
@@ -608,17 +678,65 @@ async function waitPattern(
 ): Promise<{ matched: boolean; output: string }> {
   const deadline = Date.now() + timeout * 1000;
   let allOutput = '';
-  while (Date.now() < deadline) {
-    const chunk = consumeBuffer(id).toString('utf-8');
-    if (chunk) {
-      allOutput += chunk;
-      if (matchPattern(allOutput, pattern, isRegex)) {
-        return { matched: true, output: allOutput };
-      }
-    }
-    await sleep(100);
+  let wakeup: (() => void) | null = null;
+  let unsub: (() => void) | null = null;
+
+  const conn = ConnectionFactory.get(id);
+  if (conn) {
+    unsub = conn.onData(() => {
+      wakeup?.();
+    });
   }
-  return { matched: false, output: allOutput };
+
+  const cleanup = () => {
+    if (unsub) { unsub(); unsub = null; }
+  };
+
+  try {
+    while (Date.now() < deadline) {
+      const chunk = consumeBuffer(id).toString('utf-8');
+      if (chunk) {
+        allOutput += chunk;
+        if (matchPattern(allOutput, pattern, isRegex)) {
+          cleanup();
+          return { matched: true, output: allOutput };
+        }
+      }
+      // Wait for new data or timeout (capped at 200ms per tick)
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await Promise.race([
+        new Promise<void>(r => { wakeup = r; }),
+        sleep(Math.min(remaining, 200)),
+      ]);
+    }
+    cleanup();
+    return { matched: false, output: allOutput };
+  } catch {
+    cleanup();
+    return { matched: false, output: allOutput };
+  }
+}
+
+async function waitForData(id: string, timeoutMs: number): Promise<void> {
+  let wakeup: (() => void) | null = null;
+  let unsub: (() => void) | null = null;
+
+  const conn = ConnectionFactory.get(id);
+  if (conn) {
+    unsub = conn.onData(() => {
+      wakeup?.();
+    });
+  }
+
+  try {
+    await Promise.race([
+      new Promise<void>(r => { wakeup = r; }),
+      sleep(timeoutMs),
+    ]);
+  } finally {
+    if (unsub) unsub();
+  }
 }
 
 // ==================== JSON-RPC 处理 ====================
@@ -643,6 +761,11 @@ async function handleRpc(
       return { tools: MCP_TOOLS };
 
     case 'tools/call': {
+      // 限流检查：使用 sessionId 或 IP 作为客户端标识
+      const rateLimitKey = (params._sessionId as string) || (params._clientIp as string) || 'unknown';
+      if (!checkRateLimit(rateLimitKey)) {
+        throw Object.assign(new Error('请求过于频繁，请稍后再试'), { code: -32003 });
+      }
       const toolName = params.name as string;
       const toolArgs = (params.arguments as Record<string, unknown>) || {};
       const text = await executeTool(toolName, toolArgs);
@@ -703,7 +826,9 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
 
         conn.write(Buffer.from(data, 'utf-8'));
-        await sleep(300);
+        // 等待回显数据，最长等待 response_timeout_ms（默认500ms），有新数据立即返回
+        const responseTimeout = (args.response_timeout_ms as number) || 500;
+        await waitForData(id, responseTimeout);
         const output = consumeBuffer(id).toString('utf-8');
         const meta = `sent=${data.length}B, replied=${output.length}B, ts=${Date.now()}`;
         return output
@@ -987,14 +1112,16 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
 
 // ==================== 公共接口 ====================
 
-export async function startMcpServer(port: number): Promise<void> {
+export async function startMcpServer(port: number, listenAddress?: string, authPassword?: string): Promise<void> {
   if (mcpRunning || mcpServer) {
     await stopMcpServer();
   }
 
+  mcpAuthPassword = authPassword || '';
+  mcpListenAddress = listenAddress || '127.0.0.1';
   ConnectionFactory.onDestroy((conn) => removeBuffer(conn.id));
 
-  mcpServer = createMcpServer(port);
+  mcpServer = createMcpServer(port, mcpListenAddress);
 }
 
 export async function stopMcpServer(): Promise<void> {
@@ -1025,6 +1152,8 @@ export function getMcpStatus(): McpServerStatus {
   return {
     running: mcpRunning,
     port: mcpPort,
+    listenAddress: mcpListenAddress,
+    needsAuth: !!mcpAuthPassword,
     connections: ConnectionFactory.getAll().map((c) => ({
       id: c.id,
       type: c.type,

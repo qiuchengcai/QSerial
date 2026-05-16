@@ -516,6 +516,7 @@ function setupLogHandlers(): void {
  */
 function setupSerialServerHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SERIAL_SERVER_START, async (_, options) => {
+    console.warn('[DEPRECATED] serialServer:start is deprecated. Use connectionServer:start instead.');
     const { ConnectionType } = await import('@qserial/shared');
     const { id, serialPath, baudRate, dataBits, stopBits, parity, localPort, listenAddress, accessPassword } = options;
 
@@ -701,9 +702,9 @@ function setupConnectionServerHandlers(): void {
  * MCP 服务器处理器
  */
 function setupMcpHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port }) => {
+  ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port, listenAddress, authPassword }) => {
     try {
-      await startMcpServer(port);
+      await startMcpServer(port, listenAddress, authPassword);
     } catch (error) {
       throw error;
     }

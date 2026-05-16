@@ -27,7 +27,7 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
   const [localExportDir, setLocalExportDir] = useState(config.exportDir);
   const [localAllowedClients, setLocalAllowedClients] = useState(config.allowedClients);
   const [localOptions, setLocalOptions] = useState(config.options);
-  const [copied, setCopied] = useState(false);
+  const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
 
   // 判断允许客户端的选择模式
   const presetClients = ['*', '192.168.0.0/16', '10.0.0.0/8', '172.16.0.0/12'];
@@ -68,10 +68,10 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
     await stopServer();
   };
 
-  const handleCopy = (text: string) => {
+  const handleCopy = (label: string, text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setCopiedLabel(label);
+      setTimeout(() => setCopiedLabel(null), 1500);
     });
   };
 
@@ -79,7 +79,7 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
-      <div className="dialog-content bg-surface rounded-xl w-[480px] max-h-[80vh] flex flex-col border border-white/5">
+      <div className="bg-surface rounded-xl shadow-md w-[500px] max-h-[85vh] flex flex-col border border-border/80">
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -165,12 +165,23 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
                 </select>
               </div>
 
-              {/* 状态 */}
-              <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${starting ? 'bg-yellow-500 animate-pulse' : 'bg-gray-500'}`} />
-                <span className="text-sm">
-                  {starting ? '启动中...' : '已停止'}
-                </span>
+              {/* 状态 + 启动 */}
+              <div className="bg-background/40 rounded-lg border border-border/50 p-4 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-[9px] h-[9px] rounded-full ${starting ? 'bg-yellow-400 animate-pulse' : 'bg-text-secondary/20'}`} />
+                  <span className="text-sm font-medium">
+                    {starting ? '启动中...' : '已停止'}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleStart}
+                    disabled={!localExportDir || starting}
+                    className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50 text-sm"
+                  >
+                    {starting ? '启动中...' : '启动'}
+                  </button>
+                </div>
               </div>
 
               {/* 错误信息 */}
@@ -182,37 +193,27 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
                   {error}
                 </div>
               )}
-
-              {/* 启动按钮 */}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleStart}
-                  disabled={!localExportDir || starting}
-                  className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50"
-                >
-                  {starting ? '启动中...' : '启动'}
-                </button>
-              </div>
             </div>
           ) : (
-            /* 运行状态：紧凑信息栏 + 停止按钮 */
-            <div className="space-y-2.5">
+            /* 运行状态：紧凑信息卡片 */
+            <div className="bg-background/40 rounded-lg border border-border/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-green-500" />
+                <div className="flex items-center gap-2.5">
+                  <span className="w-[9px] h-[9px] rounded-full bg-green-400 service-dot-active" />
                   <span className="text-sm font-medium">运行中</span>
                 </div>
                 <button
                   onClick={handleStop}
-                  className="dialog-btn bg-error text-white hover:bg-error/80 rounded-md px-4"
+                  className="dialog-btn bg-error text-white hover:bg-error/80 rounded-md text-sm"
+                  style={{ padding: '6px 16px' }}
                 >
                   停止
                 </button>
               </div>
               <div className="flex items-center gap-3 text-xs text-text-secondary">
-                <span className="truncate" title={config.exportDir}>目录: {config.exportDir}</span>
-                <span className="text-border">|</span>
-                <span>客户端: {config.allowedClients === '*' ? '所有' : config.allowedClients}</span>
+                <span className="truncate font-mono text-text-secondary/70" title={config.exportDir}>{config.exportDir}</span>
+                <span className="text-border/50">·</span>
+                <span>客户端 {config.allowedClients === '*' ? '所有' : config.allowedClients}</span>
               </div>
               {error && (
                 <div className="flex items-center gap-2 text-sm text-error bg-error/10 border-l-2 border-error px-3 py-2 rounded-r-lg">
@@ -231,61 +232,89 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
           <div className="px-5 pb-4 flex-1 min-h-0 flex flex-col space-y-3 overflow-y-auto">
             {/* 挂载提示 */}
             {mountHint && (
-              <div className="bg-primary/10 border border-primary/20 rounded-lg">
-                {/* 标题栏 */}
-                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-primary/15">
+              <div className="border border-primary/15 rounded-lg overflow-hidden">
+                {/* 标题 */}
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/5">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary flex-shrink-0">
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                     <path d="M2 17l10 5 10-5"/>
                     <path d="M2 12l10 5 10-5"/>
                   </svg>
-                  <span className="text-xs font-medium text-primary">设备连接指南</span>
+                  <span className="text-xs font-medium text-primary">挂载指南</span>
                 </div>
 
-                {/* 步骤说明 */}
-                <div className="px-3 pt-2.5 pb-1 space-y-1 text-xs text-text-secondary">
-                  <p>1. 确保设备与本机在同一网络</p>
-                  <p>2. 在设备终端执行以下命令：</p>
-                </div>
-
-                {/* 命令区域 */}
-                <div className="px-3 pb-2.5">
-                  <div className="bg-background/70 rounded-md">
-                    <div className="flex items-center justify-between px-2.5 py-1 border-b border-white/5">
-                      <span className="text-[10px] text-text-secondary/50 font-mono">SHELL</span>
-                      <button
-                        onClick={() => handleCopy(`mkdir -p /mnt/nfs\nmount -t nfs -o nolock ${mountHint.localIp}:${mountHint.exportDir} /mnt/nfs`)}
-                        className="text-[10px] text-primary hover:text-primary/80 transition-colors"
-                      >
-                        {copied ? '✓ 已复制' : '复制'}
-                      </button>
-                    </div>
-                    <div className="px-2.5 py-2 font-mono text-xs text-text select-all">
-                      <div className="leading-relaxed">$ mkdir -p /mnt/nfs</div>
-                      <div className="leading-relaxed break-all">$ mount -t nfs -o nolock {mountHint.localIp}:{mountHint.exportDir} /mnt/nfs</div>
+                {/* 命令块 */}
+                <div className="divide-y divide-primary/10">
+                  {/* 挂载 */}
+                  <div className="p-1.5">
+                    <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/20 bg-background/40">
+                        <span className="text-[10px] text-text-secondary/40 font-mono">挂载</span>
+                        <button
+                          onClick={() => handleCopy('mount', `mkdir -p /mnt/nfs\nmount -t nfs -o nolock ${mountHint.localIp}:${mountHint.exportDir} /mnt/nfs`)}
+                          className="text-[10px] text-primary hover:text-primary/80 transition-colors"
+                        >
+                          {copiedLabel === 'mount' ? '已复制' : '复制'}
+                        </button>
+                      </div>
+                      <div className="px-2.5 py-2 font-mono text-xs text-text space-y-0.5">
+                        <div className="leading-relaxed"><span className="text-text-secondary/40">$ </span>mkdir -p /mnt/nfs</div>
+                        <div className="leading-relaxed break-all"><span className="text-text-secondary/40">$ </span>mount -t nfs -o nolock {mountHint.localIp}:{mountHint.exportDir} /mnt/nfs</div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* 连接信息 */}
-                <div className="border-t border-primary/15 px-3 py-2 space-y-1">
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-text-secondary/60">本机 IP</span>
-                    <span className="text-text font-mono">{mountHint.localIp}</span>
+                  {/* 卸载 */}
+                  <div className="p-1.5">
+                    <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/20 bg-background/40">
+                        <span className="text-[10px] text-text-secondary/40 font-mono">卸载</span>
+                        <button
+                          onClick={() => handleCopy('umount', 'umount /mnt/nfs')}
+                          className="text-[10px] text-primary hover:text-primary/80 transition-colors"
+                        >
+                          {copiedLabel === 'umount' ? '已复制' : '复制'}
+                        </button>
+                      </div>
+                      <div className="px-2.5 py-2 font-mono text-xs text-text">
+                        <div className="leading-relaxed"><span className="text-text-secondary/40">$ </span>umount /mnt/nfs</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-text-secondary/60">挂载路径</span>
-                    <span className="text-text font-mono">/mnt/nfs</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-text-secondary/60">卸载命令</span>
-                    <code className="text-text font-mono text-[11px]">umount /mnt/nfs</code>
-                  </div>
-                </div>
 
-                {/* 使用提示 */}
-                <div className="border-t border-primary/15 px-3 py-2 text-[11px] text-text-secondary/50">
-                  NFS 适合大文件传输，IPC 设备常用 mount -t nfs -o nolock 挂载
+                  {/* 连接信息 */}
+                  <div className="p-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/20 bg-background/40">
+                          <span className="text-[10px] text-text-secondary/40 font-mono">本机 IP</span>
+                          <button
+                            onClick={() => handleCopy('ip', mountHint.localIp)}
+                            className="text-[10px] text-primary hover:text-primary/80 transition-colors"
+                          >
+                            {copiedLabel === 'ip' ? '已复制' : '复制'}
+                          </button>
+                        </div>
+                        <div className="px-2.5 py-2 font-mono text-xs text-text">
+                          <div className="leading-relaxed">{mountHint.localIp}</div>
+                        </div>
+                      </div>
+                      <div className="bg-background/70 border border-border/30 rounded-md overflow-hidden">
+                        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/20 bg-background/40">
+                          <span className="text-[10px] text-text-secondary/40 font-mono">挂载路径</span>
+                          <button
+                            onClick={() => handleCopy('path', '/mnt/nfs')}
+                            className="text-[10px] text-primary hover:text-primary/80 transition-colors"
+                          >
+                            {copiedLabel === 'path' ? '已复制' : '复制'}
+                          </button>
+                        </div>
+                        <div className="px-2.5 py-2 font-mono text-xs text-text">
+                          <div className="leading-relaxed">/mnt/nfs</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -293,7 +322,7 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
             {/* 客户端列表 */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">客户端连接</h4>
+                <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">客户端</h4>
                 {clients.length > 0 && (
                   <button
                     onClick={clearClients}
@@ -303,23 +332,24 @@ export const NfsDialog: React.FC<NfsDialogProps> = ({ isOpen, onClose }) => {
                   </button>
                 )}
               </div>
-              <div className="border border-border/50 rounded-lg bg-background/50 max-h-24 overflow-y-auto">
+              <div className="border border-border/50 rounded-lg bg-background/50 overflow-y-auto" style={{ minHeight: clients.length > 0 ? 'auto' : '60px' }}>
                 {clients.length === 0 ? (
-                  <div className="text-sm text-text-secondary/50 p-2.5 text-center">
-                    等待客户端连接...
+                  <div className="flex flex-col items-center justify-center gap-1.5 py-3 text-text-secondary/30">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span className="text-xs">等待设备连接</span>
                   </div>
                 ) : (
                   <div className="divide-y divide-border/50">
                     {clients.map((client: { address: string; port?: number; mountedPath?: string; action: string; timestamp: number }, index: number) => (
-                      <div key={index} className="p-2 text-sm">
+                      <div key={index} className="px-3 py-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 text-text-secondary">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 text-text-secondary/50">
                               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
                               <line x1="8" y1="21" x2="16" y2="21"/>
                               <line x1="12" y1="17" x2="12" y2="21"/>
                             </svg>
-                            <span className="truncate">{client.address}</span>
+                            <span className="truncate text-sm">{client.address}</span>
                           </div>
                           <span className={`flex-shrink-0 text-xs ${client.action === 'connected' ? 'text-green-400' : 'text-red-400'}`}>
                             {client.action === 'connected' ? '已连接' : '已断开'}

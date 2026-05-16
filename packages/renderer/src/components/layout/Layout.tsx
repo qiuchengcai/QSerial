@@ -78,7 +78,7 @@ export const Layout: React.FC = () => {
       </div>
 
       {/* 全宽 StatusBar 在底部 */}
-      {tabs.length > 0 && <StatusBar />}
+      <StatusBar />
 
       <SettingsDialog isOpen={showSettings} onClose={() => setShowSettings(false)} />
       <ErrorToast message={errorMessage} onDismiss={dismiss} />

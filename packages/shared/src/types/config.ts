@@ -90,6 +90,8 @@ export interface ConnectionShareSettings {
 export interface McpSettings {
   enabled: boolean;
   port: number;
+  listenAddress: string;
+  authPassword: string;
 }
 
 /**
@@ -163,6 +165,8 @@ export const DEFAULT_CONFIG: AppConfig = {
 	  mcp: {
 	    enabled: true,
 	    port: 9800,
+	    listenAddress: '127.0.0.1',
+	    authPassword: '',
 	  },
   window: {
     width: 1200,

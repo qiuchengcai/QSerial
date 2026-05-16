@@ -2,7 +2,7 @@
  * MCP AI 服务器对话框 — 含 13 个工具能力展示
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMcpStore } from '@/stores/mcp';
 
 interface ToolDef {
@@ -106,19 +106,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   help: '帮助',
 };
 
-const Badge: React.FC<{ idempotent: boolean; sideEffect: boolean }> = ({ idempotent, sideEffect }) => {
-  if (idempotent && !sideEffect) {
-    return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-medium border border-green-500/20">幂等</span>;
-  }
-  if (sideEffect) {
-    const isRead = sideEffect && !idempotent;
-    return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-      isRead
-        ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-        : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-    }`}>有副作用</span>;
-  }
-  return null;
+const CATEGORY_ORDER = ['connection', 'data', 'state', 'help'];
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  connection: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v4M8 10v4M2 8h4M10 8h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>,
+  data: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.2"/><path d="M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="5" cy="11" r="1" fill="currentColor" opacity="0.5"/><circle cx="8" cy="11" r="1" fill="currentColor" opacity="0.5"/><circle cx="11" cy="11" r="1" fill="currentColor" opacity="0.5"/></svg>,
+  state: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>,
+  help: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M6.5 6.5a2 2 0 013.46-1.26A2 2 0 018 9v.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="8" cy="12" r="0.7" fill="currentColor"/></svg>,
 };
 
 interface McpDialogProps {
@@ -141,11 +135,16 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
   } = useMcpStore();
   const [localPort, setLocalPort] = useState(config.port);
   const [localIp, setLocalIp] = useState('127.0.0.1');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['connection']));
-  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [localListenAddress, setLocalListenAddress] = useState(config.listenAddress);
+  const [localAuthPassword, setLocalAuthPassword] = useState(config.authPassword);
+  const [selectedCategory, setSelectedCategory] = useState('connection');
+  const [expandedToolParams, setExpandedToolParams] = useState<Set<string>>(new Set());
+  const [selectedClient, setSelectedClient] = useState<'claude' | 'codebuddy'>('claude');
 
   useEffect(() => {
     setLocalPort(config.port);
+    setLocalListenAddress(config.listenAddress);
+    setLocalAuthPassword(config.authPassword);
   }, [config]);
 
   useEffect(() => {
@@ -170,8 +169,18 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleListenAddressChange = (value: string) => {
+    setLocalListenAddress(value);
+    updateConfig({ listenAddress: value });
+  };
+
+  const handleAuthPasswordChange = (value: string) => {
+    setLocalAuthPassword(value);
+    updateConfig({ authPassword: value });
+  };
+
   const handleStart = async () => {
-    updateConfig({ port: localPort });
+    updateConfig({ port: localPort, listenAddress: localListenAddress, authPassword: localAuthPassword });
     await startServer();
   };
 
@@ -179,36 +188,19 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
     await stopServer();
   };
 
-  const toggleCategory = (cat: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
-      return next;
-    });
-  };
-
-  const toggleTool = (name: string) => {
-    setExpandedTools((prev) => {
+  const toggleParams = (name: string) => {
+    setExpandedToolParams((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name); else next.add(name);
       return next;
     });
   };
 
-  const groupedTools = useMemo(() => {
-    const groups: Record<string, ToolDef[]> = {};
-    for (const tool of MCP_TOOLS) {
-      if (!groups[tool.category]) groups[tool.category] = [];
-      groups[tool.category].push(tool);
-    }
-    return groups;
-  }, []);
-
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
-      <div className="dialog-content bg-surface rounded-xl w-[640px] max-h-[88vh] flex flex-col border border-white/5">
+      <div className="bg-surface rounded-xl shadow-md w-[640px] max-h-[88vh] flex flex-col border border-border/80">
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -244,20 +236,73 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
             />
           </div>
 
-          {/* 状态 */}
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-3 h-3 rounded-full ${running ? 'bg-green-500' : starting || stopping ? 'bg-yellow-500 animate-pulse' : 'bg-gray-500'}`}
+          {/* 监听地址 */}
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">监听地址</label>
+            <select
+              value={localListenAddress}
+              onChange={(e) => handleListenAddressChange(e.target.value)}
+              disabled={running}
+              className="dialog-input"
+            >
+              <option value="127.0.0.1">127.0.0.1 (仅本机)</option>
+              <option value="0.0.0.0">0.0.0.0 (所有网络接口，可远程访问)</option>
+            </select>
+          </div>
+
+          {/* 认证密码 */}
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">
+              Bearer Token 认证 <span className="text-text-secondary/50 font-normal">(可选，建议启用)</span>
+            </label>
+            <input
+              type="password"
+              value={localAuthPassword}
+              onChange={(e) => handleAuthPasswordChange(e.target.value)}
+              disabled={running}
+              placeholder="留空则不启用认证"
+              className="dialog-input"
             />
-            <span className="text-sm">
-              {running
-                ? `运行中 — 0.0.0.0:${config.port} (可远程访问)`
-                : starting
-                ? '启动中...'
-                : stopping
-                ? '停止中...'
-                : '已停止'}
-            </span>
+            {localAuthPassword && (
+              <p className="text-[10px] text-warning mt-1">MCP 客户端需在 HTTP Header 中携带 Authorization: Bearer {localAuthPassword}</p>
+            )}
+          </div>
+
+          {/* 状态 + 操作 */}
+          <div className="bg-background/40 rounded-lg border border-border/50 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`w-[9px] h-[9px] rounded-full ${running ? 'bg-green-400 service-dot-active' : starting || stopping ? 'bg-yellow-400 animate-pulse' : 'bg-text-secondary/20'}`}
+                />
+                <span className="text-sm font-medium">
+                  {running
+                    ? `运行中 — ${config.listenAddress}:${config.port}${config.listenAddress === '0.0.0.0' ? ' (可远程)' : ' (仅本机)'}${config.authPassword ? ' · 已认证' : ''}`
+                    : starting ? '启动中...' : stopping ? '停止中...' : '已停止'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {running ? (
+                  <button
+                    onClick={handleStop}
+                    disabled={stopping}
+                    className="dialog-btn bg-error text-white hover:bg-error/80 rounded-md text-sm disabled:opacity-50"
+                    style={{ padding: '6px 16px' }}
+                  >
+                    {stopping ? '停止中...' : '停止'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStart}
+                    disabled={starting}
+                    className="dialog-btn dialog-btn-primary text-sm disabled:opacity-50"
+                    style={{ padding: '6px 16px' }}
+                  >
+                    {starting ? '启动中...' : '启动'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* 错误信息 */}
@@ -269,27 +314,6 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
               {error}
             </div>
           )}
-
-          {/* 操作按钮 */}
-          <div className="flex gap-2">
-            {running ? (
-              <button
-                onClick={handleStop}
-                disabled={stopping}
-                className="dialog-btn flex-1 bg-error text-white hover:bg-error/80 rounded-md disabled:opacity-50"
-              >
-                {stopping ? '停止中...' : '停止'}
-              </button>
-            ) : (
-              <button
-                onClick={handleStart}
-                disabled={starting}
-                className="dialog-btn dialog-btn-primary flex-1 disabled:opacity-50"
-              >
-                {starting ? '启动中...' : '启动'}
-              </button>
-            )}
-          </div>
 
           {/* 活跃连接列表 */}
           {running && (
@@ -335,56 +359,52 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
             <div className="space-y-3">
               <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">MCP 配置</h4>
 
-              {/* Claude Code 配置 */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-text-secondary">Claude Code — .mcp.json</span>
-                  <button
-                    onClick={() => {
-                      const text = `{"mcpServers":{"qserial":{"transport":"streamableHttp","url":"http://${localIp}:${config.port}/mcp"}}}`;
-                      navigator.clipboard.writeText(text).catch(() => {});
-                    }}
-                    className="text-xs text-primary hover:text-primary/80 transition-colors"
-                  >
-                    复制
-                  </button>
+              <div className="border border-border/50 rounded-lg overflow-hidden">
+                {/* 客户端切换 */}
+                <div className="flex bg-background/50 border-b border-border/50">
+                  {(['claude', 'codebuddy'] as const).map((client) => (
+                    <button
+                      key={client}
+                      onClick={() => setSelectedClient(client)}
+                      className={`flex-1 text-xs py-2 px-3 transition-colors ${
+                        selectedClient === client
+                          ? 'bg-surface text-primary font-medium border-b-2 border-primary -mb-[1px]'
+                          : 'text-text-secondary hover:text-text hover:bg-hover/50'
+                      }`}
+                    >
+                      {client === 'claude' ? 'Claude Code' : 'CodeBuddy'}
+                    </button>
+                  ))}
                 </div>
-                <pre className="text-[11px] bg-background rounded p-2 overflow-x-auto border border-border/50 whitespace-pre-wrap break-all">
-{`{
-  "mcpServers": {
-    "qserial": {
-      "transport": "streamableHttp",
-      "url": "http://${localIp}:${config.port}/mcp"
-    }
-  }
-}`}
-                </pre>
-              </div>
 
-              {/* CodeBuddy 配置 */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-text-secondary">CodeBuddy — mcp.json</span>
-                  <button
-                    onClick={() => {
-                      const text = `{"mcpServers":{"qserial":{"transport":"sse","url":"http://${localIp}:${config.port}/sse"}}}`;
-                      navigator.clipboard.writeText(text).catch(() => {});
-                    }}
-                    className="text-xs text-primary hover:text-primary/80 transition-colors"
-                  >
-                    复制
-                  </button>
+                {/* 配置内容 */}
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-text-secondary">.mcp.json</span>
+                    <button
+                      onClick={() => {
+                        const tokenSuffix = config.authPassword ? `?token=${config.authPassword}` : '';
+                        const headersBlock = config.authPassword ? `,\n      "headers": {\n        "Authorization": "Bearer ${config.authPassword}"\n      }` : '';
+                        const cfg = selectedClient === 'claude'
+                          ? `{"mcpServers":{"qserial":{"type":"streamable-http","url":"http://${localIp}:${config.port}/mcp"${headersBlock}}}}`
+                          : `{"mcpServers":{"qserial":{"type":"sse","url":"http://${localIp}:${config.port}/sse${tokenSuffix}"}}}`;
+                        navigator.clipboard.writeText(cfg).catch(() => {});
+                      }}
+                      className="text-xs text-primary hover:text-primary/80 transition-colors"
+                    >
+                      复制
+                    </button>
+                  </div>
+                  <pre className="text-[11px] bg-background rounded p-2.5 overflow-x-auto border border-border/50 whitespace-pre-wrap break-all">
+                    {(() => {
+                      const tokenSuffix = config.authPassword ? `?token=${config.authPassword}` : '';
+                      const headersBlock = config.authPassword ? `,\n      "headers": {\n        "Authorization": "Bearer ${config.authPassword}"\n      }` : '';
+                      return selectedClient === 'claude'
+                        ? `{\n  "mcpServers": {\n    "qserial": {\n      "type": "streamable-http",\n      "url": "http://${localIp}:${config.port}/mcp"${headersBlock}\n    }\n  }\n}`
+                        : `{\n  "mcpServers": {\n    "qserial": {\n      "type": "sse",\n      "url": "http://${localIp}:${config.port}/sse${tokenSuffix}"\n    }\n  }\n}`;
+                    })()}
+                  </pre>
                 </div>
-                <pre className="text-[11px] bg-background rounded p-2 overflow-x-auto border border-border/50 whitespace-pre-wrap break-all">
-{`{
-  "mcpServers": {
-    "qserial": {
-      "transport": "sse",
-      "url": "http://${localIp}:${config.port}/sse"
-    }
-  }
-}`}
-                </pre>
               </div>
 
               <p className="text-xs text-text-secondary/60">
@@ -394,59 +414,77 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
           )}
 
           {/* 工具能力展示 */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
               工具能力 ({MCP_TOOLS.length})
             </h4>
-            {Object.entries(groupedTools).map(([category, tools]) => (
-              <div key={category} className="border border-border/50 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleCategory(category)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-background/50 hover:bg-hover/50 transition-colors text-left"
-                >
-                  <span className="text-sm font-medium">
-                    {CATEGORY_LABELS[category] || category}
-                    <span className="text-xs text-text-secondary ml-2">({tools.length} 个工具)</span>
-                  </span>
-                  <svg
-                    width="12" height="12" viewBox="0 0 12 12" fill="none"
-                    className={`transform transition-transform ${expandedCategories.has(category) ? 'rotate-180' : ''}`}
+
+            {/* 分类标签页 */}
+            <div className="flex gap-1 flex-wrap">
+              {CATEGORY_ORDER.map((cat) => {
+                const tools = MCP_TOOLS.filter((t) => t.category === cat);
+                const isActive = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-all ${
+                      isActive
+                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                        : 'bg-background/50 text-text-secondary border border-border/50 hover:bg-hover/50 hover:text-text'
+                    }`}
                   >
-                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-                {expandedCategories.has(category) && (
-                  <div className="divide-y divide-border/50 border-t border-border/50">
-                    {tools.map((tool) => (
-                      <div key={tool.name}>
-                        <button
-                          onClick={() => toggleTool(tool.name)}
-                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-hover/30 transition-colors text-left"
-                        >
-                          <span className="text-xs font-mono font-medium text-primary min-w-0 truncate">{tool.name}</span>
-                          <span className="text-xs text-text-secondary truncate hidden sm:inline">{tool.description.slice(0, 40)}...</span>
-                          <span className="flex-shrink-0 ml-auto"><Badge idempotent={tool.idempotent} sideEffect={tool.sideEffect} /></span>
-                          <svg
-                            width="10" height="10" viewBox="0 0 10 10" fill="none"
-                            className={`transform transition-transform flex-shrink-0 ${expandedTools.has(tool.name) ? 'rotate-180' : ''}`}
+                    <span className={isActive ? 'text-primary' : 'text-text-secondary/60'}>{CATEGORY_ICONS[cat]}</span>
+                    <span>{CATEGORY_LABELS[cat]}</span>
+                    <span className={`text-[10px] ml-0.5 ${isActive ? 'text-primary/60' : 'text-text-secondary/40'}`}>{tools.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 当前分类下的工具列表 */}
+            <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+              {MCP_TOOLS.filter((t) => t.category === selectedCategory).map((tool) => {
+                const paramsExpanded = expandedToolParams.has(tool.name);
+                const isIdempotent = tool.idempotent && !tool.sideEffect;
+                return (
+                  <div key={tool.name}>
+                    <div className="px-3 py-2.5">
+                      <div className="flex items-start gap-2.5">
+                        {/* 工具名 - 固定宽度对齐 */}
+                        <span className="text-xs font-mono font-medium text-primary flex-shrink-0 mt-0.5 w-[140px] truncate" title={tool.name}>{tool.name}</span>
+                        {/* 幂等标签 */}
+                        {isIdempotent && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-medium border border-green-500/20 flex-shrink-0 mt-0.5">幂等</span>
+                        )}
+                        {/* 描述 - 占满剩余空间 */}
+                        <span className="text-xs text-text-secondary leading-relaxed flex-1 min-w-0">{tool.description}</span>
+                        {/* 参数展开按钮 */}
+                        {tool.inputs !== '(无参数)' && (
+                          <button
+                            onClick={() => toggleParams(tool.name)}
+                            className="flex-shrink-0 mt-0.5 w-4 h-4 flex items-center justify-center rounded hover:bg-hover text-text-secondary/40 hover:text-text-secondary transition-colors"
+                            title="查看参数"
                           >
-                            <path d="M2.5 3.5L5 6L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                        {expandedTools.has(tool.name) && (
-                          <div className="px-3 pb-2.5 pt-0.5 space-y-1">
-                            <p className="text-xs text-text-secondary leading-relaxed">{tool.description}</p>
-                            <p className="text-[10px] text-text-secondary/70">
-                              <span className="font-medium text-text-secondary/50">输入参数:</span> {tool.inputs}
-                            </p>
-                          </div>
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`transform transition-transform ${paramsExpanded ? 'rotate-180' : ''}`}>
+                              <path d="M2.5 3.5L5 6L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
                         )}
                       </div>
-                    ))}
+                      {/* 展开参数 */}
+                      {paramsExpanded && (
+                        <div className="mt-1.5 ml-[18px]">
+                          <span className="text-[10px] text-text-secondary/60">
+                            <span className="font-medium text-text-secondary/40">参数:</span> {tool.inputs}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
 
