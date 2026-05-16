@@ -61,7 +61,7 @@ echo ""
 
 # 编译
 echo -e "${YELLOW}[1/3] 编译 shared 包...${NC}"
-$NODE "$TSC" -p packages/shared/tsconfig.json --skipLibCheck --types node --typeRoots node_modules/@types || err_exit "shared 编译失败"
+$NODE "$TSC" -p packages/shared/tsconfig.json --skipLibCheck || err_exit "shared 编译失败"
 echo -e "${GREEN}  ✓ shared 完成${NC}"
 
 echo -e "${YELLOW}[2/3] 编译 main 包...${NC}"
