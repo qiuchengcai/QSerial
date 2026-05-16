@@ -126,6 +126,7 @@ export const useNfsStore = create<NfsState & NfsActions>()(
             set({
               running: true,
               config: {
+                ...get().config,
                 exportDir: status.exportDir,
                 allowedClients: status.allowedClients,
                 options: status.options,

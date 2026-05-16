@@ -118,6 +118,7 @@ export const useFtpStore = create<FtpState & FtpActions>()(
             set({
               running: true,
               config: {
+                ...get().config,
                 port: status.port,
                 rootDir: status.rootDir,
                 username: status.username,

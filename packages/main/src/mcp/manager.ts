@@ -1153,6 +1153,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
 
         const options: ConnectionServerOptions = {
           id: serverId,
+          name: `Share-${sourceId.slice(0, 8)}`,
           type: ConnectionType.CONNECTION_SERVER,
           sourceType: 'existing',
           existingConnectionId: sourceId,

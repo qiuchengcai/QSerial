@@ -96,6 +96,7 @@ export const useTftpStore = create<TftpState & TftpActions>()(
             set({
               running: true,
               config: {
+                ...get().config,
                 port: status.port,
                 rootDir: status.rootDir,
               },
