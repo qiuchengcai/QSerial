@@ -3,6 +3,9 @@
  */
 
 import * as pty from 'node-pty';
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 import {
   ConnectionType,
   ConnectionState,
@@ -10,6 +13,101 @@ import {
   type PtyConnectionOptions,
 } from '@qserial/shared';
 import { EventEmitter } from 'events';
+
+/**
+ * 在 Windows 上解析 shell 可执行文件的完整路径。
+ * Electron 主进程在 Windows 环境下运行，其 PATH 不包含通过 Git Bash/MSYS2
+ * 安装的工具路径（如 C:\Program Files\Git\bin）。node-pty 内部使用
+ * child_process.spawn()，只在 Windows PATH 中搜索。
+ */
+function resolveShellPath(shell: string): string {
+  // 已经是绝对路径，直接返回
+  if (path.isAbsolute(shell)) {
+    if (fs.existsSync(shell)) return shell;
+    throw new Error(`Shell not found: ${shell}`);
+  }
+
+  // 带路径分隔符（相对路径），转为绝对路径检查
+  if (shell.includes('/') || shell.includes('\\')) {
+    const resolved = path.resolve(shell);
+    if (fs.existsSync(resolved)) return resolved;
+    throw new Error(`Shell not found: ${shell} (resolved: ${resolved})`);
+  }
+
+  if (process.platform === 'win32') {
+    const basename = shell.toLowerCase();
+
+    // Git Bash: 尝试常见安装路径
+    if (basename === 'bash' || basename === 'bash.exe') {
+      const gitBashPaths = [
+        'C:\\Program Files\\Git\\bin\\bash.exe',
+        'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+        'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+        'C:\\Program Files (x86)\\Git\\usr\\bin\\bash.exe',
+      ];
+      // 尝试从注册表读取 Git 安装路径
+      try {
+        const regPath = execSync(
+          'reg query "HKLM\\SOFTWARE\\GitForWindows" /v InstallPath 2>nul',
+          { encoding: 'utf8', timeout: 3000 }
+        );
+        const match = regPath.match(/REG_SZ\s+(.+)/);
+        if (match) {
+          const gitRoot = match[1].trim();
+          gitBashPaths.unshift(path.join(gitRoot, 'bin', 'bash.exe'));
+          gitBashPaths.unshift(path.join(gitRoot, 'usr', 'bin', 'bash.exe'));
+        }
+      } catch { /* 注册表无 Git 信息 */ }
+
+      for (const candidate of gitBashPaths) {
+        if (fs.existsSync(candidate)) return candidate;
+      }
+
+      // 如果还是找不到，尝试在 PATH 中搜索（通过 where 命令，但排除 MSYS2 虚拟路径）
+      try {
+        const result = execSync(`where ${shell}`, {
+          encoding: 'utf8',
+          timeout: 3000,
+        });
+        const lines = result.trim().split('\r\n').filter(Boolean);
+        if (lines.length > 0) return lines[0].trim();
+      } catch { /* PATH 中也未找到 */ }
+
+      throw new Error(
+        `bash.exe 未找到。请确认 Git for Windows 已安装。` +
+        `尝试的路径: ${gitBashPaths.slice(0, 4).join(', ')}`
+      );
+    }
+
+    // WSL: 尝试常见路径
+    if (basename === 'wsl' || basename === 'wsl.exe') {
+      const wslPath = 'C:\\Windows\\System32\\wsl.exe';
+      if (fs.existsSync(wslPath)) return wslPath;
+      const wslSysPath = 'C:\\Windows\\Sysnative\\wsl.exe';
+      if (fs.existsSync(wslSysPath)) return wslSysPath;
+      throw new Error('wsl.exe 未找到，请确认 WSL 已安装');
+    }
+
+    // PowerShell / CMD: 在 System32 中
+    if (basename === 'powershell.exe' || basename === 'powershell') {
+      const psPath = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+      if (fs.existsSync(psPath)) return psPath;
+      const psSysPath = 'C:\\Windows\\Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe';
+      if (fs.existsSync(psSysPath)) return psSysPath;
+      // fall through to generic resolution
+    }
+    if (basename === 'cmd.exe' || basename === 'cmd') {
+      const cmdPath = 'C:\\Windows\\System32\\cmd.exe';
+      if (fs.existsSync(cmdPath)) return cmdPath;
+      const cmdSysPath = 'C:\\Windows\\Sysnative\\cmd.exe';
+      if (fs.existsSync(cmdSysPath)) return cmdSysPath;
+      // fall through to generic resolution
+    }
+  }
+
+  // 通用解析：直接尝试 spawn 寻找。如果 node-pty 找不到，让原始错误自然抛出
+  return shell;
+}
 
 export class PtyConnection implements IConnection {
   private ptyProcess: pty.IPty | null = null;
@@ -42,7 +140,7 @@ export class PtyConnection implements IConnection {
     this.emitStateChange();
 
     try {
-      const shell = this.options.shell || this.getDefaultShell();
+      const shell = resolveShellPath(this.options.shell || this.getDefaultShell());
 
       this.ptyProcess = pty.spawn(shell, [], {
         name: 'xterm-256color',

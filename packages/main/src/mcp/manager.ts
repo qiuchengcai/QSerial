@@ -6,11 +6,13 @@
 import * as http from 'node:http';
 import * as crypto from 'node:crypto';
 import { BrowserWindow } from 'electron';
-import type { ConnectionOptions } from '@qserial/shared';
+import type { ConnectionOptions, ConnectionServerOptions } from '@qserial/shared';
 import { ConnectionFactory } from '../connection/factory.js';
+import { ConnectionServerConnection } from '../connection/connectionServer.js';
 import {
   IPC_CHANNELS,
   ConnectionState,
+  ConnectionType,
 } from '@qserial/shared';
 
 let mainWindow: BrowserWindow | null = null;
