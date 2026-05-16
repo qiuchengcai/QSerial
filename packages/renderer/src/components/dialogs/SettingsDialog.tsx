@@ -8,6 +8,8 @@ import { useConfigStore } from '@/stores/config';
 import { useSavedSessionsStore, type SavedSession } from '@/stores/sessions';
 import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useTftpStore } from '@/stores/tftp';
+import { useNfsStore } from '@/stores/nfs';
+import { useFtpStore } from '@/stores/ftp';
 import type { AppConfig, Theme } from '@qserial/shared';
 
 interface SettingsDialogProps {
@@ -22,18 +24,17 @@ interface ExportedConfig {
   config: AppConfig;
   sessions: unknown[];
   quickButtons: unknown[];
-  tftp: { port: number; rootDir: string };
+  tftp?: { port: number; rootDir: string; autoStart: boolean };
+  nfs?: { exportDir: string; allowedClients: string; options: string; autoStart: boolean };
+  ftp?: { port: number; rootDir: string; username: string; password: string; autoStart: boolean };
 }
 
-type SectionId = 'appearance' | 'behavior' | 'terminal' | 'serial' | 'ssh' | 'share' | 'manage';
+type SectionId = 'appearance' | 'behavior' | 'terminal' | 'manage';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'appearance', label: '外观' },
   { id: 'behavior', label: '应用行为' },
   { id: 'terminal', label: '终端' },
-  { id: 'serial', label: '串口' },
-  { id: 'ssh', label: 'SSH' },
-  { id: 'share', label: '连接共享' },
   { id: 'manage', label: '配置管理' },
 ];
 
@@ -47,7 +48,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const sessions = savedSessionsState?.sessions || [];
   const quickButtonsState = useQuickButtonsStore();
   const groups = quickButtonsState?.groups || [];
-  const { config: tftpConfig, updateConfig: updateTftpConfig } = useTftpStore();
+  const tftpConfig = useTftpStore(s => s.config);
+  const nfsConfig = useNfsStore(s => s.config);
+  const ftpConfig = useFtpStore(s => s.config);
 
   const [activeSection, setActiveSection] = useState<SectionId>('appearance');
 
@@ -68,22 +71,6 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const [autoUpdate, setAutoUpdate] = useState(config.app.autoUpdate);
   const [minimizeToTray, setMinimizeToTray] = useState(config.app.minimizeToTray);
   const [closeToTray, setCloseToTray] = useState(config.app.closeToTray);
-
-  const [defaultBaudRate, setDefaultBaudRate] = useState(config.serial.defaultBaudRate);
-  const [defaultDataBits, setDefaultDataBits] = useState(config.serial.defaultDataBits);
-  const [defaultStopBits, setDefaultStopBits] = useState(config.serial.defaultStopBits);
-  const [defaultParity, setDefaultParity] = useState(config.serial.defaultParity);
-  const [showTimestamp, setShowTimestamp] = useState(config.serial.showTimestamp);
-  const [hexDisplay, setHexDisplay] = useState(config.serial.hexDisplay);
-
-  const [sshKeepalive, setSshKeepalive] = useState(config.ssh.keepaliveInterval);
-  const [sshKeepaliveMax, setSshKeepaliveMax] = useState(config.ssh.keepaliveCountMax);
-  const [sshTimeout, setSshTimeout] = useState(config.ssh.readyTimeout);
-  const [sshPort, setSshPort] = useState(config.ssh.defaultPort);
-
-  const [sharePort, setSharePort] = useState(config.connectionShare.defaultLocalPort);
-  const [shareApiPort, setShareApiPort] = useState(config.connectionShare.defaultApiPort ?? config.connectionShare.defaultLocalPort + 1);
-  const [shareAddress, setShareAddress] = useState(config.connectionShare.defaultListenAddress ?? '0.0.0.0');
 
   const [importError, setImportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -106,19 +93,6 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     setAutoUpdate(c.app.autoUpdate);
     setMinimizeToTray(c.app.minimizeToTray);
     setCloseToTray(c.app.closeToTray);
-    setDefaultBaudRate(c.serial.defaultBaudRate);
-    setDefaultDataBits(c.serial.defaultDataBits);
-    setDefaultStopBits(c.serial.defaultStopBits);
-    setDefaultParity(c.serial.defaultParity);
-    setShowTimestamp(c.serial.showTimestamp);
-    setHexDisplay(c.serial.hexDisplay);
-    setSshKeepalive(c.ssh.keepaliveInterval);
-    setSshKeepaliveMax(c.ssh.keepaliveCountMax);
-    setSshTimeout(c.ssh.readyTimeout);
-    setSshPort(c.ssh.defaultPort);
-    setSharePort(c.connectionShare.defaultLocalPort);
-    setShareApiPort(c.connectionShare.defaultApiPort ?? c.connectionShare.defaultLocalPort + 1);
-    setShareAddress(c.connectionShare.defaultListenAddress ?? '0.0.0.0');
   }, [config]);
 
   if (!isOpen) return null;
@@ -134,23 +108,6 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       ...config.app,
       uiFontFamily, language, autoUpdate, minimizeToTray, closeToTray,
     });
-    updateConfig('serial', {
-      ...config.serial,
-      defaultBaudRate, defaultDataBits, defaultStopBits, defaultParity,
-      showTimestamp, hexDisplay,
-    });
-    updateConfig('ssh', {
-      ...config.ssh,
-      keepaliveInterval: sshKeepalive, keepaliveCountMax: sshKeepaliveMax,
-      readyTimeout: sshTimeout, defaultPort: sshPort,
-    });
-    updateConfig('connectionShare', {
-      ...config.connectionShare,
-      defaultLocalPort: sharePort, defaultApiPort: shareApiPort, defaultListenAddress: shareAddress,
-    });
-    updateConfig('mcp', { ...config.mcp, enabled: mcpEnabled, port: mcpPort });
-    updateTftpConfig({ port: tftpPort, rootDir: tftpRootDir });
-    updateConfig('window', { ...config.window, maximized: windowMaximized });
     onClose();
   };
 
@@ -163,7 +120,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         config: config,
         sessions,
         quickButtons: groups,
-        tftp: { port: tftpConfig.port, rootDir: tftpConfig.rootDir },
+        tftp: tftpConfig,
+        nfs: nfsConfig,
+        ftp: ftpConfig,
       };
       const json = JSON.stringify(exportData, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
@@ -199,9 +158,6 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           const c = data.config as AppConfig;
           if (c.app) updateConfig('app', { ...config.app, ...c.app });
           if (c.terminal) updateConfig('terminal', { ...config.terminal, ...c.terminal });
-          if (c.serial) updateConfig('serial', { ...config.serial, ...c.serial });
-          if (c.ssh) updateConfig('ssh', { ...config.ssh, ...c.ssh });
-          if (c.connectionShare) updateConfig('connectionShare', { ...config.connectionShare, ...c.connectionShare });
         } else if (data.terminal) {
           updateConfig('terminal', { ...config.terminal, ...data.terminal });
         }
@@ -213,7 +169,13 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           useSavedSessionsStore.getState().importSessions(data.sessions as SavedSession[]);
         }
         if (data.tftp) {
-          updateTftpConfig({ port: data.tftp.port, rootDir: data.tftp.rootDir });
+          useTftpStore.getState().updateConfig(data.tftp);
+        }
+        if (data.nfs) {
+          useNfsStore.getState().updateConfig(data.nfs);
+        }
+        if (data.ftp) {
+          useFtpStore.getState().updateConfig(data.ftp);
         }
         setImportError(null);
       };
@@ -363,120 +325,6 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           </div>
         );
 
-      case 'serial':
-        return (
-          <div className="space-y-4">
-            <SectionTitle title="串口默认参数" />
-            <div className="grid grid-cols-2 gap-3">
-              <Select label="波特率" value={String(defaultBaudRate)} onChange={(v) => setDefaultBaudRate(Number(v))}
-                options={[
-                  { value: '9600', label: '9600' }, { value: '19200', label: '19200' },
-                  { value: '38400', label: '38400' }, { value: '57600', label: '57600' },
-                  { value: '115200', label: '115200' }, { value: '230400', label: '230400' },
-                  { value: '460800', label: '460800' }, { value: '921600', label: '921600' },
-                ]}
-              />
-              <Select label="数据位" value={String(defaultDataBits)} onChange={(v) => setDefaultDataBits(Number(v) as 5 | 6 | 7 | 8)}
-                options={[{ value: '8', label: '8' }, { value: '7', label: '7' }, { value: '6', label: '6' }, { value: '5', label: '5' }]}
-              />
-              <Select label="停止位" value={String(defaultStopBits)} onChange={(v) => setDefaultStopBits(Number(v) as 1 | 1.5 | 2)}
-                options={[{ value: '1', label: '1' }, { value: '1.5', label: '1.5' }, { value: '2', label: '2' }]}
-              />
-              <Select label="校验位" value={defaultParity} onChange={(v) => setDefaultParity(v as 'none' | 'even' | 'odd')}
-                options={[{ value: 'none', label: '无' }, { value: 'even', label: '偶校验' }, { value: 'odd', label: '奇校验' }]}
-              />
-            </div>
-            <Toggle label="显示时间戳" hint="每行数据前显示接收时间" checked={showTimestamp} onChange={setShowTimestamp} />
-            <Toggle label="十六进制显示" hint="以 HEX 格式显示串口数据" checked={hexDisplay} onChange={setHexDisplay} />
-          </div>
-        );
-
-      case 'ssh':
-        return (
-          <div className="space-y-4">
-            <SectionTitle title="SSH" />
-            <NumberInput label="默认端口" value={sshPort} onChange={setSshPort} min={1} max={65535} />
-            <div className="grid grid-cols-2 gap-3">
-              <NumberInput label="Keepalive 间隔 (ms)" value={sshKeepalive} onChange={setSshKeepalive} min={5000} max={300000} />
-              <NumberInput label="Keepalive 最大次数" value={sshKeepaliveMax} onChange={setSshKeepaliveMax} min={1} max={20} />
-            </div>
-            <NumberInput label="连接超时 (ms)" value={sshTimeout} onChange={setSshTimeout} min={5000} max={120000} />
-          </div>
-        );
-
-      case 'share':
-        return (
-          <div className="space-y-4">
-            <SectionTitle title="连接共享" />
-            <div className="grid grid-cols-2 gap-3">
-              <NumberInput label="默认 TCP 端口" value={sharePort} onChange={setSharePort} min={1024} max={65535} />
-              <NumberInput label="JSON API 端口" value={shareApiPort} onChange={setShareApiPort} min={1024} max={65535} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">监听地址</label>
-              <select value={shareAddress} onChange={(e) => setShareAddress(e.target.value)} className="dialog-select">
-                <option value="0.0.0.0">0.0.0.0 (所有接口 — 局域网可访问)</option>
-                <option value="127.0.0.1">127.0.0.1 (仅本机)</option>
-              </select>
-            </div>
-          </div>
-        );
-
-      case 'mcp':
-        return (
-          <div className="space-y-4">
-            <SectionTitle title="MCP AI 服务器" />
-            <Toggle label="启动时自动启用" hint="应用启动时自动启动 MCP 服务器" checked={mcpEnabled} onChange={setMcpEnabled} />
-            <NumberInput label="端口" value={mcpPort} onChange={setMcpPort} min={1024} max={65535} />
-            <p className="text-xs text-text-secondary/60">提供 13 个工具，支持 streamableHttp (Claude Code) 和 SSE (CodeBuddy) 双传输方式。</p>
-          </div>
-        );
-
-      case 'tftp':
-        return (
-          <div className="space-y-4">
-            <SectionTitle title="TFTP 服务器" />
-            <NumberInput label="端口" value={tftpPort} onChange={setTftpPort} min={1} max={65535} />
-            <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">根目录</label>
-              <div className="flex gap-2">
-                <input
-                  type="text" value={tftpRootDir} onChange={(e) => setTftpRootDir(e.target.value)}
-                  className="dialog-input flex-1" placeholder="选择或输入目录路径"
-                />
-                <button
-                  onClick={async () => {
-                    const dir = await window.qserial.dialog.pickDir('选择 TFTP 根目录');
-                    if (dir) setTftpRootDir(dir);
-                  }}
-                  className="dialog-btn dialog-btn-secondary px-3"
-                >
-                  浏览
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'window':
-        return (
-          <div className="space-y-4">
-            <SectionTitle title="窗口" />
-            <Toggle label="启动时最大化" checked={windowMaximized} onChange={setWindowMaximized} />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">默认宽度</label>
-                <input type="number" value={config.window.width} disabled className="dialog-input" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">默认高度</label>
-                <input type="number" value={config.window.height} disabled className="dialog-input" />
-              </div>
-            </div>
-            <p className="text-xs text-text-secondary/60">窗口尺寸和位置在关闭时自动保存。</p>
-          </div>
-        );
-
       case 'manage':
         return (
           <div className="space-y-4">
@@ -507,7 +355,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 {importError}
               </div>
             )}
-            <p className="text-xs text-text-secondary/70">导出包含：全部配置、主题、会话列表、快捷按钮、TFTP 设置</p>
+            <p className="text-xs text-text-secondary/70">导出包含：全部配置、主题、会话列表、快捷按钮、TFTP / NFS / FTP 服务配置</p>
           </div>
         );
 
@@ -518,7 +366,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
-      <div className="bg-surface rounded-xl shadow-md w-[660px] max-h-[88vh] min-h-[420px] overflow-hidden border border-border/80 flex">
+      <div className="bg-surface rounded-xl shadow-md w-[660px] h-[480px] max-h-[88vh] overflow-hidden border border-border/80 flex">
         {/* 左侧导航 */}
         <div className="w-[130px] flex-shrink-0 border-r border-border bg-background/30 flex flex-col">
           <div className="px-3.5 pt-3.5 pb-2.5 border-b border-border/50">

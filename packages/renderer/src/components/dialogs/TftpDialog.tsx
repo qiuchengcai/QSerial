@@ -178,6 +178,17 @@ export const TftpDialog: React.FC<TftpDialogProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
+          {/* 开机自启 */}
+          <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={config.autoStart}
+              onChange={(e) => updateConfig({ autoStart: e.target.checked })}
+              className="dialog-checkbox w-3.5 h-3.5"
+            />
+            应用启动时自动运行
+          </label>
+
           {/* 状态 + 操作 */}
           <div className="bg-background/40 rounded-lg border border-border/50 p-4 space-y-3">
             <div className="flex items-center justify-between">

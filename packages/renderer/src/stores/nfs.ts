@@ -10,6 +10,7 @@ interface NfsConfig {
   exportDir: string;
   allowedClients: string;
   options: string;
+  autoStart: boolean;
 }
 
 interface NfsClient {
@@ -50,6 +51,7 @@ const DEFAULT_CONFIG: NfsConfig = {
   exportDir: '',
   allowedClients: '*',
   options: 'rw,sync,no_subtree_check,no_root_squash',
+  autoStart: false,
 };
 
 export const useNfsStore = create<NfsState & NfsActions>()(

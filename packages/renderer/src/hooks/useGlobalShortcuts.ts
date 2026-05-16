@@ -98,14 +98,18 @@ export function useGlobalShortcuts() {
         return;
       }
 
-      // Ctrl+R — 重连
+      // Ctrl+R — 开发模式刷新页面，生产模式重连
       if (ctrl && !shift && e.key === 'r') {
         e.preventDefault();
-        const { tabs, activeTabId, sessions } = useTerminalStore.getState();
-        const activeTab = tabs.find((t) => t.id === activeTabId);
-        const activeSession = activeTab?.activeSessionId ? sessions[activeTab.activeSessionId] : null;
-        if (activeSession?.connectionId) {
-          window.qserial.connection.open(activeSession.connectionId).catch(() => {});
+        if (import.meta.env.DEV) {
+          window.location.reload();
+        } else {
+          const { tabs, activeTabId, sessions } = useTerminalStore.getState();
+          const activeTab = tabs.find((t) => t.id === activeTabId);
+          const activeSession = activeTab?.activeSessionId ? sessions[activeTab.activeSessionId] : null;
+          if (activeSession?.connectionId) {
+            window.qserial.connection.open(activeSession.connectionId).catch(() => {});
+          }
         }
         return;
       }
@@ -137,12 +141,16 @@ export function useGlobalShortcuts() {
         return;
       }
 
-      // F5 — 刷新 SFTP
+      // F5 — 开发模式刷新页面，生产模式刷新 SFTP
       if (e.key === 'F5') {
-        const { activeSftpId, refresh } = useSftpStore.getState();
-        if (activeSftpId) {
-          e.preventDefault();
-          refresh(activeSftpId);
+        e.preventDefault();
+        if (import.meta.env.DEV) {
+          window.location.reload();
+        } else {
+          const { activeSftpId, refresh } = useSftpStore.getState();
+          if (activeSftpId) {
+            refresh(activeSftpId);
+          }
         }
         return;
       }

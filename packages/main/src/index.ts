@@ -212,12 +212,26 @@ app.whenReady().then(async () => {
   await initialize();
   createWindow();
 
-  // 注册 F12 快捷键切换开发者工具
+  // 注册快捷键
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: app.name,
       submenu: [
         { role: 'toggleDevTools', accelerator: 'F12' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload', accelerator: 'CmdOrCtrl+R' },
+        { role: 'forceReload', accelerator: 'CmdOrCtrl+Shift+R' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
       ],
     },
   ]));

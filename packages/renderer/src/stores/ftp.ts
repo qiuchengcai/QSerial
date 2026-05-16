@@ -11,6 +11,7 @@ interface FtpConfig {
   rootDir: string;
   username: string;
   password: string;
+  autoStart: boolean;
 }
 
 interface FtpClient {
@@ -49,6 +50,7 @@ const DEFAULT_CONFIG: FtpConfig = {
   rootDir: '',
   username: 'anonymous',
   password: '',
+  autoStart: false,
 };
 
 export const useFtpStore = create<FtpState & FtpActions>()(

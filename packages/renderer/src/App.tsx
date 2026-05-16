@@ -6,6 +6,9 @@ import React from 'react';
 import { Layout } from './components/layout/Layout';
 import { useConfigStore } from './stores/config';
 import { useThemeStore } from './stores/theme';
+import { useTftpStore } from './stores/tftp';
+import { useNfsStore } from './stores/nfs';
+import { useFtpStore } from './stores/ftp';
 import { initNfsListeners } from './stores/nfs';
 import { initFtpListeners } from './stores/ftp';
 import { initMcpListeners } from './stores/mcp';
@@ -19,6 +22,26 @@ export const App: React.FC = () => {
     initNfsListeners();
     initFtpListeners();
     initMcpListeners();
+
+    // 自启服务：autoStart = true 的服务在应用启动时自动运行
+    const autoStartServices = async () => {
+      const tftpCfg = useTftpStore.getState().config;
+      if (tftpCfg.autoStart && tftpCfg.rootDir) {
+        useTftpStore.getState().startServer().catch(() => {});
+      }
+      const nfsCfg = useNfsStore.getState().config;
+      if (nfsCfg.autoStart && nfsCfg.exportDir) {
+        useNfsStore.getState().startServer().catch(() => {});
+      }
+      const ftpCfg = useFtpStore.getState().config;
+      if (ftpCfg.autoStart && ftpCfg.rootDir) {
+        useFtpStore.getState().startServer().catch(() => {});
+      }
+      if (config.mcp.enabled) {
+        window.qserial.mcp.start().catch(() => {});
+      }
+    };
+    autoStartServices();
   }, [initConfig]);
 
   // 应用主题到 CSS 变量

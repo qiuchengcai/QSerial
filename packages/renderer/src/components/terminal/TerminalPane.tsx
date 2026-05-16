@@ -156,6 +156,28 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
 
       try {
         xterm.open(container);
+        // 安全化 Viewport 的异步回调：xterm 内部 Viewport 构造函数会
+        // setTimeout(() => this.syncScrollArea())，且 dispose 时不清除该 timeout；
+        // syncScrollArea 内部还会 _refresh → rAF(_innerRefresh) 异步链路。
+        // 必须用 mountCountRef 而非 disposedRef（后者会被新 mount 重置为 false）
+        try {
+          const core = (xterm as any)._core;
+          if (core?.viewport) {
+            const capturedMountId = mountId;
+            // 拦截所有异步入口 — setTimeout 回调 + rAF 回调
+            const origSync = core.viewport.syncScrollArea.bind(core.viewport);
+            const origRefresh = core.viewport._refresh.bind(core.viewport);
+            core.viewport.syncScrollArea = function (...args: any[]) {
+              if (mountCountRef.current !== capturedMountId) return;
+              return origSync(...args);
+            };
+            core.viewport._refresh = function (e3: boolean) {
+              if (mountCountRef.current !== capturedMountId) return;
+              return origRefresh(e3);
+            };
+          }
+        } catch { /* patch 失败不影响核心功能 */ }
+
         openedRef.current = true;
         // open 之后再加载 FitAddon，避免 addon wrap open() 后 Viewport 异步初始化竞态
         xterm.loadAddon(fitAddon);
@@ -288,6 +310,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     const unsubscribeData = window.qserial.connection.onData(
       connectionId,
       (base64Data: string) => {
+        // 终端已销毁时不再写入数据，防止触发 xterm 内部异步回调链崩溃
+        if (disposedRef.current) return;
         try {
           const data = base64ToUint8Array(base64Data);
           // 直接写入 Uint8Array，避免 TextDecoder 对非 UTF-8 数据解码产生无效字符
@@ -312,6 +336,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     const unsubscribeState = window.qserial.connection.onStateChange(
       connectionId,
       (state: string) => {
+        if (disposedRef.current) return;
         console.log('[TerminalPane] State changed:', state, 'sessionId:', sessionId.slice(0, 8), 'mountId:', mountId);
         updateSessionState(sessionId, state as any);
 
@@ -367,6 +392,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       // 同步 dispose，避免 rAF 延迟导致 StrictMode 双挂载时新旧实例冲突
       try { xterm.dispose(); } catch { /* ignore */ }
       xtermRef.current = null;
+      fitAddonRef.current = null;
       initializedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

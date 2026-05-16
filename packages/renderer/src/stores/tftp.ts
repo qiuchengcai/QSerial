@@ -9,6 +9,7 @@ import type { TftpTransferEvent } from '@qserial/shared';
 interface TftpConfig {
   port: number;
   rootDir: string;
+  autoStart: boolean;
 }
 
 interface TftpTransfer extends Omit<TftpTransferEvent, 'status'> {
@@ -38,6 +39,7 @@ interface TftpActions {
 const DEFAULT_CONFIG: TftpConfig = {
   port: 69,
   rootDir: '',
+  autoStart: false,
 };
 
 export const useTftpStore = create<TftpState & TftpActions>()(
