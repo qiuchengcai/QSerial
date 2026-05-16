@@ -5,12 +5,11 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# 路径定义
+# 路径定义 (node-linker=hoisted: 包在 node_modules/ 下为真实目录)
 NODE="node"
-TSC="node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc"
-VITE="node_modules/.pnpm/vite@5.4.21_@types+node@20.19.40/node_modules/vite/bin/vite.js"
-# 平台 & 二进制检测
-ESBUILD_DIR="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild"
+TSC="node_modules/typescript/bin/tsc"
+VITE="node_modules/vite/bin/vite.js"
+ESBUILD_DIR="$SCRIPT_DIR/node_modules/@esbuild"
 if [ -f "$ESBUILD_DIR/win32-x64/esbuild.exe" ]; then
   ESBUILD="$ESBUILD_DIR/win32-x64/esbuild.exe"
 elif [ -f "$ESBUILD_DIR/linux-x64/bin/esbuild" ]; then
@@ -19,7 +18,7 @@ else
   err_exit "esbuild 未找到 (tried win32-x64 & linux-x64)"
 fi
 
-ELECTRON_DIR="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist"
+ELECTRON_DIR="node_modules/electron/dist"
 if [ -f "$ELECTRON_DIR/electron.exe" ]; then
   ELECTRON="$ELECTRON_DIR/electron.exe"
 elif [ -f "$ELECTRON_DIR/electron" ]; then
@@ -47,6 +46,20 @@ echo "  QSerial 开发模式一键启动"
 echo "=========================================="
 echo ""
 
+# 检查 node_modules — 如果是 pnpm symlink 结构则自动安装
+check_node_modules() {
+  if [ -L "node_modules/node-pty" ]; then
+    echo -e "${YELLOW}[check] node_modules 为 symlink 结构 (WSL pnpm 创建)${NC}"
+    echo -e "${YELLOW}        .npmrc 已配置 node-linker=hoisted，正在运行 pnpm install...${NC}"
+    if ! command -v pnpm >/dev/null 2>&1; then
+      npm install -g pnpm 2>&1 | tail -1
+    fi
+    pnpm install --prefer-offline 2>&1 | tail -5 || err_exit "pnpm install 失败，请在 WSL 中手动运行"
+    echo ""
+  fi
+}
+check_node_modules
+
 # 前置检查
 echo -e "${YELLOW}[check] 检查环境...${NC}"
 command -v node >/dev/null 2>&1 || err_exit "node 未找到，请安装 Node.js"
@@ -54,7 +67,7 @@ echo "  node: $(node --version)"
 
 [ -f "$TSC" ]    || err_exit "tsc 未找到: $TSC"
 [ -f "$VITE" ]   || err_exit "vite 未找到: $VITE"
-[ -f "$ESBUILD" ] || err_exit "esbuild 未找到: $ESBUILD\n  (需要 Windows 版本，运行: \n   curl ... 下载 @esbuild/win32-x64)"
+[ -f "$ESBUILD" ] || err_exit "esbuild 未找到: $ESBUILD\n  (运行 npm install -g pnpm && pnpm install 即可)"
 [ -f "$ELECTRON" ] || err_exit "electron 未找到: $ELECTRON"
 echo -e "${GREEN}  ✓ 环境检查通过${NC}"
 echo ""
@@ -68,9 +81,10 @@ echo -e "${YELLOW}[2/3] 编译 main 包...${NC}"
 "$ESBUILD" packages/main/src/index.ts \
   --bundle --platform=node --format=esm \
   --outfile=packages/main/dist/index.mjs \
-  --external:serialport --external:ssh2 \
+  --external:electron --external:serialport --external:ssh2 \
   --external:node-pty --external:tftp --external:electron-log \
   --external:uuid --external:'@serialport/*' \
+  --alias:@qserial/shared=./packages/shared/src \
   --tsconfig=packages/main/tsconfig.json \
   || err_exit "main 编译失败"
 
@@ -78,7 +92,9 @@ echo -e "${YELLOW}[2/3] 编译 main 包...${NC}"
   --bundle --platform=node --format=cjs \
   --outfile=packages/main/dist/preload.cjs \
   --external:electron \
+  --alias:@qserial/shared=./packages/shared/src \
   || err_exit "preload 编译失败"
+
 echo -e "${GREEN}  ✓ main 完成 ($(du -sh packages/main/dist/index.mjs | cut -f1))${NC}"
 
 # 启动
@@ -90,16 +106,31 @@ echo "  关闭 Electron 窗口即停止"
 echo ""
 
 export ESBUILD_BINARY_PATH="$ESBUILD"
+
+# 清理上次残留的 Vite 进程（端口 5173）
+VITE_PID_FILE=".vite.pid"
+if [ -f "$VITE_PID_FILE" ]; then
+  OLD_PID=$(cat "$VITE_PID_FILE")
+  kill "$OLD_PID" 2>/dev/null && echo "  已停止上次 Vite 进程 (PID $OLD_PID)"
+  rm "$VITE_PID_FILE"
+fi
+# 备用：通过端口强制清理
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k 5173/tcp 2>/dev/null && sleep 1 || true
+fi
+
 (cd packages/renderer && $NODE "$SCRIPT_DIR/$VITE" --host --strictPort) &
 VITE_PID=$!
+echo $VITE_PID > "$VITE_PID_FILE"
 
 sleep 4
 
 export NODE_ENV=development
-"$ELECTRON" packages/main/dist/index.cjs
+"$ELECTRON" packages/main/dist/index.mjs
 ELECTRON_EXIT=$?
 
 kill $VITE_PID 2>/dev/null
+rm -f "$VITE_PID_FILE"
 
 if [ $ELECTRON_EXIT -ne 0 ]; then
   echo ""

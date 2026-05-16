@@ -33,6 +33,9 @@ importers:
         specifier: ^9.0.0
         version: 9.0.1
     devDependencies:
+      '@esbuild/win32-x64':
+        specifier: 0.21.5
+        version: 0.21.5
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.40
@@ -864,7 +867,6 @@ packages:
     os: [win32]
     requiresBuild: true
     dev: true
-    optional: true
 
   /@eslint-community/eslint-utils@4.9.1(eslint@8.57.1):
     resolution: {integrity: sha512-phrYmNiYppR7znFEdqgfWHXR6NCkZEK7hwWDHZUjit/2/U0r6XvkDl0SYnoM51Hq7FhCGdLDT6zxCCOY1hexsQ==}

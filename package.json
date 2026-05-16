@@ -44,6 +44,7 @@
     "clean": "rimraf packages/*/dist packages/*/node_modules node_modules"
   },
   "devDependencies": {
+    "@esbuild/win32-x64": "0.21.5",
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
