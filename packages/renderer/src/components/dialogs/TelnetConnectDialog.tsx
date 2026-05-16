@@ -44,11 +44,6 @@ export const TelnetConnectDialog: React.FC<TelnetConnectDialogProps> = ({
       setError('请输入主机地址');
       return;
     }
-    if (saveConfig && !configName.trim()) {
-      setError('请输入配置名称');
-      return;
-    }
-
     onConnect({
       host: host.trim(),
       port,

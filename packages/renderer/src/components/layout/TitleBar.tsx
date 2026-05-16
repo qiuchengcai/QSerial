@@ -57,6 +57,9 @@ export const TitleBar: React.FC = () => {
         <span className="text-xs font-bold text-text-secondary">QSerial</span>
       </div>
 
+      {/* 分隔线 */}
+      <div className="w-px h-5 bg-border flex-shrink-0" />
+
       {/* Tabs */}
       <div
         ref={tabsRef}

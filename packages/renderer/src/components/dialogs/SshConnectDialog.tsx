@@ -60,11 +60,6 @@ export const SshConnectDialog: React.FC<SshConnectDialogProps> = ({
       setError('请输入用户名');
       return;
     }
-    if (saveConfig && !configName.trim()) {
-      setError('请输入配置名称');
-      return;
-    }
-
     onConnect({
       host: host.trim(),
       port,

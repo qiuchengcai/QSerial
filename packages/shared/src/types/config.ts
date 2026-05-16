@@ -109,7 +109,7 @@ export interface WindowSettings {
 export const DEFAULT_CONFIG: AppConfig = {
   app: {
     language: 'zh-CN',
-    theme: 'default-dark',
+    theme: 'dracula',
     uiFontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     autoUpdate: true,
     checkUpdateOnStartup: true,

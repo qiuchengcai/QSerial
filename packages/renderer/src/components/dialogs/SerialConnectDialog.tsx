@@ -90,11 +90,6 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
       return;
     }
 
-    if (saveConfig && !configName.trim()) {
-      setError('请输入配置名称');
-      return;
-    }
-
     onConnect({
       path: selectedPort,
       baudRate,

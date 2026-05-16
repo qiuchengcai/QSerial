@@ -108,9 +108,13 @@ function findWinnfsdPath(): string | null {
   const packedPath = path.join(process.resourcesPath || '', 'resources', 'nfs', 'winnfsd.exe');
   if (fs.existsSync(packedPath)) return packedPath;
 
-  // 2. 开发模式: 项目 resources 目录
+  // 2. 开发模式: 项目 resources 目录 (app.getAppPath() = packages/main/dist)
   const devPath = path.join(app.getAppPath(), 'resources', 'nfs', 'winnfsd.exe');
   if (fs.existsSync(devPath)) return devPath;
+
+  // 2b. 开发模式备用: 从 dist 目录向上查找项目根 (packages/main/dist -> 项目根)
+  const devRootPath = path.resolve(app.getAppPath(), '..', '..', '..', 'resources', 'nfs', 'winnfsd.exe');
+  if (fs.existsSync(devRootPath)) return devRootPath;
 
   // 3. 可执行文件同目录
   const exeDir = path.dirname(app.getPath('exe'));

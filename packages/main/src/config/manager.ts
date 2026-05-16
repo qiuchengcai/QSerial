@@ -25,25 +25,45 @@ class ConfigManagerImpl {
   }
 
   /**
-   * 初始化配置
+   * 初始化配置（损坏时自动从备份恢复）
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    try {
-      if (fs.existsSync(this.configPath)) {
-        const data = fs.readFileSync(this.configPath, 'utf-8');
-        const userConfig = JSON.parse(data);
-        this.config = this.mergeConfig(
-          DEFAULT_CONFIG as unknown as AnyRecord,
-          userConfig as AnyRecord
-        ) as AppConfig;
-      }
-    } catch (error) {
-      console.error('Failed to load config:', error);
+    const bakPath = this.configPath + '.bak';
+    const tmpPath = this.configPath + '.tmp';
+
+    // 清理上次崩溃可能残留的临时文件
+    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+
+    const loaded = this.tryLoad(this.configPath) || this.tryLoad(bakPath);
+
+    if (loaded) {
+      this.config = this.mergeConfig(
+        DEFAULT_CONFIG as unknown as AnyRecord,
+        loaded as AnyRecord
+      ) as AppConfig;
+      // 成功加载后立即更新备份
+      try {
+        const dir = path.dirname(bakPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(bakPath, JSON.stringify(this.config, null, 2), 'utf-8');
+      } catch { /* 备份写入失败不影响正常运行 */ }
     }
 
     this.initialized = true;
+  }
+
+  private tryLoad(filePath: string): Record<string, unknown> | null {
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, 'utf-8');
+        if (data.trim().startsWith('{')) {
+          return JSON.parse(data);
+        }
+      }
+    } catch { /* 损坏 → 尝试下一个来源 */ }
+    return null;
   }
 
   /**
@@ -76,7 +96,7 @@ class ConfigManagerImpl {
   }
 
   /**
-   * 保存配置
+   * 保存配置（原子写入 + 备份）
    */
   private save(): void {
     try {
@@ -84,7 +104,21 @@ class ConfigManagerImpl {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8');
+
+      const tmpPath = this.configPath + '.tmp';
+      const bakPath = this.configPath + '.bak';
+      const json = JSON.stringify(this.config, null, 2);
+
+      // 1. 写临时文件
+      fs.writeFileSync(tmpPath, json, 'utf-8');
+
+      // 2. 如果已有旧配置，先备份
+      if (fs.existsSync(this.configPath)) {
+        try { fs.copyFileSync(this.configPath, bakPath); } catch { /* 备份失败不阻塞保存 */ }
+      }
+
+      // 3. 原子 rename（同文件系统上 rename 是原子的）
+      fs.renameSync(tmpPath, this.configPath);
     } catch (error) {
       console.error('Failed to save config:', error);
     }

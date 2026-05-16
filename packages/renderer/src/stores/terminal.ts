@@ -21,6 +21,8 @@ interface Session {
   serialPath?: string;
   // 主机地址（SSH/Telnet 用于判断是否已连接）
   host?: string;
+  // 关联的保存配置 ID（用于精确匹配配置按钮状态）
+  savedSessionId?: string;
   // 日志文件路径
   logFilePath?: string;
   // 日志启用状态
@@ -47,7 +49,7 @@ interface TerminalState {
   renameTab: (tabId: string, name: string) => void;
 
   // Session 操作
-  createSession: (connectionId: string, type: ConnectionType, serialPath?: string, host?: string) => string;
+  createSession: (connectionId: string, type: ConnectionType, serialPath?: string, host?: string, savedSessionId?: string) => string;
   closeSession: (sessionId: string) => void;
   updateSessionState: (sessionId: string, state: ConnectionState) => void;
   updateSessionSize: (sessionId: string, cols: number, rows: number) => void;
@@ -60,6 +62,9 @@ interface TerminalState {
 
   // 关闭 Session 及其所在的 Tab
   closeSessionAndTab: (sessionId: string) => void;
+
+  // 关联保存配置 ID
+  setSessionSavedId: (sessionId: string, savedSessionId: string) => void;
 
   // 日志操作
   startLog: (sessionId: string, filePath: string) => void;
@@ -134,7 +139,7 @@ export const useTerminalStore = create<TerminalState>()(
       });
     },
 
-    createSession: (connectionId, type, serialPath, host) => {
+    createSession: (connectionId, type, serialPath, host, savedSessionId) => {
       const sessionId = crypto.randomUUID();
       set((state) => {
         let activeTab = state.tabs.find((t) => t.id === state.activeTabId);
@@ -163,6 +168,7 @@ export const useTerminalStore = create<TerminalState>()(
           lastActiveAt: new Date(),
           serialPath,
           host,
+          savedSessionId,
           logEnabled: false,
         };
 
@@ -302,6 +308,15 @@ export const useTerminalStore = create<TerminalState>()(
           if (tab.activeSessionId === sessionId) {
             tab.activeSessionId = tab.sessions[0] || null;
           }
+        }
+      });
+    },
+
+    setSessionSavedId: (sessionId, savedSessionId) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (session) {
+          session.savedSessionId = savedSessionId;
         }
       });
     },

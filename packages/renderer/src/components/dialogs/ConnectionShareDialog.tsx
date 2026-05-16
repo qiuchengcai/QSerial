@@ -465,43 +465,6 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
                 )}
               </div>
 
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                <p className="text-sm font-medium mb-2">AI Agent — 局域网设备执行：</p>
-                <div className="bg-background rounded-md p-2 font-mono text-xs space-y-0.5">
-                  <p className="text-text-secondary"># Python 示例</p>
-                  <p>import socket, json, base64</p>
-                  <p>s = socket.create_connection(({'<IP>'}, {apiPortValue}))</p>
-                  <p>reader = s.makefile('r')</p>
-                  <p className="text-text-secondary"># 逐行读取 JSON 消息</p>
-                  <p>for line in reader:</p>
-                  <p>&nbsp;&nbsp;msg = json.loads(line)</p>
-                  <p>&nbsp;&nbsp;if msg['type'] == 'data':</p>
-                  <p>&nbsp;&nbsp;&nbsp;&nbsp;print(base64.b64decode(msg['data']))</p>
-                </div>
-                <button
-                  onClick={async () => {
-                    try {
-                      const ip = await window.qserial.getLocalIp();
-                      await navigator.clipboard.writeText(
-                        `# Python AI 客户端连接\\nimport socket, json, base64\\n\\n` +
-                        `s = socket.create_connection(('${ip}', ${apiPortValue}))\\n` +
-                        `reader = s.makefile('r')\\n` +
-                        `for line in reader:\\n    msg = json.loads(line)\\n    if msg['type'] == 'data':\\n        print(base64.b64decode(msg['data']))\\n    elif msg['type'] == 'peer_input':\\n        print(f\"[{msg['source']}] 输入: {base64.b64decode(msg['data'])}\")`
-                      );
-                    } catch {
-                      await navigator.clipboard.writeText(`# Python AI 客户端连接`);
-                    }
-                  }}
-                  className="mt-2 px-3 py-1.5 text-sm bg-green-500/20 hover:bg-green-500/30 rounded-md transition-colors"
-                >
-                  复制 Python 示例
-                </button>
-                {accessPassword && (
-                  <p className="text-xs text-yellow-500 mt-2">
-                    如设置密码，需先发送 {'{"type":"auth","password":"...\\n"}'}
-                  </p>
-                )}
-              </div>
             </div>
 
             <div className="flex justify-end mt-4 pt-4 border-t border-border">

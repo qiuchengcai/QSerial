@@ -339,6 +339,14 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
     setContextMenu({ x: e.clientX, y: e.clientY, type, groupId, buttonId, buttonIndex, groupIndex });
   };
 
+  // 点击 ⋯ 按钮打开分组操作菜单
+  const handleGroupMenuClick = (e: React.MouseEvent) => {
+    const group = groups[activeGroupIndex];
+    if (!group) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setContextMenu({ x: rect.right - 4, y: rect.bottom + 2, type: 'group', groupId: group.id, groupIndex: activeGroupIndex });
+  };
+
   const handleEditButton = () => {
     if (!contextMenu) return;
     const group = groups.find((g) => g.id === contextMenu.groupId);
@@ -369,6 +377,9 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
 
   const handleDeleteGroup = () => {
     if (!contextMenu) return;
+    const group = groups.find((g) => g.id === contextMenu.groupId);
+    if (!group) return;
+    if (!window.confirm(`确定要删除分组「${group.name}」吗？\n分组内的所有按钮将被一并删除。`)) return;
     removeGroup(contextMenu.groupId);
     setContextMenu(null);
   };
@@ -394,50 +405,70 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
   return (
     <>
       {isVertical ? (
-        // 垂直模式：右侧面板
-        <div className="w-[var(--buttonbar-width)] flex flex-col py-1.5 gap-1 overflow-y-auto scrollbar-hide flex-1 min-h-0">
-          {/* 分组选择 + 方向切换 */}
-          <div className="flex items-center gap-1 px-1.5 flex-shrink-0">
+        // 垂直模式：右侧面板，三区布局（管理 | 按钮 | 工具）
+        <div className="w-[var(--buttonbar-width)] flex flex-col overflow-y-auto scrollbar-hide flex-1 min-h-0">
+          {/* 顶区 — 分组选择 + 切回水平 */}
+          <div className="flex items-center gap-1 px-1.5 py-1.5 flex-shrink-0 border-b border-border">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className="text-text-secondary/50 flex-shrink-0">
+              <path d="M2 4h4l1.5-2h6.5v10H2V4z" stroke="currentColor" strokeWidth="1" fill="none" />
+            </svg>
             <select
-              value={activeGroupIndex}
+              value={groups.length > 0 ? activeGroupIndex : -1}
               onChange={(e) => setActiveGroupIndex(Number(e.target.value))}
               onContextMenu={(e) => {
                 if (groups[activeGroupIndex]) {
                   handleContextMenu(e, 'group', groups[activeGroupIndex].id, undefined, undefined, activeGroupIndex);
                 }
               }}
-              className="h-6 px-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer flex-1 min-w-0"
+              className="h-6 px-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer appearance-none flex-1 min-w-0"
+              style={{ paddingRight: '16px', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=%278%27 height=%275%27 viewBox=%270 0 8 5%27 fill=%27none%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath d=%27M1 1l3 3 3-3%27 stroke=%27%23888780%27 stroke-width=%271.2%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
             >
-              {groups.map((group: ButtonGroup, index: number) => (
-                <option key={group.id} value={index}>{group.name}</option>
-              ))}
+              {groups.length === 0 ? (
+                <option value={-1} disabled>暂无分组</option>
+              ) : (
+                groups.map((group: ButtonGroup, index: number) => (
+                  <option key={group.id} value={index}>{group.name}</option>
+                ))
+              )}
             </select>
+            {groups.length > 0 && (
+              <button
+                onClick={handleGroupMenuClick}
+                className="h-6 w-5 rounded hover:bg-hover transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary/40 hover:text-text-secondary"
+                title="分组操作"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                  <circle cx="5" cy="2" r="0.9" /><circle cx="5" cy="5" r="0.9" /><circle cx="5" cy="8" r="0.9" />
+                </svg>
+              </button>
+            )}
             <button
               onClick={() => setDirection?.('horizontal')}
               className="h-6 w-6 text-xs rounded-md border border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary"
               title="切换为水平布局"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M1 5h8M5 1v8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <rect x="1" y="1.5" width="10" height="2" rx="0.5" fill="currentColor" />
+                <rect x="1" y="5" width="10" height="2" rx="0.5" fill="currentColor" />
+                <rect x="1" y="8.5" width="10" height="2" rx="0.5" fill="currentColor" />
               </svg>
             </button>
           </div>
 
-          {/* 当前分组的按钮（垂直排列） */}
-          {groups[activeGroupIndex] && (
-            <>
-              <div className="h-px bg-border mx-1.5 flex-shrink-0" />
-              <div className="flex flex-col gap-1 px-1.5">
+          {/* 中区 — 命令按钮 / 引导提示 */}
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+            {isConnected && groups[activeGroupIndex] ? (
+              <div className="flex flex-col gap-1 p-1.5">
                 {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
                   <button
                     key={button.id}
                     onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
                     onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
-                    disabled={!isConnected}
-                    className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all w-full text-left"
+                    className="h-7 px-2.5 text-xs rounded-md hover:brightness-110 whitespace-nowrap transition-all w-full text-left truncate"
                     style={{
-                      backgroundColor: button.color || undefined,
-                      color: button.textColor || undefined,
+                      backgroundColor: button.color || 'var(--color-background-tertiary)',
+                      color: button.textColor || 'var(--color-text-tertiary)',
+                      fontWeight: 500,
                     }}
                     title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
                   >
@@ -450,7 +481,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                     setEditingButton(null);
                     setShowButtonDialog(true);
                   }}
-                  className="h-6 w-full text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center gap-1"
+                  className="h-7 w-full text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center gap-1 text-text-tertiary"
                   title="添加按钮"
                 >
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -459,20 +490,24 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                   <span>添加</span>
                 </button>
               </div>
-            </>
-          )}
+            ) : (
+              <div className="p-2">
+                <span className="text-[11px] text-text-tertiary/60 italic leading-snug">创建终端连接后可发送快捷命令</span>
+              </div>
+            )}
+          </div>
 
-          {/* 添加分组 */}
-          <div className="px-1.5 flex-shrink-0 mt-auto">
+          {/* 底区 — 添加分组 */}
+          <div className="p-1.5 flex-shrink-0 border-t border-border">
             <button
               onClick={() => {
                 setEditingGroup(null);
                 setShowGroupDialog(true);
               }}
-              className="h-6 w-full text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary whitespace-nowrap transition-colors flex items-center justify-center gap-1"
+              className="h-7 w-full text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center gap-1 text-text-tertiary"
               title="添加分组"
             >
-              <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
               分组
@@ -480,38 +515,60 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
           </div>
         </div>
       ) : (
-        // 水平模式：底部栏（原有布局）
-        <div className="h-[var(--buttonbar-height)] flex items-center px-2 gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0">
-          {/* 分组下拉选择 */}
-          <select
-            value={activeGroupIndex}
-            onChange={(e) => setActiveGroupIndex(Number(e.target.value))}
-            onContextMenu={(e) => {
-              if (groups[activeGroupIndex]) {
-                handleContextMenu(e, 'group', groups[activeGroupIndex].id, undefined, undefined, activeGroupIndex);
-              }
-            }}
-            className="h-6 px-2 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer"
-          >
-            {groups.map((group: ButtonGroup, index: number) => (
-              <option key={group.id} value={index}>{group.name}</option>
-            ))}
-          </select>
+        // 水平模式：三区布局（分组管理 | 命令按钮 | 工具）
+        <div className="h-[var(--buttonbar-height)] flex items-center px-2.5 gap-0 flex-1 min-w-0">
+          {/* 左区 — 分组管理 */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className="text-text-secondary/50 flex-shrink-0">
+              <path d="M2 4h4l1.5-2h6.5v10H2V4z" stroke="currentColor" strokeWidth="1" fill="none" />
+            </svg>
+            <span className="text-[10px] text-text-tertiary font-medium">命令组</span>
+            <select
+              value={groups.length > 0 ? activeGroupIndex : -1}
+              onChange={(e) => setActiveGroupIndex(Number(e.target.value))}
+              onContextMenu={(e) => {
+                if (groups[activeGroupIndex]) {
+                  handleContextMenu(e, 'group', groups[activeGroupIndex].id, undefined, undefined, activeGroupIndex);
+                }
+              }}
+              className="h-6 px-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:border-primary hover:border-text-secondary transition-colors cursor-pointer appearance-none"
+              style={{ paddingRight: '18px', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=%278%27 height=%275%27 viewBox=%270 0 8 5%27 fill=%27none%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath d=%27M1 1l3 3 3-3%27 stroke=%27%23888780%27 stroke-width=%271.2%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
+            >
+              {groups.length === 0 ? (
+                <option value={-1} disabled>暂无分组</option>
+              ) : (
+                groups.map((group: ButtonGroup, index: number) => (
+                  <option key={group.id} value={index}>{group.name}</option>
+                ))
+              )}
+            </select>
+            {groups.length > 0 && (
+              <button
+                onClick={handleGroupMenuClick}
+                className="h-6 w-5 rounded hover:bg-hover transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary/40 hover:text-text-secondary"
+                title="分组操作"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                  <circle cx="5" cy="2" r="0.9" /><circle cx="5" cy="5" r="0.9" /><circle cx="5" cy="8" r="0.9" />
+                </svg>
+              </button>
+            )}
+            <div className="w-px h-5 bg-border mx-1" />
+          </div>
 
-          {/* 当前分组的按钮 */}
-          {groups[activeGroupIndex] && (
-            <>
-              <div className="w-px h-4 bg-border" />
+          {/* 中区 — 命令按钮 / 引导提示 */}
+          {isConnected && groups[activeGroupIndex] ? (
+            <div className="flex items-center gap-1 flex-1 overflow-x-auto scrollbar-hide min-w-0">
               {groups[activeGroupIndex].buttons.map((button: QuickButton, btnIndex: number) => (
                 <button
                   key={button.id}
                   onClick={(e) => { handleSendCommand(button); (e.target as HTMLButtonElement).blur(); }}
                   onContextMenu={(e) => handleContextMenu(e, 'button', groups[activeGroupIndex].id, button.id, btnIndex, activeGroupIndex)}
-                  disabled={!isConnected}
-                  className="h-6 px-2.5 text-xs rounded-md border border-border hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap transition-all"
+                  className="h-6 px-2.5 text-xs rounded-md hover:brightness-110 whitespace-nowrap transition-all flex-shrink-0"
                   style={{
-                    backgroundColor: button.color || undefined,
-                    color: button.textColor || undefined,
+                    backgroundColor: button.color || 'var(--color-background-tertiary)',
+                    color: button.textColor || 'var(--color-text-tertiary)',
+                    fontWeight: 500,
                   }}
                   title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
                 >
@@ -524,40 +581,45 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                   setEditingButton(null);
                   setShowButtonDialog(true);
                 }}
-                className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center"
+                className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-tertiary"
                 title="添加按钮"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                   <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
               </button>
-            </>
+            </div>
+          ) : (
+            <span className="text-xs text-text-tertiary/60 italic px-1 flex-1 min-w-0 truncate">创建终端连接后可发送快捷命令</span>
           )}
 
-          {/* 方向切换 + 添加分组 */}
-          <button
-            onClick={() => setDirection?.('vertical')}
-            className="h-6 w-6 text-xs rounded-md border border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary"
-            title="切换为垂直布局"
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1" />
-              <line x1="7" y1="1" x2="7" y2="9" stroke="currentColor" strokeWidth="1" />
-            </svg>
-          </button>
-          <button
-            onClick={() => {
-              setEditingGroup(null);
-              setShowGroupDialog(true);
-            }}
-            className="h-6 px-2 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1"
-            title="添加分组"
-          >
-            <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-              <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
-            分组
-          </button>
+          {/* 右区 — 工具 */}
+          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+            <button
+              onClick={() => setDirection?.('vertical')}
+              className="h-6 w-6 text-xs rounded-md border border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-secondary"
+              title="切换为垂直布局"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <rect x="0.5" y="0.5" width="4" height="4" rx="0.5" fill="currentColor" />
+                <rect x="7" y="0.5" width="4" height="4" rx="0.5" fill="currentColor" />
+                <rect x="0.5" y="7" width="4" height="4" rx="0.5" fill="currentColor" opacity="0.3" />
+                <rect x="7" y="7" width="4" height="4" rx="0.5" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setEditingGroup(null);
+                setShowGroupDialog(true);
+              }}
+              className="h-6 w-6 text-xs rounded-md border border-dashed border-border hover:bg-hover hover:border-text-secondary transition-colors flex items-center justify-center flex-shrink-0 text-text-tertiary"
+              title="添加分组"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 

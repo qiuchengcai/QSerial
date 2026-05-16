@@ -72,6 +72,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     if (!containerRef.current) return;
 
     initializedRef.current = true;
+    disposedRef.current = false;
     mountCountRef.current += 1;
     const mountId = mountCountRef.current;
     const openedRef = { current: false }; // 追踪 xterm.open() 是否已调用

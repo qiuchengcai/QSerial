@@ -62,11 +62,6 @@ export const PtyConnectDialog: React.FC<PtyConnectDialogProps> = ({
   };
 
   const handleConnect = () => {
-    if (saveConfig && !configName.trim()) {
-      setError('请输入配置名称');
-      return;
-    }
-
     onConnect({
       shell,
       cwd: cwd || undefined,

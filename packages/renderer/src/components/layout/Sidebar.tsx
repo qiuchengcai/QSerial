@@ -26,11 +26,8 @@ const MIN_SIDEBAR_WIDTH = 140;
 const MAX_SIDEBAR_WIDTH = 500;
 const DEFAULT_SIDEBAR_WIDTH = 210;
 
-type NavTab = 'connections' | 'services';
-
 export const Sidebar: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
-  const [activeNav, setActiveNav] = useState<NavTab>('connections');
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
@@ -62,7 +59,7 @@ export const Sidebar: React.FC = () => {
   }, [sidebarWidth]);
 
   const sessions = useTerminalStore((s) => s.sessions);
-  const { createTab, createSession, closeSessionAndTab } = useTerminalStore.getState();
+  const { createTab, createSession, closeSessionAndTab, setSessionSavedId } = useTerminalStore.getState();
   const savedSessionsState = useSavedSessionsStore();
   const savedSessions = savedSessionsState?.sessions || [];
   const addSession = savedSessionsState?.addSession;
@@ -113,11 +110,12 @@ export const Sidebar: React.FC = () => {
     };
   }, []);
 
-  const connectWithCleanup = async (connectionId: string, tabName: string, connectionType: ConnectionType, serialPath?: string, host?: string) => {
+  const connectWithCleanup = async (connectionId: string, tabName: string, connectionType: ConnectionType, serialPath?: string, host?: string, savedSessionId?: string) => {
     createTab(tabName);
-    const sessionId = createSession(connectionId, connectionType, serialPath, host);
+    const sessionId = createSession(connectionId, connectionType, serialPath, host, savedSessionId);
     try { await window.qserial.connection.open(connectionId); }
     catch (error) { closeSessionAndTab(sessionId); throw error; }
+    return sessionId;
   };
 
   const findActiveSession = (type: ConnectionType, match: (s: any) => boolean): string | null => {
@@ -131,23 +129,25 @@ export const Sidebar: React.FC = () => {
 
   const handlePtyConnect = async (options: PtyConnectOptions & { saveConfig?: boolean; configName?: string }) => {
     setConnectingType('pty');
+    let sessionId: string | undefined;
     try {
       const connectionId = crypto.randomUUID();
       await window.qserial.connection.create({ id: connectionId, name: '本地终端', type: ConnectionType.PTY, shell: options.shell, cwd: options.cwd, cols: 80, rows: 24, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-      await connectWithCleanup(connectionId, '本地终端', ConnectionType.PTY);
+      sessionId = await connectWithCleanup(connectionId, '本地终端', ConnectionType.PTY);
     } catch (error) { globalError.show('创建终端失败: ' + (error as Error).message); }
-    if (options.saveConfig && options.configName) { addSession({ name: options.configName, type: 'pty', ptyConfig: { shell: options.shell, cwd: options.cwd } }); }
+    if (options.saveConfig) { const savedId = addSession({ name: options.configName || '本地终端', type: 'pty', ptyConfig: { shell: options.shell, cwd: options.cwd } }); setSessionSavedId(sessionId, savedId); }
     setConnectingType(null);
   };
 
   const handleSerialConnect = async (options: { path: string; baudRate: number; dataBits: 5|6|7|8; stopBits: 1|2; parity: 'none'|'even'|'odd'|'mark'|'space'; saveConfig?: boolean; configName?: string }) => {
     setConnectingType('serial');
+    let sessionId: string | undefined;
     try {
       const connectionId = crypto.randomUUID();
       await window.qserial.connection.create({ id: connectionId, name: `串口 ${options.path}`, type: ConnectionType.SERIAL, path: options.path, baudRate: options.baudRate, dataBits: options.dataBits, stopBits: options.stopBits, parity: options.parity, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-      await connectWithCleanup(connectionId, `串口 ${options.path}`, ConnectionType.SERIAL, options.path);
+      sessionId = await connectWithCleanup(connectionId, `串口 ${options.path}`, ConnectionType.SERIAL, options.path);
     } catch (error) { globalError.show('创建串口连接失败: ' + (error as Error).message); }
-    if (options.saveConfig && options.configName) { addSession({ name: options.configName, type: 'serial', serialConfig: { path: options.path, baudRate: options.baudRate, dataBits: options.dataBits, stopBits: options.stopBits, parity: options.parity } }); }
+    if (options.saveConfig && sessionId) { const savedId = addSession({ name: options.configName || `串口 ${options.path}`, type: 'serial', serialConfig: { path: options.path, baudRate: options.baudRate, dataBits: options.dataBits, stopBits: options.stopBits, parity: options.parity } }); setSessionSavedId(sessionId, savedId); }
     setConnectingType(null);
   };
 
@@ -159,51 +159,45 @@ export const Sidebar: React.FC = () => {
     if (cfg.type === 'serial' && cfg.serialConfig) {
       const c = cfg.serialConfig;
       const activeId = findActiveSerialSession(c.path);
-      if (activeId) { closeSessionAndTab(activeId); await new Promise(r => setTimeout(r, 500)); }
+      if (activeId) { closeSessionAndTab(activeId); return; }
       setConnectingType('serial');
       try {
         const connectionId = crypto.randomUUID();
         await window.qserial.connection.create({ id: connectionId, name: cfg.name, type: ConnectionType.SERIAL, path: c.path, baudRate: c.baudRate, dataBits: c.dataBits, stopBits: c.stopBits, parity: c.parity, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-        await connectWithCleanup(connectionId, cfg.name, ConnectionType.SERIAL, c.path);
+        await connectWithCleanup(connectionId, cfg.name, ConnectionType.SERIAL, c.path, undefined, cfg.id);
       } catch (error) { globalError.show('快速连接失败: ' + (error as Error).message); }
       setConnectingType(null);
       return;
     }
     if (cfg.type === 'ssh' && cfg.sshConfig) {
       const c = cfg.sshConfig;
-      const activeId = findActiveSession(ConnectionType.SSH, (s) => s.host === c.host);
-      if (activeId) { closeSessionAndTab(activeId); await new Promise(r => setTimeout(r, 300)); }
       setConnectingType('ssh');
       try {
         const connectionId = crypto.randomUUID();
         await window.qserial.connection.create({ id: connectionId, name: cfg.name, type: ConnectionType.SSH, host: c.host, port: c.port, username: c.username, password: c.password, privateKey: c.privateKey, passphrase: c.passphrase, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-        await connectWithCleanup(connectionId, cfg.name, ConnectionType.SSH, undefined, c.host);
+        await connectWithCleanup(connectionId, cfg.name, ConnectionType.SSH, undefined, c.host, cfg.id);
       } catch (error) { globalError.show('SSH 快速连接失败: ' + (error as Error).message); }
       setConnectingType(null);
       return;
     }
     if (cfg.type === 'telnet' && cfg.telnetConfig) {
       const c = cfg.telnetConfig;
-      const activeId = findActiveSession(ConnectionType.TELNET, (s) => s.host === c.host);
-      if (activeId) { closeSessionAndTab(activeId); await new Promise(r => setTimeout(r, 300)); }
       setConnectingType('telnet');
       try {
         const connectionId = crypto.randomUUID();
         await window.qserial.connection.create({ id: connectionId, name: cfg.name, type: ConnectionType.TELNET, host: c.host, port: c.port, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-        await connectWithCleanup(connectionId, cfg.name, ConnectionType.TELNET, undefined, c.host);
+        await connectWithCleanup(connectionId, cfg.name, ConnectionType.TELNET, undefined, c.host, cfg.id);
       } catch (error) { globalError.show('Telnet 快速连接失败: ' + (error as Error).message); }
       setConnectingType(null);
       return;
     }
     if (cfg.type === 'pty' && cfg.ptyConfig) {
       const c = cfg.ptyConfig;
-      const activeId = findActiveSession(ConnectionType.PTY, () => true);
-      if (activeId) { closeSessionAndTab(activeId); await new Promise(r => setTimeout(r, 300)); }
       setConnectingType('pty');
-      try {
+      let sessionId: string | undefined; try {
         const connectionId = crypto.randomUUID();
         await window.qserial.connection.create({ id: connectionId, name: cfg.name, type: ConnectionType.PTY, shell: c.shell, cwd: c.cwd, cols: 80, rows: 24, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-        await connectWithCleanup(connectionId, cfg.name, ConnectionType.PTY);
+        await connectWithCleanup(connectionId, cfg.name, ConnectionType.PTY, undefined, undefined, cfg.id);
       } catch (error) { globalError.show('本地终端快速连接失败: ' + (error as Error).message); }
       setConnectingType(null);
       return;
@@ -216,33 +210,32 @@ export const Sidebar: React.FC = () => {
   const isSessionConnected = (savedSession: SavedSession): boolean => {
     for (const s of Object.values(sessions)) {
       if (s.connectionState !== ConnectionState.CONNECTED && s.connectionState !== ConnectionState.CONNECTING) continue;
-      if (savedSession.type === 'serial' && savedSession.serialConfig) { if (s.connectionType === ConnectionType.SERIAL && s.serialPath === savedSession.serialConfig.path) return true; }
-      else if (savedSession.type === 'ssh' && savedSession.sshConfig) { if (s.connectionType === ConnectionType.SSH && s.host === savedSession.sshConfig.host) return true; }
-      else if (savedSession.type === 'telnet' && savedSession.telnetConfig) { if (s.connectionType === ConnectionType.TELNET && s.host === savedSession.telnetConfig.host) return true; }
-      else if (savedSession.type === 'pty' && savedSession.ptyConfig) { if (s.connectionType === ConnectionType.PTY) return true; }
+      if (s.savedSessionId === savedSession.id) return true;
     }
     return false;
   };
 
   const handleSshConnect = async (options: { host: string; port: number; username: string; password?: string; privateKey?: string; passphrase?: string; saveConfig?: boolean; configName?: string }) => {
     setConnectingType('ssh');
+    let sessionId: string | undefined;
     try {
       const connectionId = crypto.randomUUID();
       await window.qserial.connection.create({ id: connectionId, name: `SSH ${options.username}@${options.host}`, type: ConnectionType.SSH, host: options.host, port: options.port, username: options.username, password: options.password, privateKey: options.privateKey, passphrase: options.passphrase, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-      await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
+      sessionId = await connectWithCleanup(connectionId, `SSH ${options.host}`, ConnectionType.SSH, undefined, options.host);
     } catch (error) { globalError.show('SSH 连接失败: ' + (error as Error).message); }
-    if (options.saveConfig && options.configName) { addSession({ name: options.configName, type: 'ssh', sshConfig: { host: options.host, port: options.port, username: options.username, password: options.password, privateKey: options.privateKey, passphrase: options.passphrase } }); }
+    if (options.saveConfig && sessionId) { const savedId = addSession({ name: options.configName || `SSH ${options.username}@${options.host}`, type: 'ssh', sshConfig: { host: options.host, port: options.port, username: options.username, password: options.password, privateKey: options.privateKey, passphrase: options.passphrase } }); setSessionSavedId(sessionId, savedId); }
     setConnectingType(null);
   };
 
   const handleTelnetConnect = async (options: { host: string; port: number; saveConfig?: boolean; configName?: string }) => {
     setConnectingType('telnet');
+    let sessionId: string | undefined;
     try {
       const connectionId = crypto.randomUUID();
       await window.qserial.connection.create({ id: connectionId, name: `Telnet ${options.host}`, type: ConnectionType.TELNET, host: options.host, port: options.port, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
-      await connectWithCleanup(connectionId, `Telnet ${options.host}`, ConnectionType.TELNET, undefined, options.host);
+      sessionId = await connectWithCleanup(connectionId, `Telnet ${options.host}`, ConnectionType.TELNET, undefined, options.host);
     } catch (error) { globalError.show('Telnet 连接失败: ' + (error as Error).message); }
-    if (options.saveConfig && options.configName) { addSession({ name: options.configName, type: 'telnet', telnetConfig: { host: options.host, port: options.port } }); }
+    if (options.saveConfig && sessionId) { const savedId = addSession({ name: options.configName || `Telnet ${options.host}`, type: 'telnet', telnetConfig: { host: options.host, port: options.port } }); setSessionSavedId(sessionId, savedId); }
     setConnectingType(null);
   };
 
@@ -272,13 +265,6 @@ export const Sidebar: React.FC = () => {
     { type: 'telnet', icon: '📡', label: 'Telnet 连接', onClick: () => setShowTelnetDialog(true), disabled: connectingType === 'telnet' },
   ];
 
-  const serviceButtons: Array<{ icon: string; label: string; onClick: () => void; running: boolean }> = [
-    { icon: '📁', label: 'TFTP 服务器', onClick: () => setShowTftpDialog(true), running: tftpRunning },
-    { icon: '🗂️', label: 'NFS 服务器', onClick: () => setShowNfsDialog(true), running: nfsRunning },
-    { icon: '📤', label: 'FTP 服务器', onClick: () => setShowFtpDialog(true), running: ftpRunning },
-    { icon: '🤖', label: 'MCP AI 服务器', onClick: () => setShowMcpDialog(true), running: mcpRunning },
-  ];
-
   // Collapsed state
   if (isCollapsed) {
     return (
@@ -287,7 +273,7 @@ export const Sidebar: React.FC = () => {
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
         {sidebarButtons.map((btn) => {
-          const cfg = [...connButtons, ...serviceButtons.map(s => ({ type: s.label as SidebarButtonType, icon: s.icon, label: s.label, onClick: s.onClick, disabled: false }))].find(b => b.type === btn.type);
+          const cfg = connButtons.find(b => b.type === btn.type);
           return cfg ? <button key={btn.type} onClick={cfg.onClick} disabled={'disabled' in cfg && cfg.disabled} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-hover disabled:opacity-50 mb-1 text-text-secondary hover:text-text transition-colors text-sm" title={cfg.label}>{cfg.icon}</button> : null;
         })}
         {/* Dialogs */}
@@ -305,30 +291,30 @@ export const Sidebar: React.FC = () => {
 
   return (
     <div className="w-[var(--sidebar-width)] bg-surface border-r border-border flex flex-col flex-shrink-0 relative">
-      {/* 导航标签："连接" / "服务" */}
-      <div className="flex border-b border-border flex-shrink-0">
+
+      {/* 右上角：设置 + 折叠 */}
+      <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
         <button
-          onClick={() => setActiveNav('connections')}
-          className={`flex-1 h-[37px] text-xs font-medium transition-colors ${activeNav === 'connections' ? 'text-text border-b-2 border-primary' : 'text-text-secondary hover:text-text'}`}
-        >连接</button>
+          onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-settings'))}
+          className="w-5 h-5 flex items-center justify-center rounded hover:bg-hover text-text-secondary/50 hover:text-text-secondary transition-colors"
+          title="设置"
+        >
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1" />
+            <path d="M8 1.5v1.3M8 13.2v1.3M1.5 8h1.3M13.2 8h1.3M3.4 3.4l.9.9M11.7 11.7l.9.9M3.4 12.6l.9-.9M11.7 4.3l.9-.9" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+          </svg>
+        </button>
         <button
-          onClick={() => setActiveNav('services')}
-          className={`flex-1 h-[37px] text-xs font-medium transition-colors ${activeNav === 'services' ? 'text-text border-b-2 border-primary' : 'text-text-secondary hover:text-text'}`}
-        >服务</button>
+          onClick={() => setIsCollapsed(true)}
+          className="w-5 h-5 flex items-center justify-center rounded hover:bg-hover text-text-secondary transition-colors"
+          title="折叠侧边栏"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 1L3 5L7 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
       </div>
 
-      {/* 折叠按钮 */}
-      <button
-        onClick={() => setIsCollapsed(true)}
-        className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded hover:bg-hover text-text-secondary transition-colors z-10"
-        title="折叠侧边栏"
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 1L3 5L7 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </button>
-
-      {/* 连接标签页内容 */}
-      {activeNav === 'connections' && (
-        <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
+      {/* 连接内容 */}
+      <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
           <div className="p-2 border-b border-border">
             <h3 className="text-[10px] uppercase tracking-wider text-text-secondary font-medium mb-1.5 px-1">新建连接</h3>
             <div className="flex flex-col gap-0.5">
@@ -386,28 +372,6 @@ export const Sidebar: React.FC = () => {
             )}
           </div>
         </div>
-      )}
-
-      {/* 服务标签页内容 */}
-      {activeNav === 'services' && (
-        <div className="flex-1 overflow-y-auto p-2">
-          <h3 className="text-[10px] uppercase tracking-wider text-text-secondary font-medium mb-1.5 px-1">服务管理</h3>
-          <div className="flex flex-col gap-0.5">
-            {serviceButtons.map((svc) => (
-              <button
-                key={svc.label}
-                onClick={svc.onClick}
-                className="sidebar-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-hover transition-colors text-left group"
-                title={svc.label}
-              >
-                <span className="text-sm flex-shrink-0">{svc.icon}</span>
-                <span className="text-xs truncate flex-1">{svc.label}</span>
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${svc.running ? 'bg-green-500' : 'bg-text-secondary/30'}`} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 底部服务状态区（始终可见） */}
       <div className="flex-shrink-0 border-t border-border p-2">
@@ -448,6 +412,9 @@ export const Sidebar: React.FC = () => {
           <div className="fixed inset-0 z-40" onClick={closeContextMenu}/>
           <div className="fixed z-50 bg-surface border border-border rounded shadow-lg py-1 min-w-[120px]" style={{ left: contextMenu.x, top: contextMenu.y }}>
             <button onClick={() => handleEditSession(contextMenu.session)} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover">编辑配置</button>
+            {contextMenu.session.type !== 'serial' && (
+              <button onClick={() => { addSession({ name: contextMenu.session.name + ' - 副本', type: contextMenu.session.type, sshConfig: contextMenu.session.sshConfig ? { ...contextMenu.session.sshConfig } : undefined, telnetConfig: contextMenu.session.telnetConfig ? { ...contextMenu.session.telnetConfig } : undefined, ptyConfig: contextMenu.session.ptyConfig ? { ...contextMenu.session.ptyConfig } : undefined }); closeContextMenu(); }} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover">复制为新配置</button>
+            )}
             <button onClick={() => { removeSession(contextMenu.session.id); closeContextMenu(); }} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover text-red-500">删除配置</button>
             <div className="my-1 border-t border-border"/>
             <button onClick={() => { if (reorderSessions && contextMenu.index > 0) reorderSessions(contextMenu.index, contextMenu.index - 1); closeContextMenu(); }} disabled={contextMenu.index === 0} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed">上移</button>
