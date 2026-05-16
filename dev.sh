@@ -119,7 +119,12 @@ if command -v fuser >/dev/null 2>&1; then
   fuser -k 5173/tcp 2>/dev/null && sleep 1 || true
 fi
 
-(cd packages/renderer && $NODE "$SCRIPT_DIR/$VITE" --host --strictPort) &
+# Git Bash 下 Vite 内部 esbuild.exe 需要 Windows 格式路径
+VITE_CWD="$(cd packages/renderer && pwd)"
+if command -v cygpath >/dev/null 2>&1; then
+  VITE_CWD=$(cygpath -w "$VITE_CWD")
+fi
+(cd "$VITE_CWD" && $NODE "$SCRIPT_DIR/$VITE" --host --strictPort) &
 VITE_PID=$!
 echo $VITE_PID > "$VITE_PID_FILE"
 
