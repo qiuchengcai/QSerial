@@ -50,8 +50,9 @@ export const TitleBar: React.FC = () => {
   // Tab 右键菜单
   const tabCtxItems = tabContextMenu ? [
     { label: '关闭', onClick: () => { closeTab(tabContextMenu.tabId); setTabContextMenu(null); } },
-    { label: '关闭其他标签页', onClick: () => { tabs.forEach((t) => { if (t.id !== tabContextMenu.tabId) closeTab(t.id); }); setTabContextMenu(null); }, disabled: tabs.length <= 1 },
+    { label: '关闭左侧标签页', onClick: () => { const idx = tabs.findIndex((t) => t.id === tabContextMenu.tabId); for (let i = idx - 1; i >= 0; i--) closeTab(tabs[i].id); setTabContextMenu(null); }, disabled: tabs.findIndex((t) => t.id === tabContextMenu.tabId) <= 0 },
     { label: '关闭右侧标签页', onClick: () => { const idx = tabs.findIndex((t) => t.id === tabContextMenu.tabId); for (let i = tabs.length - 1; i > idx; i--) closeTab(tabs[i].id); setTabContextMenu(null); }, disabled: tabs.findIndex((t) => t.id === tabContextMenu.tabId) >= tabs.length - 1 },
+    { label: '关闭其他标签页', onClick: () => { tabs.forEach((t) => { if (t.id !== tabContextMenu.tabId) closeTab(t.id); }); setTabContextMenu(null); }, disabled: tabs.length <= 1 },
     { label: '关闭所有标签页', onClick: () => { [...tabs].reverse().forEach((t) => closeTab(t.id)); setTabContextMenu(null); } },
   ] : [];
 
