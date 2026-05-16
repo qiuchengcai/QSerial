@@ -9,8 +9,24 @@ cd "$SCRIPT_DIR"
 NODE="node"
 TSC="node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc"
 VITE="node_modules/.pnpm/vite@5.4.21_@types+node@20.19.40/node_modules/vite/bin/vite.js"
-ESBUILD="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild/win32-x64/esbuild.exe"
-ELECTRON="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist/electron.exe"
+# 平台检测
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    PLATFORM="windows"
+    ESBUILD="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild/win32-x64/esbuild.exe"
+    ELECTRON="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist/electron.exe"
+    ;;
+  Linux)
+    PLATFORM="linux"
+    ESBUILD="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild/linux-x64/bin/esbuild"
+    ELECTRON="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist/electron"
+    ;;
+  *)
+    PLATFORM="unknown"
+    ESBUILD="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild/win32-x64/esbuild.exe"
+    ELECTRON="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist/electron.exe"
+    ;;
+esac
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
