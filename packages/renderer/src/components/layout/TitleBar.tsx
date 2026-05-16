@@ -86,20 +86,20 @@ export const TitleBar: React.FC = () => {
         </div>
 
         {/* macOS 风格窗口控制圆点 */}
-        <div className="flex items-center gap-2 px-3 ml-2 app-no-drag">
+        <div className="flex items-center gap-3 px-4 ml-3 app-no-drag">
           <button
             onClick={() => window.qserial.window.minimize()}
-            className="w-[14px] h-[14px] rounded-full bg-[#febc2e] hover:brightness-90 transition-all"
+            className="w-4 h-4 rounded-full bg-[#febc2e] hover:brightness-90 transition-all"
             title="最小化"
           />
           <button
             onClick={() => window.qserial.window.maximize()}
-            className="w-[14px] h-[14px] rounded-full bg-[#29c840] hover:brightness-90 transition-all"
+            className="w-4 h-4 rounded-full bg-[#29c840] hover:brightness-90 transition-all"
             title="最大化"
           />
           <button
             onClick={() => window.qserial.window.close()}
-            className="w-[14px] h-[14px] rounded-full bg-[#ff5f57] hover:brightness-90 transition-all"
+            className="w-4 h-4 rounded-full bg-[#ff5f57] hover:brightness-90 transition-all"
             title="关闭"
           />
         </div>
