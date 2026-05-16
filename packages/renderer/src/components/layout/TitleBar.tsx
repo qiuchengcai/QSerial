@@ -61,9 +61,12 @@ export const TitleBar: React.FC = () => {
         {/* Logo + 品牌 */}
         <div className="flex items-center gap-1.5 ml-2 flex-shrink-0 app-no-drag">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-primary flex-shrink-0">
-            <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.6"/>
-            <path d="M7 11l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="13" y="14.5" width="5" height="1.8" rx="0.9" fill="currentColor" opacity="0.5"/>
+            <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.6"/>
+            <circle cx="6.5" cy="8" r="1.3" fill="currentColor" opacity="0.5"/>
+            <circle cx="10.5" cy="8" r="1.3" fill="currentColor" opacity="0.5"/>
+            <circle cx="14.5" cy="8" r="1.3" fill="currentColor" opacity="0.5"/>
+            <path d="M5 13 L8 15 L5 17" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" fill="none"/>
+            <rect x="10" y="12.5" width="8" height="1.6" rx="0.8" fill="currentColor" opacity="0.35"/>
           </svg>
           <span className="text-[11px] font-semibold text-text-secondary">QSerial</span>
         </div>
