@@ -36,6 +36,9 @@ importers:
       '@esbuild/win32-x64':
         specifier: 0.21.5
         version: 0.21.5
+      '@rollup/rollup-win32-x64-msvc':
+        specifier: 4.60.3
+        version: 4.60.3
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.40
@@ -63,6 +66,9 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^4.6.0
         version: 4.6.2(eslint@8.57.1)
+      lightningcss-win32-x64-msvc:
+        specifier: 1.21.0
+        version: 1.21.0
       prettier:
         specifier: ^3.2.4
         version: 3.8.3
@@ -1225,7 +1231,6 @@ packages:
     os: [win32]
     requiresBuild: true
     dev: true
-    optional: true
 
   /@serialport/binding-mock@10.2.2:
     resolution: {integrity: sha512-HAFzGhk9OuFMpuor7aT5G1ChPgn5qSsklTFOTUX72Rl6p0xwcSVsRtG/xaGp6bxpN7fI9D/S8THLBWbBgS6ldw==}
@@ -4070,6 +4075,13 @@ packages:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+    dev: true
+
+  /lightningcss-win32-x64-msvc@1.21.0:
+    resolution: {integrity: sha512-yW6/ZDJAHrSWtRltH1tr2I+2sn374gK2yclc44HMfpxfjIYgXMUkzqstalloMUQpZFR6M0ltXo5/tuLWoBydGQ==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [x64]
+    os: [win32]
     dev: true
 
   /lilconfig@3.1.3:

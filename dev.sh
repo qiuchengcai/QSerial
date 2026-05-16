@@ -5,6 +5,19 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+err_exit() {
+  echo ""
+  echo -e "${RED}[ERROR]${NC} $1"
+  echo ""
+  read -p "Press Enter to exit..."
+  exit 1
+}
+
 # 路径定义 (node-linker=hoisted: 包在 node_modules/ 下为真实目录)
 NODE="node"
 TSC="node_modules/typescript/bin/tsc"
@@ -26,19 +39,6 @@ elif [ -f "$ELECTRON_DIR/electron" ]; then
 else
   err_exit "electron 未找到"
 fi
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-err_exit() {
-  echo ""
-  echo -e "${RED}[ERROR]${NC} $1"
-  echo ""
-  read -p "Press Enter to exit..."
-  exit 1
-}
 
 echo ""
 echo "=========================================="
@@ -105,19 +105,45 @@ echo "  UI 修改自动热更新"
 echo "  关闭 Electron 窗口即停止"
 echo ""
 
-export ESBUILD_BINARY_PATH="$ESBUILD"
+# 清理残留进程（上次未正常退出的 Electron / QSerial / Vite）
+kill_残留() {
+  local killed=0
+  # 清理残留 Electron/QSerial 进程
+  if command -v taskkill.exe >/dev/null 2>&1; then
+    taskkill.exe /F /IM electron.exe >/dev/null 2>&1 && killed=1
+    taskkill.exe /F /IM QSerial.exe >/dev/null 2>&1 && killed=1
+  else
+    pkill -f "electron.*packages/main/dist" 2>/dev/null && killed=1
+    pkill -f "QSerial" 2>/dev/null && killed=1
+  fi
+  # 清理残留 Vite 进程
+  VITE_PID_FILE=".vite.pid"
+  if [ -f "$VITE_PID_FILE" ]; then
+    OLD_PID=$(cat "$VITE_PID_FILE")
+    kill "$OLD_PID" 2>/dev/null && killed=1
+    rm "$VITE_PID_FILE"
+  fi
+  # 备用：通过端口强制清理 5173
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k 5173/tcp 2>/dev/null && killed=1
+  elif command -v lsof >/dev/null 2>&1; then
+    local pid
+    pid=$(lsof -ti:5173 2>/dev/null)
+    [ -n "$pid" ] && kill -9 $pid 2>/dev/null && killed=1
+  fi
+  # 清理 MCP 端口 9800
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k 9800/tcp 2>/dev/null && killed=1
+  elif command -v lsof >/dev/null 2>&1; then
+    local pid2
+    pid2=$(lsof -ti:9800 2>/dev/null)
+    [ -n "$pid2" ] && kill -9 $pid2 2>/dev/null && killed=1
+  fi
+  [ $killed -eq 1 ] && echo -e "  ${YELLOW}已清理残留进程${NC}" && sleep 1
+}
+kill_残留
 
-# 清理上次残留的 Vite 进程（端口 5173）
 VITE_PID_FILE=".vite.pid"
-if [ -f "$VITE_PID_FILE" ]; then
-  OLD_PID=$(cat "$VITE_PID_FILE")
-  kill "$OLD_PID" 2>/dev/null && echo "  已停止上次 Vite 进程 (PID $OLD_PID)"
-  rm "$VITE_PID_FILE"
-fi
-# 备用：通过端口强制清理
-if command -v fuser >/dev/null 2>&1; then
-  fuser -k 5173/tcp 2>/dev/null && sleep 1 || true
-fi
 
 # 使用 vite.config.mjs (纯 JS) 避免 esbuild 解析 .ts 配置文件时的路径问题
 (cd packages/renderer && $NODE "$SCRIPT_DIR/$VITE" --host --strictPort --config vite.config.mjs) &

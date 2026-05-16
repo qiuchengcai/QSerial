@@ -2,7 +2,7 @@
  * QSerial Main Process Entry
  */
 
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -98,6 +98,20 @@ function createWindow(): void {
     },
     show: false,
     backgroundColor: '#1E1E1E',
+  });
+
+  // 设置 CSP：开发模式允许 Vite HMR，生产模式严格限制
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const isDev = process.env.NODE_ENV === 'development';
+    const csp = isDev
+      ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:5173 wss://localhost:5173; img-src 'self' data:; font-src 'self' data:;"
+      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;";
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp],
+      },
+    });
   });
 
   // 开发环境加载 dev server

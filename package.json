@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@esbuild/win32-x64": "0.21.5",
+    "@rollup/rollup-win32-x64-msvc": "4.60.3",
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
@@ -54,6 +55,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "lightningcss-win32-x64-msvc": "1.21.0",
     "prettier": "^3.2.4",
     "resedit": "^3.0.2",
     "rimraf": "^5.0.5",
