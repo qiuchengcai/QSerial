@@ -164,17 +164,50 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
           const core = (xterm as any)._core;
           if (core?.viewport) {
             const capturedMountId = mountId;
-            // 拦截所有异步入口 — setTimeout 回调 + rAF 回调
-            const origSync = core.viewport.syncScrollArea.bind(core.viewport);
-            const origRefresh = core.viewport._refresh.bind(core.viewport);
-            core.viewport.syncScrollArea = function (...args: any[]) {
+            // 方案1：patch RenderService.dimensions getter — 从根源消除异常
+            // 当 _renderer.value 为 undefined（Renderer 未就绪或已 dispose）时，
+            // 返回 null 而非抛 TypeError。这是最可靠的方案，因为所有
+            // Viewport 异步回调最终都会访问这个 getter。
+            try {
+              const renderService = core._renderService;
+              if (renderService) {
+                const desc = Object.getOwnPropertyDescriptor(
+                  Object.getPrototypeOf(renderService), 'dimensions'
+                );
+                if (desc?.get) {
+                  const origGetter = desc.get;
+                  Object.defineProperty(renderService, 'dimensions', {
+                    get: function () {
+                      try { return origGetter.call(this); } catch { return null; }
+                    },
+                    configurable: true,
+                  });
+                }
+              }
+            } catch { /* dimensions patch 失败 */ }
+
+            // 方案2：同时 patch Viewport 三个关键方法，
+            // 提供双重保护 + mountId 守卫防止已 dispose 实例的回调
+            const vp = core.viewport;
+            const origSync = vp.syncScrollArea.bind(vp);
+            const origRefresh = vp._refresh?.bind(vp);
+            const origInnerRefresh = vp._innerRefresh?.bind(vp);
+            vp.syncScrollArea = function (...args: any[]) {
               if (mountCountRef.current !== capturedMountId) return;
-              return origSync(...args);
+              try { return origSync(...args); } catch { /* dimensions 未就绪/已 dispose */ }
             };
-            core.viewport._refresh = function (e3: boolean) {
-              if (mountCountRef.current !== capturedMountId) return;
-              return origRefresh(e3);
-            };
+            if (origRefresh) {
+              vp._refresh = function (e3: boolean) {
+                if (mountCountRef.current !== capturedMountId) return;
+                try { return origRefresh(e3); } catch { /* dimensions 未就绪/已 dispose */ }
+              };
+            }
+            if (origInnerRefresh) {
+              vp._innerRefresh = function (...args: any[]) {
+                if (mountCountRef.current !== capturedMountId) return;
+                try { return origInnerRefresh(...args); } catch { /* dimensions 未就绪/已 dispose */ }
+              };
+            }
           }
         } catch { /* patch 失败不影响核心功能 */ }
 
