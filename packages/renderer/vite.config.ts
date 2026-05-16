@@ -2,6 +2,16 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
+// Git Bash 下 __dirname 返回 /mnt/f/... 格式，esbuild.exe (Windows) 无法识别
+// 统一转换为 Windows 原生路径 (F:\...)
+function toSysPath(p: string): string {
+  const m = p.match(/^\/mnt\/([a-z])\//i);
+  if (m) return m[1].toUpperCase() + ':\\' + p.slice(7).replace(/\//g, '\\');
+  return p;
+}
+
+const srcDir = toSysPath(resolve(__dirname, 'src'));
+
 export default defineConfig({
   plugins: [react()],
   base: './',
@@ -19,7 +29,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': srcDir,
     },
   },
   server: {
