@@ -18,9 +18,9 @@ import { PtyConnectDialog, type PtyConnectOptions } from '../dialogs/PtyConnectD
 import { McpDialog } from '../dialogs/McpDialog';
 import { globalError } from '../common/ErrorToast';
 
-const MIN_SIDEBAR_WIDTH = 120;
-const MAX_SIDEBAR_WIDTH = 400;
-const DEFAULT_SIDEBAR_WIDTH = 160;
+const MIN_SIDEBAR_WIDTH = 140;
+const MAX_SIDEBAR_WIDTH = 500;
+const DEFAULT_SIDEBAR_WIDTH = 200;
 
 export const Sidebar: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);

@@ -5,6 +5,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { ContextMenu } from '../common/ContextMenu';
+import { ConnectionState } from '@qserial/shared';
 
 interface ContextMenuState {
   x: number;
@@ -128,30 +129,45 @@ export const TabBar: React.FC = () => {
         {/* Tabs */}
         <div
           ref={tabsContainerRef}
-          className="flex-1 flex items-center overflow-x-auto overflow-y-hidden scrollbar-hide"
+          className="flex-1 flex items-center gap-0.5 px-2.5 overflow-x-auto overflow-y-hidden scrollbar-hide h-full"
         >
-          {tabs.map((tab) => (
-            <div
-              key={tab.id}
-              className={`
-                flex-shrink-0 flex items-center gap-2 px-4 h-full cursor-pointer border-r border-border
-                ${tab.id === activeTabId ? 'bg-primary/20 border-b-2 border-b-primary' : 'hover:bg-hover'}
-              `}
-              onClick={() => setActiveTab(tab.id)}
-              onContextMenu={(e) => handleContextMenu(e, tab.id, tab.name)}
-            >
-              <span className="text-sm truncate max-w-[120px]">{tab.name}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(tab.id);
-                }}
-                className="w-4 h-4 flex items-center justify-center rounded hover:bg-active"
+          {tabs.map((tab) => {
+            const isActive = tab.id === activeTabId;
+            const sessions = terminalState?.sessions || {};
+            const activeSession = tab.activeSessionId ? sessions[tab.activeSessionId] : null;
+            const isConnected = activeSession?.connectionState === ConnectionState.CONNECTED;
+
+            return (
+              <div
+                key={tab.id}
+                className={`
+                  flex-shrink-0 flex items-center gap-1.5 px-3 h-[30px] cursor-pointer rounded-md text-xs
+                  ${isActive
+                    ? 'bg-primary/[0.08] border border-primary/20 text-primary'
+                    : 'hover:bg-hover text-text-secondary'
+                  }
+                `}
+                onClick={() => setActiveTab(tab.id)}
+                onContextMenu={(e) => handleContextMenu(e, tab.id, tab.name)}
               >
-                ×
-              </button>
-            </div>
-          ))}
+                {/* 连接状态指示点 */}
+                <span className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${
+                  isConnected ? 'bg-success' : 'bg-text-secondary/40'
+                }`} />
+                <span className="truncate max-w-[100px]">{tab.name}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(tab.id);
+                  }}
+                  className="w-4 h-4 flex items-center justify-center rounded hover:bg-active opacity-0 group-hover:opacity-100 ml-1 text-text-secondary hover:text-text"
+                  style={{ opacity: isActive ? 1 : undefined }}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 

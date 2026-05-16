@@ -62,27 +62,42 @@ export const StatusBar: React.FC = () => {
   };
 
   return (
-    <div className="h-[var(--statusbar-height)] bg-surface border-t border-border flex items-center justify-between px-3 text-xs flex-shrink-0">
+    <div className="h-[var(--statusbar-height)] bg-surface border-t border-border flex items-center justify-between px-3.5 text-[10px] flex-shrink-0">
       {/* 左侧信息 */}
-      <div className="flex items-center gap-4 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         {activeSession && (
           <>
-            <span className="text-text-secondary flex-shrink-0">
-              {activeSession.connectionType.toUpperCase()}
-            </span>
-            <span
-              className={
-                activeSession.connectionState === 'connected'
-                  ? 'text-success'
-                  : activeSession.connectionState === 'error'
-                  ? 'text-error'
-                  : 'text-warning'
-              }
-            >
+            {/* 连接状态指示点 */}
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+              activeSession.connectionState === 'connected' ? 'bg-success' :
+              activeSession.connectionState === 'error' ? 'bg-error' : 'bg-warning'
+            }`} />
+            <span className={
+              activeSession.connectionState === 'connected'
+                ? 'text-success'
+                : activeSession.connectionState === 'error'
+                ? 'text-error'
+                : 'text-warning'
+            }>
               {CONNECTION_STATE_NAMES[activeSession.connectionState]}
             </span>
-            <span className="text-text-secondary flex-shrink-0">
-              {activeSession.cols}x{activeSession.rows}
+            <span className="w-px h-3.5 bg-border flex-shrink-0" />
+            <span className="text-text-secondary flex-shrink-0 font-mono">
+              {activeSession.connectionType === 'ssh' || activeSession.connectionType === 'telnet'
+                ? (activeSession as any).host || ''
+                : (activeSession as any).port || ''}
+            </span>
+            <span className="text-text-secondary/60 flex-shrink-0 font-mono">
+              {activeSession.connectionType === 'ssh' ? ':22' :
+               activeSession.connectionType === 'telnet' ? ':23' : ''}
+            </span>
+            <span className="w-px h-3.5 bg-border flex-shrink-0" />
+            <span className="text-text-secondary/60 flex-shrink-0 font-mono">
+              {activeSession.connectionType.toUpperCase()}
+            </span>
+            <span className="w-px h-3.5 bg-border flex-shrink-0" />
+            <span className="text-text-secondary/60 flex-shrink-0">
+              {activeSession.cols} x {activeSession.rows}
             </span>
           </>
         )}
@@ -167,24 +182,27 @@ export const StatusBar: React.FC = () => {
       </div>
 
       {/* 右侧信息 */}
-      <div className="flex items-center gap-4 flex-shrink-0">
+      <div className="flex items-center gap-3 flex-shrink-0">
         {/* SFTP 文件浏览器按钮 */}
         {isSshConnected && (
           <button
             onClick={handleOpenSftp}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-hover transition-colors ${
-              panelVisible ? 'bg-hover text-primary' : 'text-text-secondary'
+            className={`flex items-center gap-1 px-2 py-0.5 rounded hover:bg-hover transition-colors ${
+              panelVisible ? 'bg-hover text-success' : 'text-text-secondary/60'
             }`}
             title="打开 SFTP 文件浏览器"
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
-              <path d="M2 3h5l1 1h6v9H2V3z" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round" />
-            </svg>
-            <span className="text-xs">SFTP</span>
+            <span className="text-[10px] tracking-wide">文件</span>
           </button>
         )}
-        <span className="text-text-secondary">UTF-8</span>
-        <span className="text-text-secondary">v0.1.0</span>
+        <button
+          className="text-text-secondary/60 hover:text-text-secondary px-2 py-0.5 rounded hover:bg-hover transition-colors text-[10px] tracking-wide"
+          onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-share'))}
+        >
+          共享
+        </button>
+        <span className="w-px h-3.5 bg-border flex-shrink-0" />
+        <span className="text-text-secondary/60">v0.2.0</span>
       </div>
     </div>
   );

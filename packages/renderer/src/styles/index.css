@@ -7,31 +7,31 @@
 @tailwind utilities;
 
 :root {
-  /* Colors */
-  --color-primary: #0078d4;
-  --color-secondary: #6c757d;
-  --color-accent: #17a2b8;
-  --color-background: #1e1e1e;
-  --color-surface: #252526;
-  --color-text: #cccccc;
-  --color-text-secondary: #808080;
-  --color-border: #3c3c3c;
-  --color-hover: #2a2d2e;
-  --color-active: #37373d;
-  --color-error: #f44747;
-  --color-warning: #d19a66;
-  --color-success: #89d185;
+  /* Colors - GitHub Dark (from Pixso design) */
+  --color-primary: #58a6ff;
+  --color-secondary: #484f58;
+  --color-accent: #bc8cff;
+  --color-background: #0d1117;
+  --color-surface: #161b22;
+  --color-text: #c9d1d9;
+  --color-text-secondary: #8b949e;
+  --color-border: #30363d;
+  --color-hover: #1c2128;
+  --color-active: #292e36;
+  --color-error: #ff7b72;
+  --color-warning: #d29922;
+  --color-success: #3fb950;
 
   /* Fonts */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', Consolas, 'Courier New', monospace;
 
-  /* Sizes */
-  --titlebar-height: 32px;
-  --menubar-height: 26px;
-  --sidebar-width: 160px;
-  --statusbar-height: 24px;
-  --tab-height: 36px;
+  /* Sizes - aligned with Pixso design */
+  --titlebar-height: 40px;
+  --menubar-height: 28px;
+  --sidebar-width: 200px;
+  --statusbar-height: 30px;
+  --tab-height: 40px;
   --buttonbar-height: 32px;
   --buttonbar-width: 140px;
 }

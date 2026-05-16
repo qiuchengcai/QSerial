@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Theme } from '@qserial/shared';
-import { PRESET_THEMES, DEFAULT_DARK_THEME } from '@qserial/shared';
+import { PRESET_THEMES, GITHUB_DARK_THEME } from '@qserial/shared';
 
 interface ThemeState {
   currentTheme: Theme;
@@ -18,7 +18,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      currentTheme: DEFAULT_DARK_THEME,
+      currentTheme: GITHUB_DARK_THEME,
       themes: PRESET_THEMES,
 
       setTheme: (themeId) => {
@@ -46,12 +46,12 @@ export const useThemeStore = create<ThemeState>()(
         }));
         // 如果删除的是当前主题，切换到默认主题
         if (currentTheme.id === themeId) {
-          set({ currentTheme: DEFAULT_DARK_THEME });
+          set({ currentTheme: GITHUB_DARK_THEME });
         }
       },
     }),
     {
-      name: 'qserial-theme',
+      name: 'qserial-theme-v2',
       partialize: (state) => ({
         currentThemeId: state.currentTheme.id,
       }),
@@ -63,6 +63,9 @@ export const useThemeStore = create<ThemeState>()(
             const theme = state.themes.find((t) => t.id === savedThemeId);
             if (theme) {
               state.currentTheme = theme;
+            } else {
+              // 找不到保存的主题时回退到默认
+              state.currentTheme = GITHUB_DARK_THEME;
             }
           }
         }

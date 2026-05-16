@@ -635,9 +635,79 @@ export const PAPER_BOOK_THEME: Theme = {
 };
 
 /**
+ * GitHub Dark 主题
+ * 基于 Pixso UI 设计稿提取的配色方案
+ */
+export const GITHUB_DARK_THEME: Theme = {
+  id: 'github-dark',
+  name: 'GitHub Dark',
+  author: 'QSerial (Pixso Design)',
+  type: 'dark',
+  xterm: {
+    foreground: '#8B949E',
+    background: '#0D1117',
+    cursor: '#58A6FF',
+    cursorAccent: '#0D1117',
+    selectionBackground: '#264F78',
+    black: '#0D1117',
+    red: '#FF7B72',
+    green: '#3FB950',
+    yellow: '#D29922',
+    blue: '#58A6FF',
+    magenta: '#BC8CFF',
+    cyan: '#39C5CF',
+    white: '#B1BAC4',
+    brightBlack: '#484F58',
+    brightRed: '#FFA198',
+    brightGreen: '#56D364',
+    brightYellow: '#E3B341',
+    brightBlue: '#79C0FF',
+    brightMagenta: '#D2A8FF',
+    brightCyan: '#56D4DD',
+    brightWhite: '#F0F6FC',
+  },
+  ui: {
+    colors: {
+      primary: '#58A6FF',
+      secondary: '#484F58',
+      accent: '#BC8CFF',
+      background: '#0D1117',
+      surface: '#161B22',
+      text: '#C9D1D9',
+      textSecondary: '#8B949E',
+      border: '#30363D',
+      hover: '#1C2128',
+      active: '#292E36',
+      error: '#FF7B72',
+      warning: '#D29922',
+      success: '#3FB950',
+    },
+    fonts: {
+      sans: '"Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      mono: '"JetBrains Mono", Consolas, "Courier New", monospace',
+      sizes: {
+        xs: '0.75rem',
+        sm: '0.875rem',
+        base: '1rem',
+        lg: '1.125rem',
+        xl: '1.25rem',
+      },
+    },
+    radius: BASE_RADIUS,
+    shadows: {
+      sm: '0 1px 2px rgba(1, 4, 9, 0.4)',
+      md: '0 4px 8px rgba(1, 4, 9, 0.4)',
+      lg: '0 12px 28px rgba(1, 4, 9, 0.5)',
+    },
+    transitions: BASE_TRANSITIONS,
+  },
+};
+
+/**
  * 预设主题列表
  */
 export const PRESET_THEMES: Theme[] = [
+  GITHUB_DARK_THEME,
   DEFAULT_DARK_THEME,
   DEFAULT_LIGHT_THEME,
   ONE_DARK_THEME,
