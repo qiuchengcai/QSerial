@@ -43,14 +43,7 @@ export const MainContent: React.FC = () => {
             <div className="text-center select-none max-w-sm">
               {/* Logo */}
               <div className="inline-flex items-center justify-center w-[72px] h-[72px] rounded-2xl bg-primary/[0.07] border border-primary/[0.12] mb-5">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-primary">
-                  <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.6" />
-                  <circle cx="6.5" cy="8" r="1.3" fill="currentColor" opacity="0.5" />
-                  <circle cx="10.5" cy="8" r="1.3" fill="currentColor" opacity="0.5" />
-                  <circle cx="14.5" cy="8" r="1.3" fill="currentColor" opacity="0.5" />
-                  <path d="M5 13 L8 15 L5 17" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-                  <rect x="10" y="12.5" width="8" height="1.6" rx="0.8" fill="currentColor" opacity="0.35" />
-                </svg>
+                <img src="/icon.svg" width="36" height="36" alt="QSerial" />
               </div>
               <h1 className="text-xl font-bold text-text mb-1.5 tracking-tight">QSerial</h1>
               <p className="text-sm text-text-secondary/60 mb-7">

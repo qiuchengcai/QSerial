@@ -217,17 +217,6 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_clear',
-    description: '清空指定连接的输出缓冲区。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: '连接 ID' },
-        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
-      },
-    },
-  },
-  {
     name: 'connection_create',
     description: '创建并连接新设备。type=serial 需提供 path/baudRate；type=ssh 需提供 host/username/password；type=telnet 需提供 host/port；type=pty 可无额外参数。',
     inputSchema: {
