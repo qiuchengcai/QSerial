@@ -37,9 +37,17 @@ check_command() {
 
 echo -e "${YELLOW}[1/5] 检查环境...${NC}"
 check_command node
-check_command pnpm
+
+# 如果 pnpm 不在 PATH 中，通过 npx 调用
+if command -v pnpm &>/dev/null; then
+  PNPM=pnpm
+else
+  echo "  pnpm 未在 PATH 中，将通过 npx pnpm 调用"
+  PNPM="npx pnpm"
+fi
+
 echo "  Node: $(node --version)"
-echo "  pnpm: $(pnpm --version)"
+echo "  pnpm: $($PNPM --version)"
 echo ""
 
 # 设置环境变量
@@ -53,7 +61,7 @@ touch "$npm_config_userconfig" 2>/dev/null || true
 
 # 安装依赖
 echo -e "${YELLOW}[2/5] 安装依赖...${NC}"
-pnpm install --engine-strict=false
+$PNPM install --engine-strict=false
 echo -e "${GREEN}  ✓ 依赖安装完成${NC}"
 echo ""
 
@@ -66,9 +74,9 @@ echo -e "${GREEN}  ✓ ICO 图标生成完成${NC}"
 echo -e "${YELLOW}[3/5] 构建项目...${NC}"
 # 准备 ftp-srv 依赖（打平安装到 resources/ftp-node-modules）
 node scripts/prepare-ftp-deps.cjs
-pnpm build:shared
-pnpm build:main
-pnpm build:renderer
+$PNPM build:shared
+$PNPM build:main
+$PNPM build:renderer
 echo -e "${GREEN}  ✓ 项目构建完成${NC}"
 echo ""
 
