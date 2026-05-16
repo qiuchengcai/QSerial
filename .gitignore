@@ -48,6 +48,9 @@ release/
 .pnpm-store/
 pnpm-lock.yaml
 
+# Vite
+.vite.pid
+
 # Misc
 nul
 *.bak
