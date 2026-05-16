@@ -1134,6 +1134,97 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return steps.join('\n') + `\n\n${output.slice(-500)}`;
       }
 
+      case 'connection_share_start': {
+        const sourceId = args.connection_id as string;
+        const localPort = args.local_port as number;
+        if (!sourceId) return '错误: 未提供 connection_id';
+        if (!localPort) return '错误: 未提供 local_port';
+
+        const sourceConn = ConnectionFactory.get(sourceId);
+        if (!sourceConn) return `错误: 找不到源连接 ${sourceId}`;
+        if (sourceConn.state !== ConnectionState.CONNECTED) {
+          return `错误: 源连接未就绪（当前状态：${sourceConn.state}）`;
+        }
+
+        const serverId = crypto.randomUUID();
+        const apiPort = args.api_port as number | undefined;
+        const listenAddress = (args.listen_address as string) || '0.0.0.0';
+        const password = (args.password as string) || mcpAuthPassword || undefined;
+
+        const options: ConnectionServerOptions = {
+          id: serverId,
+          type: ConnectionType.CONNECTION_SERVER,
+          sourceType: 'existing',
+          existingConnectionId: sourceId,
+          localPort,
+          listenAddress,
+          accessPassword: password,
+        };
+        if (apiPort) options.apiPort = apiPort;
+
+        try {
+          const serverConn = await ConnectionFactory.create(options);
+          await serverConn.open();
+          sharePool.set(serverId, { sourceId, serverId });
+
+          const status = (serverConn as ConnectionServerConnection).getStatus();
+          return JSON.stringify({
+            share_id: serverId,
+            local_port: status.localPort,
+            listen_address: status.listenAddress,
+            source_id: sourceId,
+            source_type: sourceConn.type,
+            source_description: status.sourceDescription || `${sourceConn.type} - ${(sourceConn.options as { name?: string }).name || ''}`,
+            client_count: status.clientCount,
+            clients: status.clients,
+            has_password: !!options.accessPassword,
+            telnet_cmd: `telnet ${status.listenAddress} ${status.localPort}`,
+            api_endpoint: apiPort ? `${status.listenAddress}:${apiPort}` : null,
+          }, null, 2);
+        } catch (err) {
+          return `错误: 启动共享失败 — ${(err as Error).message}`;
+        }
+      }
+
+      case 'connection_share_stop': {
+        const shareId = args.share_id as string;
+        if (!shareId) return '错误: 未提供 share_id';
+
+        if (!sharePool.has(shareId)) return `错误: 找不到共享 ${shareId}`;
+
+        try {
+          await ConnectionFactory.destroy(shareId);
+          sharePool.delete(shareId);
+          removeBuffer(shareId);
+          return `共享 ${shareId} 已停止`;
+        } catch (err) {
+          return `错误: 停止共享失败 — ${(err as Error).message}`;
+        }
+      }
+
+      case 'connection_share_list': {
+        const shares: unknown[] = [];
+        for (const [id, entry] of sharePool) {
+          const conn = ConnectionFactory.get(id);
+          if (conn && conn.type === ConnectionType.CONNECTION_SERVER) {
+            const status = (conn as ConnectionServerConnection).getStatus();
+            shares.push({
+              share_id: id,
+              source_id: entry.sourceId,
+              source_type: conn.options.type,
+              local_port: status.localPort,
+              listen_address: status.listenAddress,
+              client_count: status.clientCount,
+              clients: status.clients,
+              has_password: status.hasPassword,
+              running: status.running,
+              telnet_cmd: status.running ? `telnet ${status.listenAddress} ${status.localPort}` : null,
+            });
+          }
+        }
+        return shares.length > 0 ? JSON.stringify(shares, null, 2) : '(没有活跃的共享)';
+      }
+
       case 'help': {
         return HELP_TEXT;
       }

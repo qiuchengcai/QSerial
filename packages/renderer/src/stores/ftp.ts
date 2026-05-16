@@ -172,6 +172,11 @@ export const useFtpStore = create<FtpState & FtpActions>()(
     {
       name: 'qserial-ftp',
       partialize: (state) => ({ config: state.config }),
+      merge: (persisted: any, current: any) => ({
+        ...current,
+        ...persisted,
+        config: { ...current.config, ...persisted?.config },
+      }),
     }
   )
 );
