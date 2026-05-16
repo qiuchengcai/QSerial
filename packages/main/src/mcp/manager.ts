@@ -96,7 +96,6 @@ AI 和人类可以同时操作同一个终端设备，互不阻塞。
 - connection_read — 读取输出缓冲区（读后清空）
 - connection_peek — 预览输出缓冲区（不清空）
 - connection_expect — 等待指定模式出现（带超时）
-- connection_clear — 清空输出缓冲区
 
 ### 状态感知
 - connection_state — 分析交互状态: login_prompt/password_prompt/shell(root/user)/booting/program_running/idle
@@ -925,13 +924,6 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           name: (opts as { name?: string }).name || '',
           options: opts,
         }, null, 2);
-      }
-
-      case 'connection_clear': {
-        const id = resolveId(args);
-        if (!id) return '错误: 未提供连接 id';
-        clearBuffer(id);
-        return '缓冲区已清空';
       }
 
       case 'connection_create': {

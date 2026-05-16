@@ -7,6 +7,7 @@ import { useTerminalStore } from '@/stores/terminal';
 import { TerminalPane } from '../terminal/TerminalPane';
 import { SftpPanel } from '../sftp';
 import { useSftpStore } from '@/stores/sftp';
+import { QIcon } from '../common/QIcon';
 
 export const MainContent: React.FC = () => {
   const tabs = useTerminalStore(state => state.tabs);
@@ -43,7 +44,7 @@ export const MainContent: React.FC = () => {
             <div className="text-center select-none max-w-sm">
               {/* Logo */}
               <div className="inline-flex items-center justify-center w-[72px] h-[72px] rounded-2xl bg-primary/[0.07] border border-primary/[0.12] mb-5">
-                <img src="/icon.svg" width="36" height="36" alt="QSerial" />
+                <QIcon size={36} />
               </div>
               <h1 className="text-xl font-bold text-text mb-1.5 tracking-tight">QSerial</h1>
               <p className="text-sm text-text-secondary/60 mb-7">
