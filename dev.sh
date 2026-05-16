@@ -119,7 +119,13 @@ if command -v fuser >/dev/null 2>&1; then
   fuser -k 5173/tcp 2>/dev/null && sleep 1 || true
 fi
 
-(cd packages/renderer && $NODE "$SCRIPT_DIR/$VITE" --host --strictPort) &
+# Git Bash 下 Node 的 process.cwd() 返回 /mnt/f/... 格式
+# esbuild.exe (Windows 原生) 拒绝此路径，通过 .cmd 包装启动
+if command -v cygpath >/dev/null 2>&1 && [ -f "dev-vite.cmd" ]; then
+  cmd.exe /c dev-vite.cmd &
+else
+  (cd packages/renderer && $NODE "$SCRIPT_DIR/$VITE" --host --strictPort) &
+fi
 VITE_PID=$!
 echo $VITE_PID > "$VITE_PID_FILE"
 
