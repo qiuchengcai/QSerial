@@ -93,7 +93,7 @@ export const useFtpStore = create<FtpState & FtpActions>()(
             config.username,
             config.password,
           );
-          set({ running: true, starting: false, error: undefined });
+          set({ running: true, starting: false, error: undefined, config: { ...config, autoStart: true } });
         } catch (error) {
           set({ error: (error as Error).message, running: false, starting: false });
         }
@@ -103,7 +103,7 @@ export const useFtpStore = create<FtpState & FtpActions>()(
         set({ starting: false, stopping: true });
         try {
           await window.qserial.ftp.stop();
-          set({ running: false, stopping: false, error: undefined, clients: [] });
+          set({ running: false, stopping: false, error: undefined, clients: [], config: { ...get().config, autoStart: false } });
         } catch (error) {
           set({ error: (error as Error).message, stopping: false });
         }

@@ -72,7 +72,7 @@ export const useTftpStore = create<TftpState & TftpActions>()(
         }
         try {
           await window.qserial.tftp.start(config.port, config.rootDir);
-          set({ running: true, error: undefined });
+          set({ running: true, error: undefined, config: { ...config, autoStart: true } });
         } catch (error) {
           set({ error: (error as Error).message, running: false });
         }
@@ -81,7 +81,7 @@ export const useTftpStore = create<TftpState & TftpActions>()(
       stopServer: async () => {
         try {
           await window.qserial.tftp.stop();
-          set({ running: false, error: undefined });
+          set({ running: false, error: undefined, config: { ...get().config, autoStart: false } });
         } catch (error) {
           set({ error: (error as Error).message });
         }

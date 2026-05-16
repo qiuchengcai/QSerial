@@ -96,7 +96,8 @@ export const useNfsStore = create<NfsState & NfsActions>()(
           );
           console.log('[NFS] startServer: IPC start succeeded');
           // 主进程已确认进程稳定运行（内部有 1 秒稳定性验证）
-          set({ running: true, starting: false, error: undefined });
+          // 手动启动成功后自动设置自启标记，保证重启后服务自动恢复
+          set({ running: true, starting: false, error: undefined, config: { ...config, autoStart: true } });
           get().loadMountHint();
         } catch (error) {
           console.log('[NFS] startServer: IPC start failed:', (error as Error).message);
@@ -108,7 +109,8 @@ export const useNfsStore = create<NfsState & NfsActions>()(
         set({ starting: false, stopping: true });
         try {
           await window.qserial.nfs.stop();
-          set({ running: false, stopping: false, error: undefined, mountHint: undefined });
+          // 手动停止后关闭自启标记
+          set({ running: false, stopping: false, error: undefined, mountHint: undefined, config: { ...get().config, autoStart: false } });
         } catch (error) {
           set({ error: (error as Error).message, stopping: false });
         }

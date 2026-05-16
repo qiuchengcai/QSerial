@@ -22,6 +22,9 @@ let mcpPort = 9800;
 let mcpListenAddress = '127.0.0.1';
 let mcpAuthPassword = '';
 
+// 共享桥接池：shareId → { sourceId, serverId }
+const sharePool = new Map<string, { sourceId: string; serverId: string }>();
+
 // 简易令牌桶限流：每秒最多 30 个请求，突发最多 50
 const rateLimitTokens = new Map<string, { tokens: number; lastRefill: number }>();
 const RATE_LIMIT_MAX = 50;
@@ -307,6 +310,37 @@ const MCP_TOOLS = [
   {
     name: 'help',
     description: '获取 QSerial AI 使用说明和完整操作指南。',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'connection_share_start',
+    description: '为指定连接启动 TCP 共享服务。共享后可通过 Telnet 或 JSON API 端口远程访问该连接。密码默认使用 MCP 认证 token。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        connection_id: { type: 'string', description: '要共享的源连接 ID' },
+        local_port: { type: 'integer', description: 'TCP Telnet 监听端口' },
+        api_port: { type: 'integer', description: 'JSON API 端口（可选），供程序化访问' },
+        listen_address: { type: 'string', description: '监听地址，默认 0.0.0.0', default: '0.0.0.0' },
+        password: { type: 'string', description: '访问密码，默认使用 MCP 认证 token' },
+      },
+      required: ['connection_id', 'local_port'],
+    },
+  },
+  {
+    name: 'connection_share_stop',
+    description: '停止指定共享服务并释放端口。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        share_id: { type: 'string', description: '共享服务 ID' },
+      },
+      required: ['share_id'],
+    },
+  },
+  {
+    name: 'connection_share_list',
+    description: '列出所有活跃的共享服务及其状态（端口、客户端数等）。',
     inputSchema: { type: 'object', properties: {} },
   },
 ];
