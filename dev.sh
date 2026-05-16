@@ -9,24 +9,24 @@ cd "$SCRIPT_DIR"
 NODE="node"
 TSC="node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc"
 VITE="node_modules/.pnpm/vite@5.4.21_@types+node@20.19.40/node_modules/vite/bin/vite.js"
-# 平台检测
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*)
-    PLATFORM="windows"
-    ESBUILD="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild/win32-x64/esbuild.exe"
-    ELECTRON="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist/electron.exe"
-    ;;
-  Linux)
-    PLATFORM="linux"
-    ESBUILD="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild/linux-x64/bin/esbuild"
-    ELECTRON="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist/electron"
-    ;;
-  *)
-    PLATFORM="unknown"
-    ESBUILD="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild/win32-x64/esbuild.exe"
-    ELECTRON="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist/electron.exe"
-    ;;
-esac
+# 平台 & 二进制检测
+ESBUILD_DIR="$SCRIPT_DIR/node_modules/.pnpm/esbuild@0.21.5/node_modules/@esbuild"
+if [ -f "$ESBUILD_DIR/win32-x64/esbuild.exe" ]; then
+  ESBUILD="$ESBUILD_DIR/win32-x64/esbuild.exe"
+elif [ -f "$ESBUILD_DIR/linux-x64/bin/esbuild" ]; then
+  ESBUILD="$ESBUILD_DIR/linux-x64/bin/esbuild"
+else
+  err_exit "esbuild 未找到 (tried win32-x64 & linux-x64)"
+fi
+
+ELECTRON_DIR="node_modules/.pnpm/electron@28.3.3/node_modules/electron/dist"
+if [ -f "$ELECTRON_DIR/electron.exe" ]; then
+  ELECTRON="$ELECTRON_DIR/electron.exe"
+elif [ -f "$ELECTRON_DIR/electron" ]; then
+  ELECTRON="$ELECTRON_DIR/electron"
+else
+  err_exit "electron 未找到"
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
