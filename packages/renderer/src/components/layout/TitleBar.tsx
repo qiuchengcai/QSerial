@@ -32,8 +32,6 @@ export const TitleBar: React.FC = () => {
   const activeSession = activeTab?.activeSessionId ? sessions[activeTab.activeSessionId] : null;
   const activeName = activeTab?.name || '未连接';
   const isConnected = activeSession?.connectionState === ConnectionState.CONNECTED;
-  const connType = activeSession?.connectionType?.toUpperCase() || '';
-  const connDim = activeSession ? `${activeSession.cols} × ${activeSession.rows}` : '';
 
   // Tabs 滚轮
   useEffect(() => {
@@ -85,18 +83,6 @@ export const TitleBar: React.FC = () => {
           ) : (
             <span className="text-xs text-text-tertiary/60">暂无终端</span>
           )}
-        </div>
-
-        {/* 右侧：连接状态 + 版本 */}
-        <div className="flex items-center gap-2 flex-shrink-0 app-no-drag">
-          {activeSession && (
-            <>
-              <span className="text-[10px] text-text-secondary/60 font-mono">{connType}</span>
-              <span className="text-[10px] text-text-tertiary/40 font-mono">{connDim}</span>
-              <span className="w-px h-3 bg-border/40" />
-            </>
-          )}
-          <span className="text-[10px] text-text-tertiary/40">v0.2.0</span>
         </div>
 
         {/* macOS 风格窗口控制圆点 */}
