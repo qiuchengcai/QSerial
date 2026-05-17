@@ -212,9 +212,7 @@ export function initNfsListeners(): void {
       if (state.stopping) return;
       // 只在服务确实处于运行状态时才处理停止事件
       if (!state.running) return;
-      // 服务异常退出
-      console.log('[NFS] handling unexpected stop');
-      useNfsStore.setState({ running: false, starting: false, stopping: false, mountHint: undefined, error: event.error || 'NFS 服务已意外停止' });
+      useNfsStore.setState({ running: false, starting: false, stopping: false, mountHint: undefined });
     } else {
       // 收到 running:true 事件，同步状态
       if (!state.running) {

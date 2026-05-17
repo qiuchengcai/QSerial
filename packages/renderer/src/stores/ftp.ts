@@ -195,7 +195,7 @@ export function initFtpListeners(): void {
       if (state.starting) return;
       if (state.stopping) return;
       if (!state.running) return;
-      useFtpStore.setState({ running: false, starting: false, stopping: false, error: event.error || 'FTP 服务已意外停止' });
+      useFtpStore.setState({ running: false, starting: false, stopping: false });
     } else {
       if (!state.running) {
         useFtpStore.setState({ running: true, starting: false });
