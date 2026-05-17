@@ -223,7 +223,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
                 return {
                   backgroundColor: `${activeColor}40`,
                   border: `1px solid ${activeColor}60`,
-                  color: '#e8eaed',
+                  color: 'var(--color-text)',
                 };
               })()}
             >
@@ -516,7 +516,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                       } : {
                         backgroundColor: `${fc}40`,
                         border: `1px solid ${fc}60`,
-                        color: '#e8eaed',
+                        color: 'var(--color-text)',
                       }}
                       title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
                       onMouseEnter={(e) => {
@@ -639,7 +639,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                     } : {
                       backgroundColor: `${fc}40`,
                       border: `1px solid ${fc}60`,
-                      color: '#e8eaed',
+                      color: 'var(--color-text)',
                     }}
                     title={button.description || (button.commands?.length ? `发送 ${button.commands.length} 条命令` : `发送: ${button.command}`)}
                     onMouseEnter={(e) => {

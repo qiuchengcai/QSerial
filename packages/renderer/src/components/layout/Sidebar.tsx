@@ -356,20 +356,20 @@ export const Sidebar: React.FC = () => {
                   return (
                     <div
                       key={session.id}
-                      className={`session-item group flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${connected ? 'bg-green-500/10 hover:bg-green-500/15' : 'hover:bg-hover'}`}
+                      className={`session-item group flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${connected ? 'bg-success/10 hover:bg-success/15' : 'hover:bg-hover'}`}
                       onClick={() => handleQuickConnect(session)}
                       onContextMenu={(e) => handleContextMenu(e, session, index)}
                     >
                       <span className="flex-shrink-0">
                         {connected ? (
-                          <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-green-500">
+                          <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-success">
                             <svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                           </span>
                         ) : (
                           <span className="block w-3.5 h-3.5 rounded-full border border-border" />
                         )}
                       </span>
-                      <span className={`flex-1 text-xs truncate ${connected ? 'text-green-400' : ''}`}>{session.name}</span>
+                      <span className={`flex-1 text-xs truncate ${connected ? 'text-success' : ''}`}>{session.name}</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); removeSession(session.id); }}
                         className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-active text-text-secondary flex-shrink-0 transition-opacity"
@@ -413,12 +413,12 @@ export const Sidebar: React.FC = () => {
             <div
               key={svc.label}
               onClick={svc.onClick}
-              className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-all group ${svc.running ? 'bg-[var(--color-success-dim)] hover:bg-green-500/20' : 'hover:bg-hover'}`}
+              className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-all group ${svc.running ? 'bg-[var(--color-success-dim)] hover:bg-success/20' : 'hover:bg-hover'}`}
             >
               <span className={`flex-shrink-0 ${svc.color} ${svc.running ? 'opacity-90' : 'opacity-40'} group-hover:opacity-100 transition-opacity`}>{svc.icon}</span>
-              <span className={`text-xs flex-1 transition-colors ${svc.running ? 'text-green-400 font-medium' : 'text-text-secondary'}`}>{svc.label}</span>
+              <span className={`text-xs flex-1 transition-colors ${svc.running ? 'text-success font-medium' : 'text-text-secondary'}`}>{svc.label}</span>
               {svc.running && svc.port > 0 && (
-                <span className="text-[10px] text-green-400/60 font-mono bg-green-500/10 px-1.5 py-0.5 rounded">:{svc.port}</span>
+                <span className="text-[10px] text-success/60 font-mono bg-success/10 px-1.5 py-0.5 rounded">:{svc.port}</span>
               )}
               {!svc.running && (
                 <span className="text-[10px] text-text-secondary/30 opacity-0 group-hover:opacity-100 transition-opacity">{svc.label === 'MCP AI' ? '配置' : '启动'}</span>

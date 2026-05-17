@@ -202,6 +202,16 @@ const api = {
 	      ipcRenderer.on(IPC_CHANNELS.MCP_STATUS_EVENT, handler);
 	      return () => ipcRenderer.off(IPC_CHANNELS.MCP_STATUS_EVENT, handler);
 	    },
+	    onConnectionCreated: (callback: (event: { connectionId: string; type: string; name: string; path?: string; host?: string; savedSessionId?: string }) => void) => {
+	      const handler = (_: unknown, event: { connectionId: string; type: string; name: string; path?: string; host?: string; savedSessionId?: string }) => callback(event);
+	      ipcRenderer.on(IPC_CHANNELS.MCP_CONNECTION_CREATED, handler);
+	      return () => ipcRenderer.off(IPC_CHANNELS.MCP_CONNECTION_CREATED, handler);
+	    },
+	    onShareChanged: (callback: (event: { shareId: string; running: boolean; sourceId?: string; localPort?: number; listenAddress?: string }) => void) => {
+	      const handler = (_: unknown, event: { shareId: string; running: boolean; sourceId?: string; localPort?: number; listenAddress?: string }) => callback(event);
+	      ipcRenderer.on(IPC_CHANNELS.MCP_SHARE_CHANGED, handler);
+	      return () => ipcRenderer.off(IPC_CHANNELS.MCP_SHARE_CHANGED, handler);
+	    },
 	  },
 
   // 调试日志

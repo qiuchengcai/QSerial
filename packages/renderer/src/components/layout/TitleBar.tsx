@@ -61,8 +61,8 @@ export const TitleBar: React.FC = () => {
       <div className="h-8 flex items-center px-2 gap-0.5">
         {/* Logo + 品牌 */}
         <div className="flex items-center gap-1.5 ml-2 flex-shrink-0 app-no-drag">
-          <QIcon size={14} className="flex-shrink-0" />
-          <span className="text-[11px] font-semibold text-text-secondary">QSerial</span>
+          <QIcon size={14} className="flex-shrink-0 text-primary" />
+          <span className="text-[11px] font-semibold text-primary">QSerial</span>
         </div>
 
         {/* 分隔线 */}

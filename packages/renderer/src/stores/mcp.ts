@@ -141,4 +141,19 @@ export function initMcpListeners(): void {
       }
     }
   });
+
+  // MCP 创建连接 → 自动在 GUI 打开标签页
+  window.qserial.mcp.onConnectionCreated(async (event) => {
+    const { useTerminalStore } = await import('@/stores/terminal');
+    const store = useTerminalStore.getState();
+    const tabId = store.createTab(event.name);
+    const ConnectionType = (await import('@qserial/shared')).ConnectionType;
+    store.createSession(
+      event.connectionId,
+      event.type as typeof ConnectionType[keyof typeof ConnectionType],
+      event.path,
+      event.host,
+      event.savedSessionId,
+    );
+  });
 }

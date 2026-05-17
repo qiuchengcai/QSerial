@@ -76,12 +76,12 @@ export function startTftpServer(port: number, rootDir: string): void {
   try {
     // 创建服务器，不提供 requestListener，使用默认的
     server = tftp.createServer({
-      host: '0.0.0.0',
+      host: '192.168.0.10',
       port: port,
       root: rootDir,
       denyPUT: false, // 允许上传
       denyGET: false, // 允许下载
-      blockSize: 65464, // 最大块大小，减少ACK开销
+      blockSize: 1468, // 避免 IP 分片，兼容嵌入式 TFTP 客户端
       windowSize: 64, // 增大窗口，减少等待ACK次数
       timeout: 5000, // 超时时间5s
       retries: 5, // 重试次数

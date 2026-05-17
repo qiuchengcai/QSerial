@@ -1,5 +1,5 @@
 /**
- * MCP AI 服务器对话框 — 含 13 个工具能力展示
+ * MCP AI 服务器对话框 — 含 12 个工具能力展示
  */
 
 import React, { useEffect, useState } from 'react';
@@ -11,11 +11,11 @@ interface ToolDef {
   inputs: string;
   idempotent: boolean;
   sideEffect: boolean;
-  category: 'connection' | 'data' | 'state' | 'help';
+  category: 'connection' | 'data' | 'state' | 'discover' | 'share' | 'capture';
 }
 
 const MCP_TOOLS: ToolDef[] = [
-  // 连接管理 (5)
+  // 连接管理 (4)
   {
     name: 'connection_create', category: 'connection',
     description: '创建并连接新设备 (serial/ssh/telnet/pty)，传入类型和相关参数即可建立连接。',
@@ -36,17 +36,11 @@ const MCP_TOOLS: ToolDef[] = [
   },
   {
     name: 'connection_list', category: 'connection',
-    description: '列出 QSerial 中所有活跃的连接（串口、SSH、本地终端等）及其当前状态。',
-    inputs: '(无参数)',
+    description: '列出所有活跃连接。传 id 返回指定连接完整详情（含连接参数）。',
+    inputs: 'id/connectionId?（可选，传则返回详情）',
     idempotent: true, sideEffect: false,
   },
-  {
-    name: 'connection_info', category: 'connection',
-    description: '获取指定连接的详细信息，包括类型、状态、完整连接参数等。',
-    inputs: 'id/connectionId',
-    idempotent: true, sideEffect: false,
-  },
-  // 数据交互 (5)
+  // 数据交互 (3)
   {
     name: 'connection_write', category: 'data',
     description: '向指定连接发送数据或命令。支持发送前延迟和条件等待。终端命令末尾需 \\n 换行符。',
@@ -55,27 +49,15 @@ const MCP_TOOLS: ToolDef[] = [
   },
   {
     name: 'connection_read', category: 'data',
-    description: '读取指定连接的输出缓冲区，读取后清空缓冲区。返回内容、字节数和时间戳。',
-    inputs: 'id/connectionId',
+    description: '读取连接输出。默认读后清空 (consume=true)；consume=false 预览不清空（配合 max_bytes）；consume=true+max_bytes=0 仅清空。',
+    inputs: 'id/connectionId, consume?(默认true), max_bytes?(默认4096)',
     idempotent: false, sideEffect: true,
-  },
-  {
-    name: 'connection_peek', category: 'data',
-    description: '预览输出缓冲区内容，不清空。可指定 max_bytes 限制返回长度（默认 4096）。',
-    inputs: 'id/connectionId, max_bytes?(默认4096)',
-    idempotent: true, sideEffect: false,
   },
   {
     name: 'connection_expect', category: 'data',
-    description: '等待连接输出中出现指定模式。支持普通子串匹配和正则表达式匹配，带超时。',
+    description: '等待连接输出中出现指定模式。支持子串匹配和正则表达式匹配，带超时。',
     inputs: 'pattern(必填), id/connectionId, regex?(默认false), timeout?(默认30s)',
     idempotent: true, sideEffect: false,
-  },
-  {
-    name: 'connection_clear', category: 'data',
-    description: '清空指定连接的输出缓冲区，丢弃所有未读数据。',
-    inputs: 'id/connectionId',
-    idempotent: false, sideEffect: true,
   },
   // 状态感知 (2)
   {
@@ -90,11 +72,31 @@ const MCP_TOOLS: ToolDef[] = [
     inputs: 'username(必填), password(必填), id/connectionId, loginPrompt?, passwordPrompt?, shellPrompt?, timeout?(默认30), debug?(默认true)',
     idempotent: false, sideEffect: true,
   },
-  // 帮助 (1)
+  // 发现 (2)
   {
-    name: 'help', category: 'help',
-    description: '获取 QSerial AI 使用说明和完整操作指南，包含典型操作流程和注意事项。',
+    name: 'serial_list', category: 'discover',
+    description: '列出系统中所有可用的串口设备（路径、厂商、VID:PID 等）。',
     inputs: '(无参数)',
+    idempotent: true, sideEffect: false,
+  },
+  {
+    name: 'session_list', category: 'discover',
+    description: '列出用户已保存的所有终端会话配置（串口、SSH、Telnet 等），含完整连接参数。',
+    inputs: '(无参数)',
+    idempotent: true, sideEffect: false,
+  },
+  // 连接共享 (1)
+  {
+    name: 'connection_share', category: 'share',
+    description: '管理连接共享服务。action=start 启动 TCP Telnet 共享；action=stop 停止共享；action=list 列出所有活跃共享。',
+    inputs: 'action(必填: start/stop/list), connection_id?, local_port?, listen_address?, password?, share_id?',
+    idempotent: false, sideEffect: true,
+  },
+  // 截图 (1)
+  {
+    name: 'window_screenshot', category: 'capture',
+    description: '抓取当前窗口。mode=html(默认,快速) 返回DOM，compact=true去掉样式减体积；mode=image 返回SVG截图。',
+    inputs: 'mode?(默认html: html/image), compact?(默认true), scope?(仅image)',
     idempotent: true, sideEffect: false,
   },
 ];
@@ -103,16 +105,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   connection: '连接管理',
   data: '数据交互',
   state: '状态感知',
-  help: '帮助',
+  discover: '发现',
+  share: '连接共享',
+  capture: '截图',
 };
 
-const CATEGORY_ORDER = ['connection', 'data', 'state', 'help'];
+const CATEGORY_ORDER = ['connection', 'data', 'state', 'discover', 'share', 'capture'];
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   connection: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v4M8 10v4M2 8h4M10 8h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>,
   data: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.2"/><path d="M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="5" cy="11" r="1" fill="currentColor" opacity="0.5"/><circle cx="8" cy="11" r="1" fill="currentColor" opacity="0.5"/><circle cx="11" cy="11" r="1" fill="currentColor" opacity="0.5"/></svg>,
   state: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>,
-  help: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M6.5 6.5a2 2 0 013.46-1.26A2 2 0 018 9v.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="8" cy="12" r="0.7" fill="currentColor"/></svg>,
+  discover: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" strokeWidth="1.2"/><line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg>,
+  share: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/><circle cx="11" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/><circle cx="11" cy="12" r="2" stroke="currentColor" strokeWidth="1.2"/><line x1="6.5" y1="7" x2="9.5" y2="5" stroke="currentColor" strokeWidth="1.2"/><line x1="6.5" y1="9" x2="9.5" y2="11" stroke="currentColor" strokeWidth="1.2"/></svg>,
+  capture: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><circle cx="8" cy="8.5" r="2" stroke="currentColor" strokeWidth="1.2"/><rect x="5" y="2" width="6" height="2" rx="0.5" stroke="currentColor" strokeWidth="1.2"/></svg>,
 };
 
 interface McpDialogProps {
@@ -415,7 +421,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
               </div>
 
               <p className="text-xs text-text-secondary/60">
-                · {localIp}:{config.port} — 支持 13 个工具，覆盖连接管理、数据交互、状态感知
+                · {localIp}:{config.port} — 支持 13 个工具，覆盖连接管理、数据交互、状态感知、设备发现、连接共享、截图
               </p>
             </div>
           )}

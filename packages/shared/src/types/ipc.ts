@@ -102,7 +102,10 @@ export const IPC_CHANNELS = {
   MCP_START: 'mcp:start',
   MCP_STOP: 'mcp:stop',
   MCP_GET_STATUS: 'mcp:getStatus',
+  MCP_GET_SESSIONS: 'mcp:getSessions',
+  MCP_CONNECTION_CREATED: 'mcp:connectionCreated',
   MCP_STATUS_EVENT: 'mcp:statusEvent',
+  MCP_SHARE_CHANGED: 'mcp:shareChanged',
 
   // SFTP 文件传输
   SFTP_CREATE: 'sftp:create',
@@ -260,6 +263,7 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.MCP_START]: void;
   [IPC_CHANNELS.MCP_STOP]: void;
   [IPC_CHANNELS.MCP_GET_STATUS]: McpServerStatus;
+  [IPC_CHANNELS.MCP_SHARE_CHANGED]: { shareId: string; running: boolean; sourceId?: string; localPort?: number; listenAddress?: string; };
   [IPC_CHANNELS.GET_LOCAL_IP]: string;
   [IPC_CHANNELS.READ_FILE]: string;
   [IPC_CHANNELS.DIALOG_PICK_DIR]: string | null;

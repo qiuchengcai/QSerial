@@ -12,6 +12,7 @@ import { useFtpStore } from './stores/ftp';
 import { initNfsListeners } from './stores/nfs';
 import { initFtpListeners } from './stores/ftp';
 import { initMcpListeners } from './stores/mcp';
+import { useMcpStore } from './stores/mcp';
 
 export const App: React.FC = () => {
   const { initialize: initConfig, config } = useConfigStore();
@@ -38,7 +39,8 @@ export const App: React.FC = () => {
         useFtpStore.getState().startServer().catch(() => {});
       }
       if (config.mcp.enabled) {
-        window.qserial.mcp.start().catch(() => {});
+        const mcpCfg = useMcpStore.getState().config;
+        window.qserial.mcp.start(mcpCfg.port, mcpCfg.listenAddress, mcpCfg.authPassword || undefined).catch(() => {});
       }
     };
     autoStartServices();
@@ -49,20 +51,52 @@ export const App: React.FC = () => {
     const root = document.documentElement;
     const { colors, fonts, texture } = currentTheme.ui;
 
+    // --- 工具函数：hex 颜色混合 ---
+    const hexToRgb = (hex: string) => ({
+      r: parseInt(hex.slice(1, 3), 16),
+      g: parseInt(hex.slice(3, 5), 16),
+      b: parseInt(hex.slice(5, 7), 16),
+    });
+    const rgbToHex = (r: number, g: number, b: number) =>
+      '#' + [r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('');
+    const mix = (a: string, b: string, t: number) => {
+      const ca = hexToRgb(a);
+      const cb = hexToRgb(b);
+      return rgbToHex(
+        ca.r + (cb.r - ca.r) * t,
+        ca.g + (cb.g - ca.g) * t,
+        ca.b + (cb.b - ca.b) * t,
+      );
+    };
+
+    // 衍生 dim 色默认值
+    const primaryDim = colors.primaryDim || `rgba(${hexToRgb(colors.primary).r},${hexToRgb(colors.primary).g},${hexToRgb(colors.primary).b},0.12)`;
+    const accentDim = colors.accentDim || `rgba(${hexToRgb(colors.accent).r},${hexToRgb(colors.accent).g},${hexToRgb(colors.accent).b},0.10)`;
+    const successDim = colors.successDim || `rgba(${hexToRgb(colors.success).r},${hexToRgb(colors.success).g},${hexToRgb(colors.success).b},0.15)`;
+    const surfaceRaised = colors.surfaceRaised || mix(colors.surface, colors.background, 0.6);
+    const textTertiary = colors.textTertiary || mix(colors.textSecondary, colors.background, 0.35);
+    const borderSubtle = colors.borderSubtle || mix(colors.border, colors.background, 0.45);
+
     // 颜色变量
     root.style.setProperty('--color-primary', colors.primary);
+    root.style.setProperty('--color-primary-dim', primaryDim);
     root.style.setProperty('--color-secondary', colors.secondary);
     root.style.setProperty('--color-accent', colors.accent);
+    root.style.setProperty('--color-accent-dim', accentDim);
     root.style.setProperty('--color-background', colors.background);
     root.style.setProperty('--color-surface', colors.surface);
+    root.style.setProperty('--color-surface-raised', surfaceRaised);
     root.style.setProperty('--color-text', colors.text);
     root.style.setProperty('--color-text-secondary', colors.textSecondary);
+    root.style.setProperty('--color-text-tertiary', textTertiary);
     root.style.setProperty('--color-border', colors.border);
+    root.style.setProperty('--color-border-subtle', borderSubtle);
     root.style.setProperty('--color-hover', colors.hover);
     root.style.setProperty('--color-active', colors.active);
     root.style.setProperty('--color-error', colors.error);
     root.style.setProperty('--color-warning', colors.warning);
     root.style.setProperty('--color-success', colors.success);
+    root.style.setProperty('--color-success-dim', successDim);
 
     // 字体变量
     root.style.setProperty('--font-sans', config.app.uiFontFamily || fonts.sans);

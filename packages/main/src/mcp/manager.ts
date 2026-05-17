@@ -5,14 +5,18 @@
 
 import * as http from 'node:http';
 import * as crypto from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { BrowserWindow } from 'electron';
 import type { ConnectionOptions, ConnectionServerOptions } from '@qserial/shared';
 import { ConnectionFactory } from '../connection/factory.js';
 import { ConnectionServerConnection } from '../connection/connectionServer.js';
+import { SerialConnection } from '../connection/serial.js';
 import {
   IPC_CHANNELS,
   ConnectionState,
   ConnectionType,
+  bufferToBase64,
 } from '@qserial/shared';
 
 let mainWindow: BrowserWindow | null = null;
@@ -74,81 +78,22 @@ export interface McpServerStatus {
   }[];
 }
 
-// ==================== 帮助文档 ====================
-
-const HELP_TEXT = `# QSerial AI 使用指南
-
-## 概述
-QSerial 是一个终端连接管理工具，内置 MCP 服务器，供 AI Agent 远程操作串口、SSH、Telnet、本地终端等设备。
-AI 和人类可以同时操作同一个终端设备，互不阻塞。
-
-## 可用工具 (共13个)
-
-### 连接管理
-- connection_create — 创建并连接新设备 (serial/ssh/telnet/pty)
-- connection_disconnect — 断开并销毁指定连接
-- connection_update — 调整终端尺寸或串口波特率
-- connection_list — 列出所有活跃连接及其状态
-- connection_info — 获取连接详细信息（类型、参数）
-
-### 数据交互
-- connection_write — 发送命令/数据（末尾需 \\n）
-- connection_read — 读取输出缓冲区（读后清空）
-- connection_peek — 预览输出缓冲区（不清空）
-- connection_expect — 等待指定模式出现（带超时）
-
-### 状态感知
-- connection_state — 分析交互状态: login_prompt/password_prompt/shell(root/user)/booting/program_running/idle
-- connection_login — 自动登录: 检测login:→发送用户名→检测Password:→发送密码→等待Shell就绪
-
-### 帮助
-- help — 返回本文档
-
-## 典型操作流程
-
-### 创建并操作设备
-1. connection_create → 创建 serial/ssh/telnet 连接，获取连接ID
-2. connection_peek → 了解当前终端显示内容
-3. connection_write → 发送命令（如 "cat /proc/version\\n"）
-4. connection_read → 读取命令输出
-
-### 自动登录设备
-1. connection_state → 查看当前状态（login_prompt? shell?）
-2. connection_login → 传入用户名密码，自动完成登录
-3. connection_write → 登录成功后直接操作
-
-### 等待设备启动
-1. connection_state → 确认是否处于 booting 状态
-2. connection_expect → 等待 "login:" 提示
-3. connection_login → 自动完成登录
-
-### 实时监控
-1. connection_peek → 查看当前状态（不消耗缓冲区）
-2. connection_state → 分析交互阶段
-3. connection_read → 需要处理时才消耗
-
-## 连接类型
-| 类型   | 说明       | 关键参数                              |
-|--------|------------|---------------------------------------|
-| SERIAL | 串口连接   | path, baudRate, dataBits, stopBits    |
-| SSH    | SSH 远程   | host, port, username, password        |
-| TELNET | Telnet     | host, port                            |
-| PTY    | 本地终端   | shell, cwd                            |
-
-## 注意事项
-- 缓冲区上限 1MB，超出自动丢弃最早数据
-- 多个 AI 客户端可同时连接 MCP，互不影响
-- 命令必须包含 \\n 结尾，否则不会执行
-- connection_state 分析最近 64KB 输出，刚清屏可能返回 idle
-- connection_update 修改波特率时会自动断开重连`;
+// 截图自动保存目录
+const SCREENSHOT_DIR = path.resolve(process.cwd?.() || __dirname, '../../docs');
 
 // ==================== 工具定义 ====================
 
 const MCP_TOOLS = [
   {
     name: 'connection_list',
-    description: '列出 QSerial 中所有活跃的连接（串口、SSH、本地终端等）及其状态。',
-    inputSchema: { type: 'object', properties: {} },
+    description: '列出所有活跃连接，或传 id 获取指定连接详细信息（含完整连接参数）。无参数时返回摘要列表，传 id 时返回详情。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID（可选，传此参数返回该连接详情）' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
+      },
+    },
   },
   {
     name: 'connection_write',
@@ -168,24 +113,14 @@ const MCP_TOOLS = [
   },
   {
     name: 'connection_read',
-    description: '读取指定连接的输出缓冲区（读取后清空）。返回数据内容、字节数和时间戳。',
+    description: '读取连接输出。默认读后清空缓冲区（consume=true）。设置 consume=false 可预览不清空（配合 max_bytes 限制返回长度）。设置 consume=true 且 max_bytes=0 可仅清空不返回数据。',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: '连接 ID' },
         connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
-      },
-    },
-  },
-  {
-    name: 'connection_peek',
-    description: '预览指定连接的输出内容（不清空缓冲区）。返回数据内容、缓冲区总字节数。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: '连接 ID' },
-        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
-        max_bytes: { type: 'integer', description: '最多返回字节数，默认 4096', default: 4096 },
+        consume: { type: 'boolean', description: '是否消费（清空）缓冲区，默认 true', default: true },
+        max_bytes: { type: 'integer', description: '最多返回字节数，默认 4096（仅 consume=false 时生效）', default: 4096 },
       },
     },
   },
@@ -205,24 +140,14 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_info',
-    description: '获取指定连接的详细信息（类型、状态、参数等）。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: '连接 ID' },
-        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
-      },
-    },
-  },
-  {
     name: 'connection_create',
-    description: '创建并连接新设备。type=serial 需提供 path/baudRate；type=ssh 需提供 host/username/password；type=telnet 需提供 host/port；type=pty 可无额外参数。',
+    description: '创建并连接新设备。type=serial 需提供 path/baudRate；type=ssh 需提供 host/username/password；type=telnet 需提供 host/port；type=pty 可无额外参数。如需关联已保存的会话配置（让 GUI 按钮变绿），传入从 session_list 获取的 id 作为 savedSessionId。',
     inputSchema: {
       type: 'object',
       properties: {
         type: { type: 'string', description: '连接类型：serial, ssh, telnet, pty' },
         name: { type: 'string', description: '连接名称（可选）' },
+        savedSessionId: { type: 'string', description: '从 session_list 获取的已保存会话 id（可选，用于关联 GUI 状态）' },
         // serial
         path: { type: 'string', description: '[serial] 串口设备路径，如 /dev/ttyUSB0' },
         baudRate: { type: 'integer', description: '[serial] 波特率，默认 9600' },
@@ -296,39 +221,42 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'help',
-    description: '获取 QSerial AI 使用说明和完整操作指南。',
+    name: 'serial_list',
+    description: '列出系统中所有可用的串口设备（路径、厂商、产品ID等）。',
     inputSchema: { type: 'object', properties: {} },
   },
   {
-    name: 'connection_share_start',
-    description: '为指定连接启动 TCP Telnet 共享服务。共享后可通过 Telnet 远程访问该连接。密码默认使用 MCP 认证 token。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        connection_id: { type: 'string', description: '要共享的源连接 ID' },
-        local_port: { type: 'integer', description: 'TCP Telnet 监听端口' },
-        listen_address: { type: 'string', description: '监听地址，默认 0.0.0.0', default: '0.0.0.0' },
-        password: { type: 'string', description: '访问密码，默认使用 MCP 认证 token' },
-      },
-      required: ['connection_id', 'local_port'],
-    },
-  },
-  {
-    name: 'connection_share_stop',
-    description: '停止指定共享服务并释放端口。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        share_id: { type: 'string', description: '共享服务 ID' },
-      },
-      required: ['share_id'],
-    },
-  },
-  {
-    name: 'connection_share_list',
-    description: '列出所有活跃的共享服务及其状态（端口、客户端数等）。',
+    name: 'session_list',
+    description: '列出 QSerial 中已保存的所有会话配置（串口、SSH、Telnet 等），包含完整连接参数。可直接用 connection_create 连接这些会话。',
     inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'connection_share',
+    description: '管理连接共享服务。action=start 启动 TCP Telnet 共享；action=stop 停止共享；action=list 列出所有活跃共享。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', description: '操作: "start" / "stop" / "list"' },
+        connection_id: { type: 'string', description: '[start] 源连接 ID' },
+        local_port: { type: 'integer', description: '[start] TCP 监听端口' },
+        listen_address: { type: 'string', description: '[start] 监听地址，默认 0.0.0.0' },
+        password: { type: 'string', description: '[start] 访问密码' },
+        share_id: { type: 'string', description: '[stop] 共享 ID' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'window_screenshot',
+    description: '抓取当前软件窗口。mode=html(默认,快速) 返回body DOM，compact=true(默认) 去掉style标签减体积；mode=image 返回SVG+JPEG截图（较慢）。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        mode: { type: 'string', description: '模式: "html"(默认,返回DOM) 或 "image"(返回SVG截图)', default: 'html' },
+        compact: { type: 'boolean', description: '[html] 去掉style块, 仅保留结构和文本，默认true', default: true },
+        scope: { type: 'string', description: '[image] 截图范围: "body"(默认) 或 "full"', default: 'body' },
+      },
+    },
   },
 ];
 
@@ -801,7 +729,67 @@ async function handleRpc(
 async function executeTool(name: string, args: Record<string, unknown>): Promise<string> {
   try {
     switch (name) {
+      case 'serial_list': {
+        const ports = await SerialConnection.listPorts();
+        return JSON.stringify(ports, null, 2);
+      }
+
+      case 'session_list': {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return '错误: 主窗口未就绪';
+        }
+        try {
+          const sessions = await mainWindow.webContents.executeJavaScript(
+            `(function() {
+              try {
+                var raw = localStorage.getItem('qserial_saved_sessions');
+                if (!raw) return [];
+                var data = JSON.parse(raw);
+                var sessions = data.state ? data.state.sessions : (data.sessions || []);
+                return (sessions || []).map(function(s) {
+                  var ss = {
+                    id: s.id, name: s.name, type: s.type,
+                    serialConfig: s.serialConfig || null,
+                    telnetConfig: s.telnetConfig || null,
+                    ptyConfig: s.ptyConfig || null,
+                    lastUsedAt: s.lastUsedAt
+                  };
+                  if (s.sshConfig) {
+                    ss.sshConfig = { host: s.sshConfig.host, port: s.sshConfig.port, username: s.sshConfig.username };
+                  } else {
+                    ss.sshConfig = null;
+                  }
+                  return ss;
+                });
+              } catch(e) { return '解析失败: ' + e.message; }
+            })()`
+          );
+          if (typeof sessions === 'string') return sessions;
+          if (!Array.isArray(sessions) || sessions.length === 0) {
+            return '(没有已保存的会话)';
+          }
+          return JSON.stringify(sessions, null, 2);
+        } catch (err) {
+          return '错误: 读取会话失败 — ' + (err as Error).message;
+        }
+      }
+
       case 'connection_list': {
+        const id = resolveId(args);
+        if (id) {
+          // 传 id → 返回单个连接详情
+          const conn = ConnectionFactory.get(id);
+          if (!conn) return `错误: 找不到连接 ${id}`;
+          const opts = conn.options as ConnectionOptions;
+          return JSON.stringify({
+            id: conn.id,
+            type: conn.type,
+            state: conn.state,
+            name: (opts as { name?: string }).name || '',
+            options: opts,
+          }, null, 2);
+        }
+        // 无参 → 返回摘要列表
         const all = ConnectionFactory.getAll();
         return JSON.stringify(
           all.map((c) => ({
@@ -856,26 +844,31 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         if (!id) return '错误: 未提供连接 id';
         if (!ConnectionFactory.get(id)) return `错误: 找不到连接 ${id}`;
         ensureBuffer(id);
-        const totalBefore = bufferSize(id);
-        const output = consumeBuffer(id).toString('utf-8');
-        const meta = `bytes=${output.length}, total_before_read=${totalBefore}, ts=${Date.now()}`;
-        return output
-          ? `${output}\n[${meta}]`
-          : `(无新输出) [${meta}]`;
-      }
 
-      case 'connection_peek': {
-        const id = resolveId(args);
-        if (!id) return '错误: 未提供连接 id';
+        const consume = args.consume !== false; // 默认 true
         const maxBytes = (args.max_bytes as number) || 4096;
-        if (!ConnectionFactory.get(id)) return `错误: 找不到连接 ${id}`;
-        ensureBuffer(id);
-        const totalBytes = bufferSize(id);
-        const output = peekBuffer(id, maxBytes).toString('utf-8');
-        const meta = `shown=${output.length}, buffer_total=${totalBytes}, ts=${Date.now()}`;
-        return output
-          ? `${output}\n[${meta}]`
-          : `(缓冲区为空) [${meta}]`;
+        const totalBefore = bufferSize(id);
+
+        if (consume) {
+          // consume=true: 读后清空（原 read 行为）；max_bytes=0 → 仅清空
+          if (maxBytes === 0) {
+            clearBuffer(id);
+            const meta = `cleared, total_before=${totalBefore}, ts=${Date.now()}`;
+            return `(已清空 ${totalBefore}B) [${meta}]`;
+          }
+          const output = consumeBuffer(id).toString('utf-8');
+          const meta = `bytes=${output.length}, total_before_read=${totalBefore}, ts=${Date.now()}`;
+          return output
+            ? `${output}\n[${meta}]`
+            : `(无新输出) [${meta}]`;
+        } else {
+          // consume=false: 预览不清空（原 peek 行为）
+          const output = peekBuffer(id, maxBytes).toString('utf-8');
+          const meta = `shown=${output.length}, buffer_total=${totalBefore}, ts=${Date.now()}`;
+          return output
+            ? `${output}\n[${meta}]`
+            : `(缓冲区为空) [${meta}]`;
+        }
       }
 
       case 'connection_expect': {
@@ -900,21 +893,6 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const all = result.output + remaining;
         const tail = all.slice(-1000);
         return `错误: 超时 (${timeout}s) 未匹配/${isRegex ? 'regex' : 'substr'}: "${pattern}"。最后 1000 字节:\n${tail}`;
-      }
-
-      case 'connection_info': {
-        const id = resolveId(args);
-        if (!id) return '错误: 未提供连接 id';
-        const conn = ConnectionFactory.get(id);
-        if (!conn) return `错误: 找不到连接 ${id}`;
-        const opts = conn.options as ConnectionOptions;
-        return JSON.stringify({
-          id: conn.id,
-          type: conn.type,
-          state: conn.state,
-          name: (opts as { name?: string }).name || '',
-          options: opts,
-        }, null, 2);
       }
 
       case 'connection_create': {
@@ -962,6 +940,38 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           const conn = await ConnectionFactory.create(options);
           await conn.open();
           ensureBuffer(id);
+
+          // 设置数据转发到渲染进程（MCP 连接缺少 IPC 管线的 onData 注册）
+          conn.onData((data: Buffer) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send(IPC_CHANNELS.CONNECTION_DATA, {
+                id,
+                data: bufferToBase64(data),
+              });
+            }
+          });
+          conn.onStateChange((state: ConnectionState) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send(IPC_CHANNELS.CONNECTION_STATE, { id, state });
+            }
+          });
+          conn.onError((error: Error) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send(IPC_CHANNELS.CONNECTION_ERROR, { id, error: error.message });
+            }
+          });
+
+          // 通知渲染进程自动创建标签页
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(IPC_CHANNELS.MCP_CONNECTION_CREATED, {
+              connectionId: id,
+              type: ctype,
+              name,
+              path: (args.path as string) || undefined,
+              host: (args.host as string) || undefined,
+              savedSessionId: (args.savedSessionId as string) || undefined,
+            });
+          }
           return JSON.stringify({ id, type: ctype, state: conn.state, message: '连接已创建并就绪' }, null, 2);
         } catch (err) {
           return `错误: 创建连接失败 — ${(err as Error).message}`;
@@ -1058,7 +1068,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
               ...steps,
               `[失败] 超时未匹配登录提示`,
               `当前输出 (500B): ${loginResult.output.slice(-500)}`,
-              `提示: 尝试先用 connection_peek 查看终端内容，确认提示符格式`,
+              `提示: 尝试先用 connection_read (consume=false) 查看终端内容，确认提示符格式`,
             ].join('\n');
           }
           return `错误: 超时未检测到登录提示 "${loginPrompt}"。当前内容:\n${loginResult.output.slice(-500)}`;
@@ -1080,7 +1090,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
               `[失败] 超时未匹配密码提示`,
               `用户名已发送，但未检测到密码提示`,
               `当前输出 (500B): ${passResult.output.slice(-500)}`,
-              `提示: 检查用户名是否正确，或使用 connection_peek 查看终端`,
+              `提示: 检查用户名是否正确，或使用 connection_read (consume=false) 查看终端`,
             ].join('\n');
           }
           return `错误: 超时未检测到密码提示 "${passwordPrompt}"。当前内容:\n${passResult.output.slice(-500)}`;
@@ -1106,97 +1116,203 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return steps.join('\n') + `\n\n${output.slice(-500)}`;
       }
 
-      case 'connection_share_start': {
-        const sourceId = args.connection_id as string;
-        const localPort = args.local_port as number;
-        if (!sourceId) return '错误: 未提供 connection_id';
-        if (!localPort) return '错误: 未提供 local_port';
-
-        const sourceConn = ConnectionFactory.get(sourceId);
-        if (!sourceConn) return `错误: 找不到源连接 ${sourceId}`;
-        if (sourceConn.state !== ConnectionState.CONNECTED) {
-          return `错误: 源连接未就绪（当前状态：${sourceConn.state}）`;
+      case 'connection_share': {
+        const action = args.action as string;
+        if (!action || !['start', 'stop', 'list'].includes(action)) {
+          return '错误: 请提供 action 参数: "start" / "stop" / "list"';
         }
 
-        const serverId = crypto.randomUUID();
-        const listenAddress = (args.listen_address as string) || '0.0.0.0';
-        const password = (args.password as string) || mcpAuthPassword || undefined;
+        if (action === 'start') {
+          const sourceId = args.connection_id as string;
+          const localPort = args.local_port as number;
+          if (!sourceId) return '错误: 未提供 connection_id';
+          if (!localPort) return '错误: 未提供 local_port';
 
-        const options: ConnectionServerOptions = {
-          id: serverId,
-          name: `Share-${sourceId.slice(0, 8)}`,
-          type: ConnectionType.CONNECTION_SERVER,
-          sourceType: 'existing',
-          existingConnectionId: sourceId,
-          localPort,
-          listenAddress,
-          accessPassword: password,
-        };
+          const sourceConn = ConnectionFactory.get(sourceId);
+          if (!sourceConn) return `错误: 找不到源连接 ${sourceId}`;
+          if (sourceConn.state !== ConnectionState.CONNECTED) {
+            return `错误: 源连接未就绪（当前状态：${sourceConn.state}）`;
+          }
 
-        try {
-          const serverConn = await ConnectionFactory.create(options);
-          await serverConn.open();
-          sharePool.set(serverId, { sourceId, serverId });
+          const serverId = crypto.randomUUID();
+          const listenAddress = (args.listen_address as string) || '0.0.0.0';
+          const password = (args.password as string) || mcpAuthPassword || undefined;
 
-          const status = (serverConn as ConnectionServerConnection).getStatus();
-          return JSON.stringify({
-            share_id: serverId,
-            local_port: status.localPort,
-            listen_address: status.listenAddress,
-            source_id: sourceId,
-            source_type: sourceConn.type,
-            source_description: status.sourceDescription || `${sourceConn.type} - ${(sourceConn.options as { name?: string }).name || ''}`,
-            client_count: status.clientCount,
-            clients: status.clients,
-            has_password: !!options.accessPassword,
-            telnet_cmd: `telnet ${status.listenAddress} ${status.localPort}`,
-          }, null, 2);
-        } catch (err) {
-          return `错误: 启动共享失败 — ${(err as Error).message}`;
-        }
-      }
+          const options: ConnectionServerOptions = {
+            id: serverId,
+            name: `Share-${sourceId.slice(0, 8)}`,
+            type: ConnectionType.CONNECTION_SERVER,
+            sourceType: 'existing',
+            existingConnectionId: sourceId,
+            localPort,
+            listenAddress,
+            accessPassword: password,
+          };
 
-      case 'connection_share_stop': {
-        const shareId = args.share_id as string;
-        if (!shareId) return '错误: 未提供 share_id';
+          try {
+            const serverConn = await ConnectionFactory.create(options);
+            await serverConn.open();
+            sharePool.set(serverId, { sourceId, serverId });
 
-        if (!sharePool.has(shareId)) return `错误: 找不到共享 ${shareId}`;
+            // 通知渲染进程共享已启动
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send(IPC_CHANNELS.MCP_SHARE_CHANGED, {
+                shareId: serverId,
+                running: true,
+                sourceId,
+                localPort,
+                listenAddress,
+              });
+            }
 
-        try {
-          await ConnectionFactory.destroy(shareId);
-          sharePool.delete(shareId);
-          removeBuffer(shareId);
-          return `共享 ${shareId} 已停止`;
-        } catch (err) {
-          return `错误: 停止共享失败 — ${(err as Error).message}`;
-        }
-      }
-
-      case 'connection_share_list': {
-        const shares: unknown[] = [];
-        for (const [id, entry] of sharePool) {
-          const conn = ConnectionFactory.get(id);
-          if (conn && conn.type === ConnectionType.CONNECTION_SERVER) {
-            const status = (conn as ConnectionServerConnection).getStatus();
-            shares.push({
-              share_id: id,
-              source_id: entry.sourceId,
-              source_type: conn.options.type,
+            const status = (serverConn as ConnectionServerConnection).getStatus();
+            return JSON.stringify({
+              share_id: serverId,
               local_port: status.localPort,
               listen_address: status.listenAddress,
+              source_id: sourceId,
+              source_type: sourceConn.type,
+              source_description: status.sourceDescription || `${sourceConn.type} - ${(sourceConn.options as { name?: string }).name || ''}`,
               client_count: status.clientCount,
               clients: status.clients,
-              has_password: status.hasPassword,
-              running: status.running,
-              telnet_cmd: status.running ? `telnet ${status.listenAddress} ${status.localPort}` : null,
-            });
+              has_password: !!options.accessPassword,
+              telnet_cmd: `telnet ${status.listenAddress} ${status.localPort}`,
+            }, null, 2);
+          } catch (err) {
+            return `错误: 启动共享失败 — ${(err as Error).message}`;
           }
         }
-        return shares.length > 0 ? JSON.stringify(shares, null, 2) : '(没有活跃的共享)';
+
+        if (action === 'stop') {
+          const shareId = args.share_id as string;
+          if (!shareId) return '错误: 未提供 share_id';
+
+          if (!sharePool.has(shareId)) return `错误: 找不到共享 ${shareId}`;
+
+          try {
+            await ConnectionFactory.destroy(shareId);
+            sharePool.delete(shareId);
+            removeBuffer(shareId);
+
+            // 通知渲染进程共享已停止
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send(IPC_CHANNELS.MCP_SHARE_CHANGED, {
+                shareId,
+                running: false,
+              });
+            }
+
+            return `共享 ${shareId} 已停止`;
+          } catch (err) {
+            return `错误: 停止共享失败 — ${(err as Error).message}`;
+          }
+        }
+
+        if (action === 'list') {
+          const shares: unknown[] = [];
+          for (const [id, entry] of sharePool) {
+            const conn = ConnectionFactory.get(id);
+            if (conn && conn.type === ConnectionType.CONNECTION_SERVER) {
+              const status = (conn as ConnectionServerConnection).getStatus();
+              shares.push({
+                share_id: id,
+                source_id: entry.sourceId,
+                source_type: conn.options.type,
+                local_port: status.localPort,
+                listen_address: status.listenAddress,
+                client_count: status.clientCount,
+                clients: status.clients,
+                has_password: status.hasPassword,
+                running: status.running,
+                telnet_cmd: status.running ? `telnet ${status.listenAddress} ${status.localPort}` : null,
+              });
+            }
+          }
+          return shares.length > 0 ? JSON.stringify(shares, null, 2) : '(没有活跃的共享)';
+        }
+
+        return `错误: 未知 action "${action}"`;
       }
 
-      case 'help': {
-        return HELP_TEXT;
+      case 'window_screenshot': {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return '错误: 主窗口未就绪';
+        }
+        try {
+          const mode = (args.mode as string) || 'html';
+
+          // ── html 模式：返回 body.innerHTML (快, 100% 元素完整) ──
+          if (mode === 'html') {
+            const compact = args.compact !== false; // 默认 true
+            const html = await mainWindow.webContents.executeJavaScript(`
+              (function() {
+                var doc = document.documentElement.cloneNode(true);
+                var body = doc.querySelector('body');
+                if (!body) return '错误: body 不存在';
+                // 去掉 script
+                body.querySelectorAll('script').forEach(function(s){ s.remove(); });
+                ${compact ? `
+                // 只去掉 Vite HMR 注入的巨型 style 块 (data-vite-dev-id)，保留应用样式
+                doc.querySelectorAll('style[data-vite-dev-id]').forEach(function(s){ s.remove(); });
+                // 清理 Vite 相关属性和 React 的 data-v-* 属性
+                body.querySelectorAll('*').forEach(function(el){
+                  ['data-vite-dev-id','data-vite-hmr'].forEach(function(a){ el.removeAttribute(a); });
+                  var attrs = el.getAttributeNames().filter(function(a){ return a.startsWith('data-v-'); });
+                  attrs.forEach(function(a){ el.removeAttribute(a); });
+                });
+                ` : ''}
+                return '<!DOCTYPE html>\\n' + doc.outerHTML;
+              })()
+            `);
+            // 自动保存到 docs 目录
+            try {
+              fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+              const file = path.join(SCREENSHOT_DIR, 'window-snapshot.html');
+              fs.writeFileSync(file, html, 'utf-8');
+            } catch (_) { /* 保存失败不影响返回 */ }
+            return html;
+          }
+
+          // ── image 模式：capturePage 截图 → SVG+JPEG ──
+          const scope = (args.scope as string) || 'body';
+          const rawImage = await mainWindow.webContents.capturePage();
+          const size = rawImage.getSize();
+          const image = rawImage.resize({ width: Math.round(size.width * 0.5), height: Math.round(size.height * 0.5) });
+          const jpg = image.toJPEG(60).toString('base64');
+          const newSize = image.getSize();
+          let svgWidth = newSize.width;
+          let svgHeight = newSize.height;
+
+          if (scope === 'body') {
+            const bodySize = await mainWindow.webContents.executeJavaScript(`
+              (function() {
+                var b = document.body;
+                if (!b) return { w: ${newSize.width}, h: ${newSize.height} };
+                var r = b.getBoundingClientRect();
+                return { w: Math.round(r.width * 0.5), h: Math.round(r.height * 0.5) };
+              })()
+            `);
+            svgWidth = bodySize.w;
+            svgHeight = bodySize.h;
+          }
+
+          const svg = [
+            `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
+            ` width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${newSize.width} ${newSize.height}">`,
+            `  <image width="${newSize.width}" height="${newSize.height}"`,
+            `    xlink:href="data:image/jpeg;base64,${jpg}" />`,
+            `</svg>`,
+          ].join('\n');
+          // 自动保存到 docs 目录
+          try {
+            fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+            const file = path.join(SCREENSHOT_DIR, 'screenshot.svg');
+            fs.writeFileSync(file, svg, 'utf-8');
+          } catch (_) { /* 保存失败不影响返回 */ }
+          return svg;
+        } catch (err) {
+          return `错误: 截图失败 — ${(err as Error).message}`;
+        }
       }
 
       default:

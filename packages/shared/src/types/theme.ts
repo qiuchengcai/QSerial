@@ -37,18 +37,24 @@ export interface XtermTheme {
  */
 export interface UIColors {
   primary: string;
+  primaryDim?: string;
   secondary: string;
   accent: string;
+  accentDim?: string;
   background: string;
   surface: string;
+  surfaceRaised?: string;
   text: string;
   textSecondary: string;
+  textTertiary?: string;
   border: string;
+  borderSubtle?: string;
   hover: string;
   active: string;
   error: string;
   warning: string;
   success: string;
+  successDim?: string;
 }
 
 /**

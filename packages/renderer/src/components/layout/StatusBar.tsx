@@ -62,7 +62,7 @@ export const StatusBar: React.FC = () => {
   };
 
   return (
-    <div className="h-[var(--statusbar-height)] bg-surface border-t border-border flex items-center justify-between px-3.5 text-[10px] flex-shrink-0 statusbar-glow">
+    <div className="h-[var(--statusbar-height)] bg-surface border-t border-border flex items-center justify-between px-3.5 text-[11px] flex-shrink-0 statusbar-glow">
       {/* 左侧信息 */}
       <div className="flex items-center gap-3 min-w-0">
         {!activeSession && (
@@ -142,7 +142,7 @@ export const StatusBar: React.FC = () => {
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-tftp'))}
             title="TFTP 服务器运行中 — 点击打开"
           >
-            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">TFTP</span>
           </div>
         )}
@@ -154,7 +154,7 @@ export const StatusBar: React.FC = () => {
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-nfs'))}
             title="NFS 服务器运行中 — 点击打开"
           >
-            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">NFS</span>
           </div>
         )}
@@ -166,7 +166,7 @@ export const StatusBar: React.FC = () => {
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-ftp'))}
             title="FTP 服务器运行中 — 点击打开"
           >
-            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">FTP</span>
           </div>
         )}
@@ -178,7 +178,7 @@ export const StatusBar: React.FC = () => {
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-mcp'))}
             title="MCP 服务器运行中 — 点击打开"
           >
-            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">MCP</span>
           </div>
         )}
@@ -195,11 +195,11 @@ export const StatusBar: React.FC = () => {
             }`}
             title="打开 SFTP 文件浏览器"
           >
-            <span className="text-[10px] tracking-wide">文件</span>
+            <span className="text-[11px] tracking-wide">文件</span>
           </button>
         )}
         <button
-          className="text-text-secondary/60 hover:text-text-secondary px-2 py-0.5 rounded hover:bg-hover transition-colors text-[10px] tracking-wide"
+          className="text-text-secondary/60 hover:text-text-secondary px-2 py-0.5 rounded hover:bg-hover transition-colors text-[11px] tracking-wide"
           onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-share'))}
         >
           共享

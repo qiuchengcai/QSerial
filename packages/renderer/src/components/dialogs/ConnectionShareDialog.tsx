@@ -145,6 +145,30 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
     return () => clearInterval(timer);
   }, [isOpen, serverId]);
 
+  // 监听 MCP 创建的共享变化（跨代码路径同步）
+  useEffect(() => {
+    if (!isOpen) return;
+    const unsub = (window.qserial as any).mcp?.onShareChanged?.((event: {
+      shareId: string; running: boolean; sourceId?: string; localPort?: number; listenAddress?: string;
+    }) => {
+      if (event.running) {
+        setStatus({
+          running: true,
+          sourceType: 'existing',
+          sourceDescription: `MCP (${event.sourceId?.slice(0, 8) || '?'})`,
+          localPort: event.localPort || 0,
+          listenAddress: event.listenAddress || '',
+          clientCount: 0,
+          clients: [],
+          hasPassword: false,
+        });
+      } else {
+        setStatus((prev) => prev?.localPort === event.localPort ? null : prev);
+      }
+    });
+    return () => { unsub?.(); };
+  }, [isOpen]);
+
   const handleStart = async () => {
     setError(null);
     setIsStarting(true);
