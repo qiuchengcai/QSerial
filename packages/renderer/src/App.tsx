@@ -39,8 +39,20 @@ export const App: React.FC = () => {
         useFtpStore.getState().startServer().catch(() => {});
       }
       if (config.mcp.enabled) {
-        const mcpCfg = useMcpStore.getState().config;
-        window.qserial.mcp.start(mcpCfg.port, mcpCfg.listenAddress, mcpCfg.authPassword || undefined).catch(() => {});
+        try {
+          const status = await window.qserial.mcp.getStatus();
+          if (status.running) {
+            // main进程已启动，renderer只同步状态，避免重复启动导致SSE断连
+            const mcpStore = useMcpStore.getState();
+            mcpStore.loadStatus();
+          } else {
+            const mcpCfg = useMcpStore.getState().config;
+            window.qserial.mcp.start(mcpCfg.port, mcpCfg.listenAddress, mcpCfg.authPassword || undefined, true).catch(() => {});
+          }
+        } catch {
+          const mcpCfg = useMcpStore.getState().config;
+          window.qserial.mcp.start(mcpCfg.port, mcpCfg.listenAddress, mcpCfg.authPassword || undefined, true).catch(() => {});
+        }
       }
     };
     autoStartServices();

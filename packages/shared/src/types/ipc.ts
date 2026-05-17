@@ -102,7 +102,6 @@ export const IPC_CHANNELS = {
   MCP_START: 'mcp:start',
   MCP_STOP: 'mcp:stop',
   MCP_GET_STATUS: 'mcp:getStatus',
-  MCP_GET_SESSIONS: 'mcp:getSessions',
   MCP_CONNECTION_CREATED: 'mcp:connectionCreated',
   MCP_STATUS_EVENT: 'mcp:statusEvent',
   MCP_SHARE_CHANGED: 'mcp:shareChanged',
@@ -496,6 +495,7 @@ export interface ConnectionServerStatus {
 export interface McpServerStatus {
   running: boolean;
   port: number;
+  listenAddress?: string;
   connections: {
     id: string;
     type: string;

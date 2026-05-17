@@ -100,7 +100,11 @@ export const useMcpStore = create<McpState & McpActions>()(
           if (status.running) {
             set((state) => ({
               running: true,
-              config: { ...state.config, port: status.port ?? state.config.port },
+              config: {
+                ...state.config,
+                port: status.port ?? state.config.port,
+                listenAddress: status.listenAddress ?? state.config.listenAddress,
+              },
               connections: status.connections,
             }));
           } else {
