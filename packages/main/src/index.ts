@@ -63,6 +63,10 @@ app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 // 排查 exit code 3：统一禁用 GPU 硬件加速
 process.stderr.write('[diag] disabling GPU\n');
+// 监听 process exit
+process.on('exit', (code) => {
+  process.stderr.write('[diag] process.exit(' + code + ')\n');
+});
 app.commandLine.appendSwitch('disable-gpu');
 
 // 设置 AppUserModelID，使 Windows 任务栏可以固定图标
@@ -232,6 +236,13 @@ async function initialize(): Promise<void> {
 
 // 应用就绪
 process.stderr.write('[diag] registering app.whenReady\n');
+app.on('ready', () => {
+  process.stderr.write('[diag] app.on("ready") native event fired!\n');
+});
+// 也监听 will-finish-launching (mac) / browser-window-created
+app.on('browser-window-created', () => {
+  process.stderr.write('[diag] browser-window-created fired\n');
+});
 setTimeout(() => {
   process.stderr.write('[diag] 15s timeout - whenReady still not fired, process still alive\n');
 }, 15000).unref();
