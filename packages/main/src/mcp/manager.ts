@@ -248,13 +248,15 @@ const MCP_TOOLS = [
   },
   {
     name: 'window_screenshot',
-    description: '抓取当前软件窗口。mode=html(默认,快速) 返回body DOM，compact=true(默认) 去掉style标签减体积；mode=image 返回SVG+JPEG截图（较慢）。',
+    description: '抓取当前软件窗口。mode=html(默认,快速) 返回body DOM，compact=true去掉Vite样式减体积，false保留完整CSS；mode=image 返回SVG+JPEG，quality/scale可调。截图与DOM尺寸获取并行加速。',
     inputSchema: {
       type: 'object',
       properties: {
         mode: { type: 'string', description: '模式: "html"(默认,返回DOM) 或 "image"(返回SVG截图)', default: 'html' },
-        compact: { type: 'boolean', description: '[html] 去掉style块, 仅保留结构和文本，默认true', default: true },
-        scope: { type: 'string', description: '[image] 截图范围: "body"(默认) 或 "full"', default: 'body' },
+        compact: { type: 'boolean', description: '[html] 去掉Vite HMR style块，默认true。false保留完整CSS', default: true },
+        scope: { type: 'string', description: '[image] 截图范围: "body"(默认,仅内容) 或 "full"(含标题栏)', default: 'body' },
+        quality: { type: 'integer', description: '[image] JPEG质量 10-100，默认60', default: 60 },
+        scale: { type: 'number', description: '[image] 缩放比例 0.1-1.0，默认0.5', default: 0.5 },
       },
     },
   },
@@ -1267,46 +1269,53 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
             // 自动保存到 docs 目录
             try {
               fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-              const file = path.join(SCREENSHOT_DIR, 'window-snapshot.html');
+              const file = path.join(SCREENSHOT_DIR, `window-snapshot-${Date.now()}.html`);
               fs.writeFileSync(file, html, 'utf-8');
             } catch (_) { /* 保存失败不影响返回 */ }
             return html;
           }
 
           // ── image 模式：capturePage 截图 → SVG+JPEG ──
+          const scale = (args.scale as number) || 0.5;
+          const quality = (args.quality as number) || 60;
           const scope = (args.scope as string) || 'body';
-          const rawImage = await mainWindow.webContents.capturePage();
-          const size = rawImage.getSize();
-          const image = rawImage.resize({ width: Math.round(size.width * 0.5), height: Math.round(size.height * 0.5) });
-          const jpg = image.toJPEG(60).toString('base64');
-          const newSize = image.getSize();
-          let svgWidth = newSize.width;
-          let svgHeight = newSize.height;
 
-          if (scope === 'body') {
-            const bodySize = await mainWindow.webContents.executeJavaScript(`
-              (function() {
-                var b = document.body;
-                if (!b) return { w: ${newSize.width}, h: ${newSize.height} };
-                var r = b.getBoundingClientRect();
-                return { w: Math.round(r.width * 0.5), h: Math.round(r.height * 0.5) };
-              })()
-            `);
-            svgWidth = bodySize.w;
-            svgHeight = bodySize.h;
-          }
+          // 并行：截图 + 获取 body 尺寸，减少串行等待
+          const [rawImage, bodySizeResult] = await Promise.all([
+            mainWindow.webContents.capturePage(),
+            scope === 'body'
+              ? mainWindow.webContents.executeJavaScript(`
+                  (function() {
+                    var b = document.body;
+                    if (!b) return null;
+                    var r = b.getBoundingClientRect();
+                    return { w: Math.round(r.width * ${scale}), h: Math.round(r.height * ${scale}) };
+                  })()
+                `)
+              : Promise.resolve(null),
+          ]);
+
+          const size = rawImage.getSize();
+          const newW = Math.round(size.width * scale);
+          const newH = Math.round(size.height * scale);
+          const image = rawImage.resize({ width: newW, height: newH });
+          const jpg = image.toJPEG(quality).toString('base64');
+
+          const svgWidth = bodySizeResult?.w ?? newW;
+          const svgHeight = bodySizeResult?.h ?? newH;
 
           const svg = [
-            `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
-            ` width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${newSize.width} ${newSize.height}">`,
-            `  <image width="${newSize.width}" height="${newSize.height}"`,
-            `    xlink:href="data:image/jpeg;base64,${jpg}" />`,
+            `<svg xmlns="http://www.w3.org/2000/svg"`,
+            ` width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${newW} ${newH}">`,
+            `  <image width="${newW}" height="${newH}"`,
+            `    href="data:image/jpeg;base64,${jpg}" />`,
             `</svg>`,
           ].join('\n');
-          // 自动保存到 docs 目录
+
+          const ts = Date.now();
           try {
             fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-            const file = path.join(SCREENSHOT_DIR, 'screenshot.svg');
+            const file = path.join(SCREENSHOT_DIR, `screenshot-${ts}.svg`);
             fs.writeFileSync(file, svg, 'utf-8');
           } catch (_) { /* 保存失败不影响返回 */ }
           return svg;
