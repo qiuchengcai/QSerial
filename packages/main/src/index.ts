@@ -61,6 +61,10 @@ app.commandLine.appendSwitch('openssl-legacy-provider', '');
 // Chromium 默认阻止从网络共享路径启动，添加以下开关可绕过此限制
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
+// 启用 Chromium 详细日志，输出到 stderr 定位原生崩溃
+app.commandLine.appendSwitch('enable-logging');
+// 尝试禁用 features 中可能导致崩溃的项
+app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
 // 排查 exit code 3：统一禁用 GPU 硬件加速
 process.stderr.write('[diag] disabling GPU\n');
 // 监听 process exit
