@@ -16,6 +16,15 @@ import { startMcpServer, destroyMcpManager } from './mcp/manager.js';
 import { ensureNativePatch } from './connection/native-patch.js';
 import { ensurePtyPatch } from './connection/pty-patch.js';
 
+// 尽早注册未处理异常处理器，确保能捕获模块加载阶段的崩溃
+process.on('uncaughtException', (error) => {
+  console.error(`\n[FATAL] Uncaught Exception: ${error?.message}\n${error?.stack}\n`);
+  process.exit(3);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error(`\n[FATAL] Unhandled Rejection: ${reason}\n`);
+});
+
 // 通用 process.dlopen 补丁：拦截所有 .node 文件加载，网络驱动器场景下自动复制到本地临时目录
 // 必须在任何原生模块使用前执行
 ensureNativePatch();
@@ -29,13 +38,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 崩溃日志文件：确保闪退时也能写入磁盘
-const crashLogPath = path.join(app.getPath('userData'), 'crash.log');
 function crashLog(msg: string): void {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
   try {
     fs.appendFileSync(crashLogPath, line);
   } catch { /* ignore */ }
   console.log(line.trimEnd());
+}
+let crashLogPath: string;
+try {
+  crashLogPath = path.join(app.getPath('userData'), 'crash.log');
+} catch {
+  crashLogPath = path.join(process.cwd?.() || __dirname, 'crash.log');
 }
 crashLog('=== QSerial starting ===');
 
@@ -213,9 +227,14 @@ async function initialize(): Promise<void> {
 
 // 应用就绪
 app.whenReady().then(async () => {
-  console.log('App ready');
-  await initialize();
-  createWindow();
+  try {
+    console.log('App ready');
+    await initialize();
+    createWindow();
+  } catch (err) {
+    crashLog('[FATAL] init failed: ' + (err instanceof Error ? err.message : String(err)) + '\n' + (err instanceof Error ? err.stack || '' : ''));
+    process.exit(3);
+  }
 
   // 注册快捷键
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -281,15 +300,6 @@ app.on('before-quit', async () => {
   } catch (error) {
     console.error('Error cleaning up connections:', error);
   }
-});
-
-// 捕获未处理的错误
-process.on('uncaughtException', (error) => {
-  crashLog(`Uncaught Exception: ${error?.message}\n${error?.stack}`);
-});
-
-process.on('unhandledRejection', (reason) => {
-  crashLog(`Unhandled Rejection: ${reason}`);
 });
 
 // 监控 GPU 进程和子进程崩溃
