@@ -82,32 +82,74 @@ echo ""
 
 # 打包 Windows 免安装版
 echo -e "${YELLOW}[4/5] 打包 Windows 免安装版...${NC}"
-npx electron-builder --win dir --x64 -c electron-builder.config.cjs || true
 
-# 修复 node-pty 原生模块：将 Windows 预编译文件复制到 build/Release/
-node scripts/fix-node-pty-release.cjs
+# WSL2 drvfs (9P) 文件系统下，electron-builder 自清理旧产物时可能
+# 遇到 I/O error 或 Permission denied，因为文件被 Windows 侧锁死。
+# 解决方案：将 electron-builder 输出定向到 Linux 原生文件系统 (/tmp)，
+# 构建完成后再复制回 release/。
 
-# 设置 exe 图标（使用 resedit 纯 JS 方式，不破坏 PE 结构，兼容网络磁盘运行）
-if [ -f "release/win-unpacked/QSerial.exe" ]; then
-  echo -e "${YELLOW}  设置 exe 图标...${NC}"
-  node scripts/set-icon.cjs "$(pwd)/release/win-unpacked/QSerial.exe" "$(pwd)/build/icon.ico"
-  echo -e "${GREEN}  ✓ 图标设置完成${NC}"
+BUILD_TMP="$(mktemp -d /tmp/qserial-build-XXXXXX)"
+
+# 生成临时 electron-builder 配置：输出到 Linux 原生文件系统
+cat > "$BUILD_TMP/eb-config.cjs" << EBEOF
+const base = require('$(pwd)/electron-builder.config.cjs');
+module.exports = {
+  ...base,
+  directories: { ...base.directories, output: '$BUILD_TMP/output' },
+};
+EBEOF
+
+npx electron-builder --win dir --x64 -c "$BUILD_TMP/eb-config.cjs"
+
+TMP_UNPACKED="$BUILD_TMP/output/win-unpacked"
+
+# 在 Linux 原生 fs 上修复 node-pty（后续复制时会一起带走）
+echo "  修复 node-pty..."
+node scripts/fix-node-pty-release.cjs "$TMP_UNPACKED"
+
+# 在 Linux 原生 fs 上设置 exe 图标
+if [ -f "$TMP_UNPACKED/QSerial.exe" ]; then
+  echo "  设置 exe 图标..."
+  node scripts/set-icon.cjs "$TMP_UNPACKED/QSerial.exe" "$(pwd)/build/icon.ico"
 fi
+
+# 复制结果到 release/
+# 旧 win-unpacked 目录可能因 WSL2 drvfs 锁死，先尝试直接清理
+rm -rf release/win-unpacked 2>/dev/null || true
+
+if [ -d "release/win-unpacked" ]; then
+  # 清理失败，旧文件被 Windows 锁死，使用带时间戳的新目录
+  FALLBACK_DIR="release/win-unpacked-$(date +%Y%m%d-%H%M%S)"
+  echo -e "${YELLOW}  旧 release/win-unpacked 清理失败（文件被 Windows 锁死）${NC}"
+  echo -e "${YELLOW}  改输出到 $FALLBACK_DIR${NC}"
+  echo -e "${YELLOW}  请在 Windows 资源管理器中手动删除锁死的 release/win-unpacked 目录${NC}"
+  mkdir -p "$FALLBACK_DIR"
+  cp -r "$TMP_UNPACKED"/* "$FALLBACK_DIR"/
+  WIN_UNPACKED_DIR="$FALLBACK_DIR"
+else
+  # 旧目录清理成功，正常使用
+  mkdir -p release/win-unpacked
+  echo "  复制产物到 release/win-unpacked/ ..."
+  cp -r "$TMP_UNPACKED"/* release/win-unpacked/
+  WIN_UNPACKED_DIR="release/win-unpacked"
+fi
+
+# 清理临时目录
+rm -rf "$BUILD_TMP"
 echo -e "${GREEN}  ✓ 打包完成${NC}"
 echo ""
 
 # 检查结果
 echo -e "${YELLOW}[5/5] 检查输出...${NC}"
-if [ -f "release/win-unpacked/QSerial.exe" ]; then
-  # 设置可执行权限，确保从网络磁盘(SMB共享)也能运行
-  chmod +x release/win-unpacked/QSerial.exe release/win-unpacked/*.dll 2>/dev/null || true
-  EXE_SIZE=$(ls -lh release/win-unpacked/QSerial.exe | awk '{print $5}')
+if [ -f "$WIN_UNPACKED_DIR/QSerial.exe" ]; then
+  chmod +x "$WIN_UNPACKED_DIR/QSerial.exe" "$WIN_UNPACKED_DIR"/*.dll 2>/dev/null || true
+  EXE_SIZE=$(ls -lh "$WIN_UNPACKED_DIR/QSerial.exe" | awk '{print $5}')
   echo -e "${GREEN}  ✓ 构建成功!${NC}"
   echo ""
-  echo "  输出目录: release/win-unpacked/"
+  echo "  输出目录: $WIN_UNPACKED_DIR/"
   echo "  可执行文件: QSerial.exe ($EXE_SIZE)"
   echo ""
-  echo "  将 release/win-unpacked/ 目录复制到 Windows 机器即可运行"
+  echo "  将 $WIN_UNPACKED_DIR/ 目录复制到 Windows 机器即可运行"
 else
   echo -e "${RED}  ✗ 未找到 QSerial.exe，构建可能失败${NC}"
   exit 1

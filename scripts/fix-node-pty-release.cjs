@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const releaseDir = path.resolve(__dirname, '..', 'release', 'win-unpacked');
+const releaseDir = process.argv[2] || path.resolve(__dirname, '..', 'release', 'win-unpacked');
 if (!fs.existsSync(releaseDir)) {
   console.log('[fix-node-pty] release/win-unpacked not found, skipping');
   process.exit(0);
