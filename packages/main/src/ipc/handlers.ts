@@ -700,7 +700,12 @@ function setupMcpHandlers(): void {
     try {
       await startMcpServer(port, listenAddress, authPassword);
       // 持久化启动配置，下次启动时自动恢复
-      ConfigManager.set('mcp', { enabled: true, port, listenAddress, authPassword });
+      ConfigManager.set('mcp', {
+        enabled: true,
+        port,
+        listenAddress: listenAddress || '127.0.0.1',
+        authPassword: authPassword || '',
+      });
     } catch (error) {
       throw error;
     }
@@ -708,11 +713,7 @@ function setupMcpHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.MCP_STOP, async () => {
     await stopMcpServer();
-    // 清除自动启动标记
-    const mcpConfig = ConfigManager.get('mcp');
-    if (mcpConfig) {
-      ConfigManager.set('mcp', { ...mcpConfig, enabled: false });
-    }
+    // 不修改 enabled 标记 — 停止仅对本次会话生效，重启后自动恢复
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_GET_STATUS, () => {
