@@ -696,24 +696,30 @@ function setupConnectionServerHandlers(): void {
  * MCP 服务器处理器
  */
 function setupMcpHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port, listenAddress, authPassword }) => {
+  ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port, listenAddress, authPassword, autoStart }) => {
     try {
       await startMcpServer(port, listenAddress, authPassword);
-      // 持久化启动配置，下次启动时自动恢复
-      ConfigManager.set('mcp', {
-        enabled: true,
-        port,
-        listenAddress: listenAddress || '127.0.0.1',
-        authPassword: authPassword || '',
-      });
+      if (autoStart) {
+        ConfigManager.set('mcp', {
+          enabled: true,
+          port,
+          listenAddress: listenAddress || '0.0.0.0',
+          authPassword: authPassword || '',
+        });
+      }
     } catch (error) {
       throw error;
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.MCP_STOP, async () => {
+  ipcMain.handle(IPC_CHANNELS.MCP_STOP, async (_, { autoStart }) => {
     await stopMcpServer();
-    // 不修改 enabled 标记 — 停止仅对本次会话生效，重启后自动恢复
+    if (autoStart === false) {
+      const mcpConfig = ConfigManager.get('mcp');
+      if (mcpConfig) {
+        ConfigManager.set('mcp', { ...mcpConfig, enabled: false });
+      }
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_GET_STATUS, () => {

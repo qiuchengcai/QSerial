@@ -190,8 +190,8 @@ export interface IpcRequestMap {
   };
   [IPC_CHANNELS.CONNECTION_SERVER_STOP]: { id: string };
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: { id: string };
-  [IPC_CHANNELS.MCP_START]: { port: number };
-  [IPC_CHANNELS.MCP_STOP]: void;
+  [IPC_CHANNELS.MCP_START]: { port: number; listenAddress?: string; authPassword?: string; autoStart?: boolean };
+  [IPC_CHANNELS.MCP_STOP]: { autoStart?: boolean };
   [IPC_CHANNELS.MCP_GET_STATUS]: void;
   [IPC_CHANNELS.GET_LOCAL_IP]: void;
   [IPC_CHANNELS.READ_FILE]: { path: string };

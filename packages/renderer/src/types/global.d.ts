@@ -110,8 +110,8 @@ interface QSerialAPI {
   };
 
   mcp: {
-    start: (port: number, listenAddress?: string, authPassword?: string) => Promise<void>;
-    stop: () => Promise<void>;
+    start: (port: number, listenAddress?: string, authPassword?: string, autoStart?: boolean) => Promise<void>;
+    stop: (autoStart?: boolean) => Promise<void>;
     getStatus: () => Promise<McpServerStatus>;
     onStatusChange: (callback: (event: { running: boolean; port: number }) => void) => () => void;
   };

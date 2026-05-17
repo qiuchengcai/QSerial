@@ -11,6 +11,7 @@ interface McpConfig {
   port: number;
   listenAddress: string;
   authPassword: string;
+  autoStart: boolean;
 }
 
 interface McpConnection {
@@ -42,6 +43,7 @@ const DEFAULT_CONFIG: McpConfig = {
   port: 9800,
   listenAddress: '127.0.0.1',
   authPassword: '',
+  autoStart: false,
 };
 
 export const useMcpStore = create<McpState & McpActions>()(
@@ -73,7 +75,7 @@ export const useMcpStore = create<McpState & McpActions>()(
         if (starting) return;
         set({ starting: true, stopping: false, error: undefined });
         try {
-          await window.qserial.mcp.start(config.port, config.listenAddress, config.authPassword || undefined);
+          await window.qserial.mcp.start(config.port, config.listenAddress, config.authPassword || undefined, true);
           set({ running: true, starting: false, error: undefined });
         } catch (error) {
           set({ error: (error as Error).message, running: false, starting: false });
@@ -83,7 +85,7 @@ export const useMcpStore = create<McpState & McpActions>()(
       stopServer: async () => {
         set({ starting: false, stopping: true });
         try {
-          await window.qserial.mcp.stop();
+          await window.qserial.mcp.stop(false);
           set({ running: false, stopping: false, error: undefined, connections: [] });
         } catch (error) {
           set({ error: (error as Error).message, stopping: false });
