@@ -132,7 +132,7 @@ export function initMcpListeners(): void {
       if (state.starting) return;
       if (state.stopping) return;
       if (!state.running) return;
-      useMcpStore.setState({ running: false, starting: false, stopping: false, error: 'MCP 服务已意外停止' });
+      useMcpStore.setState({ running: false, starting: false, stopping: false });
     } else {
       if (!state.running) {
         useMcpStore.setState({ running: true, starting: false });
