@@ -70,7 +70,9 @@ if (process.platform === 'win32') {
 let mainWindow: BrowserWindow | null = null;
 
 // 单实例锁 - 确保一次只能运行一个 QSerial 程序
+process.stderr.write('[diag] before requestSingleInstanceLock\n');
 const gotTheLock = app.requestSingleInstanceLock();
+process.stderr.write('[diag] gotTheLock=' + gotTheLock + '\n');
 
 if (!gotTheLock) {
   // 如果已经有实例在运行，退出当前实例
@@ -226,6 +228,7 @@ async function initialize(): Promise<void> {
 }
 
 // 应用就绪
+process.stderr.write('[diag] registering app.whenReady\n');
 app.whenReady().then(async () => {
   try {
     console.log('App ready');
