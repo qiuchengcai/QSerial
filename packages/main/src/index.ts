@@ -195,11 +195,16 @@ async function initialize(): Promise<void> {
   console.log('NFS manager initialized');
 
   // 自动启动 MCP 服务器（如果用户已启用）
-  const mcpConfig = ConfigManager.get('mcp') as { enabled?: boolean; port?: number; listenAddress?: string; authPassword?: string } | undefined;
+  const mcpConfig = ConfigManager.get('mcp');
   if (mcpConfig?.enabled) {
     try {
-      await startMcpServer(mcpConfig.port || 9800, mcpConfig.listenAddress, mcpConfig.authPassword);
-      console.log('MCP server auto-started on port', mcpConfig.port || 9800, 'listenAddress', mcpConfig.listenAddress || '127.0.0.1');
+      const port = mcpConfig.port || 9800;
+      const listenAddress = mcpConfig.listenAddress || '0.0.0.0';
+      const authPassword = mcpConfig.authPassword || '';
+      await startMcpServer(port, listenAddress, authPassword);
+      // 补齐旧版本配置中缺失的字段
+      ConfigManager.set('mcp', { enabled: true, port, listenAddress, authPassword });
+      console.log('MCP server auto-started on port', port, 'listenAddress', listenAddress);
     } catch (err) {
       console.error('MCP auto-start failed:', err);
     }
