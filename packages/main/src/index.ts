@@ -1,20 +1,13 @@
 /**
  * QSerial Main Process Entry
+ * 启动优化：窗口立即显示，重模块延迟加载
  */
 
 import { app, BrowserWindow, Menu, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
-import { setupIpcHandlers } from './ipc/index.js';
 import { ConfigManager } from './config/manager.js';
-import { ConnectionFactory } from './connection/factory.js';
-import { destroyTftpManager } from './tftp/manager.js';
-import { initNfsManager, destroyNfsManager } from './nfs/manager.js';
-import { destroyFtpManager } from './ftp/manager.js';
-import { startMcpServer, destroyMcpManager } from './mcp/manager.js';
-import { ensureNativePatch } from './connection/native-patch.js';
-import { ensurePtyPatch } from './connection/pty-patch.js';
 
 // 尽早注册未处理异常处理器，确保能捕获模块加载阶段的崩溃
 process.on('uncaughtException', (error) => {
@@ -26,18 +19,17 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // 通用 process.dlopen 补丁：拦截所有 .node 文件加载，网络驱动器场景下自动复制到本地临时目录
-// 必须在任何原生模块使用前执行
+import { ensureNativePatch } from './connection/native-patch.js';
 ensureNativePatch();
 
 // ESM imports 已执行完毕，node-pty 模块已加载。
-// 在创建任何 PTY 连接之前 patch loadNativeModule，使其使用绝对路径 require
-// 以绕过 asar 虚拟文件系统中 .node 文件加载问题。
+import { ensurePtyPatch } from './connection/pty-patch.js';
 ensurePtyPatch();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 崩溃日志文件：确保闪退时也能写入磁盘
+// 崩溃日志文件
 function crashLog(msg: string): void {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
   try {
@@ -53,57 +45,34 @@ try {
 }
 crashLog('=== QSerial starting ===');
 
-// 兼容旧设备：启用 OpenSSL legacy provider 以支持 SHA1 签名和短密钥
-// 必须在 app.ready 之前设置
+// 兼容旧设备：启用 OpenSSL legacy provider
 app.commandLine.appendSwitch('openssl-legacy-provider', '');
 
-// 支持从网络磁盘（UNC路径）运行：禁用沙箱限制
-// Chromium 默认阻止从网络共享路径启动，添加以下开关可绕过此限制
+// 支持从网络磁盘（UNC路径）运行
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
-// 启用 Chromium 详细日志，输出到 stderr 定位原生崩溃
-app.commandLine.appendSwitch('enable-logging');
-// 尝试禁用 features 中可能导致崩溃的项
 app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
-// 排查 exit code 3：统一禁用 GPU 硬件加速
-process.stderr.write('[diag] disabling GPU\n');
-// 监听 process exit
-process.on('exit', (code) => {
-  process.stderr.write('[diag] process.exit(' + code + ')\n');
-});
-app.commandLine.appendSwitch('disable-gpu');
 
-// 设置 AppUserModelID，使 Windows 任务栏可以固定图标
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.qserial.app');
 }
 
 let mainWindow: BrowserWindow | null = null;
 
-// 单实例锁 - 确保一次只能运行一个 QSerial 程序
-process.stderr.write('[diag] before requestSingleInstanceLock\n');
+// 单实例锁
 const gotTheLock = app.requestSingleInstanceLock();
-process.stderr.write('[diag] gotTheLock=' + gotTheLock + '\n');
-
 if (!gotTheLock) {
-  // 如果已经有实例在运行，退出当前实例
   console.log('Another instance is already running, quitting...');
   app.quit();
 } else {
-  // 当第二个实例启动时，聚焦到已有窗口
   app.on('second-instance', () => {
     if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
+      if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
   });
 }
 
-/**
- * 创建主窗口
- */
 function createWindow(): void {
   const config = ConfigManager.get('window');
 
@@ -127,7 +96,6 @@ function createWindow(): void {
     backgroundColor: '#1E1E1E',
   });
 
-  // 设置 CSP：开发模式允许 Vite HMR，生产模式严格限制
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const isDev = process.env.NODE_ENV === 'development';
     const csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;" + (isDev ? " connect-src 'self' ws://localhost:5173 wss://localhost:5173" : "");
@@ -139,7 +107,6 @@ function createWindow(): void {
     });
   });
 
-  // 开发环境加载 dev server
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
@@ -147,17 +114,16 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../../renderer/dist/index.html'));
   }
 
-  // 渲染进程重新加载时清理所有连接
   mainWindow.webContents.on('did-start-loading', async () => {
     console.log('Renderer reloading, cleaning up connections...');
     try {
+      const { ConnectionFactory } = await import('./connection/factory.js');
       await ConnectionFactory.destroyAll();
     } catch (error) {
       console.error('Error cleaning up connections:', error);
     }
   });
 
-  // 窗口准备好后显示
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     if (config.maximized) {
@@ -165,7 +131,6 @@ function createWindow(): void {
     }
   });
 
-  // 保存窗口状态
   mainWindow.on('close', () => {
     const bounds = mainWindow?.getBounds();
     if (bounds) {
@@ -184,7 +149,6 @@ function createWindow(): void {
     mainWindow = null;
   });
 
-  // 监听渲染进程崩溃
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     crashLog(`[CRASH] Renderer process gone: ${JSON.stringify(details)}`);
   });
@@ -193,80 +157,25 @@ function createWindow(): void {
     crashLog('[CRASH] Window unresponsive');
   });
 
-  // 监听控制台消息
   mainWindow.webContents.on('console-message', (_event, _level, message) => {
     console.log('[Renderer]', message);
   });
 }
 
-/**
- * 应用初始化
- */
-async function initialize(): Promise<void> {
-  console.log('Initializing QSerial...');
+// 初始化：窗口显示后再执行重量级初始化
+app.whenReady().then(async () => {
+  console.log('App ready');
 
-  // 初始化配置
+  // 第一步：加载配置（读取小 JSON 文件，很快）
   await ConfigManager.initialize();
   console.log('Config initialized');
 
-  // 初始化连接工厂
-  ConnectionFactory.initialize();
-  console.log('ConnectionFactory initialized');
+  // 第二步：立即创建并显示窗口（用户看到窗口）
+  createWindow();
 
-  // 设置 IPC 处理器
-  setupIpcHandlers();
-  console.log('IPC handlers setup');
+  // 第三步：后台初始化其余模块（不阻塞 UI）
+  initBackgroundServices();
 
-  // 清理残留的 WinNFSd 进程（应用重启后可能仍有残留）
-  initNfsManager();
-  console.log('NFS manager initialized');
-
-  // 自动启动 MCP 服务器（如果用户已启用）
-  const mcpConfig = ConfigManager.get('mcp');
-  if (mcpConfig?.enabled) {
-    try {
-      const port = mcpConfig.port || 9800;
-      const listenAddress = mcpConfig.listenAddress || '0.0.0.0';
-      const authPassword = mcpConfig.authPassword || '';
-      await startMcpServer(port, listenAddress, authPassword);
-      // 补齐旧版本配置中缺失的字段
-      ConfigManager.set('mcp', { enabled: true, port, listenAddress, authPassword });
-      console.log('MCP server auto-started on port', port, 'listenAddress', listenAddress);
-    } catch (err) {
-      console.error('MCP auto-start failed:', err);
-    }
-  }
-}
-
-// 应用就绪
-process.stderr.write('[diag] registering app.whenReady\n');
-app.on('ready', () => {
-  process.stderr.write('[diag] app.on("ready") native event fired!\n');
-});
-// 也监听 will-finish-launching (mac) / browser-window-created
-app.on('browser-window-created', () => {
-  process.stderr.write('[diag] browser-window-created fired\n');
-});
-setTimeout(() => {
-  process.stderr.write('[diag] 15s timeout - whenReady still not fired, process still alive\n');
-}, 15000).unref();
-app.on('before-quit', () => {
-  process.stderr.write('[diag] before-quit firing\n');
-});
-app.on('will-quit', () => {
-  process.stderr.write('[diag] will-quit firing, exitCode=' + ((app as any).exitCode !== undefined ? (app as any).exitCode : 'undefined') + '\n');
-});
-app.whenReady().then(async () => {
-  try {
-    console.log('App ready');
-    await initialize();
-    createWindow();
-  } catch (err) {
-    crashLog('[FATAL] init failed: ' + (err instanceof Error ? err.message : String(err)) + '\n' + (err instanceof Error ? err.stack || '' : ''));
-    process.exit(3);
-  }
-
-  // 注册快捷键
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: app.name,
@@ -295,9 +204,51 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
-}).catch((err) => {
-  process.stderr.write('[diag] whenReady REJECTED: ' + String(err) + '\n');
+}).catch((_err) => {
 });
+
+// 后台初始化重量级服务
+async function initBackgroundServices(): Promise<void> {
+  try {
+    console.log('Initializing background services...');
+
+    // 设置 IPC 处理器（handlers 内部使用动态 import）
+    const { setupIpcHandlers } = await import('./ipc/index.js');
+    setupIpcHandlers();
+    console.log('IPC handlers setup');
+
+    // ConnectionFactory 现在是轻量的（内部动态 import）
+    const { ConnectionFactory } = await import('./connection/factory.js');
+    ConnectionFactory.initialize();
+    console.log('ConnectionFactory initialized');
+
+    // NFS manager 延迟加载
+    const { initNfsManager } = await import('./nfs/manager.js');
+    initNfsManager();
+    console.log('NFS manager initialized');
+
+    // MCP 自动启动（如果已启用）
+    const mcpConfig = ConfigManager.get('mcp');
+    if (mcpConfig?.enabled) {
+      try {
+        const { startMcpServer } = await import('./mcp/manager.js');
+        const port = mcpConfig.port || 9800;
+        const listenAddress = mcpConfig.listenAddress || '0.0.0.0';
+        const authPassword = mcpConfig.authPassword || '';
+        await startMcpServer(port, listenAddress, authPassword);
+        ConfigManager.set('mcp', { enabled: true, port, listenAddress, authPassword });
+        console.log('MCP server auto-started on port', port);
+      } catch (err) {
+        console.error('MCP auto-start failed:', err);
+      }
+    }
+
+    console.log('Background services initialized');
+  } catch (err) {
+    crashLog('[FATAL] init failed: ' + (err instanceof Error ? err.message : String(err)) + '\n' + (err instanceof Error ? err.stack || '' : ''));
+    process.exit(3);
+  }
+}
 
 // 所有窗口关闭时退出 (macOS 除外)
 app.on('window-all-closed', () => {
@@ -306,28 +257,23 @@ app.on('window-all-closed', () => {
   }
 });
 
-// 应用退出前清理
+// 应用退出前清理 - 使用动态 import 避免启动时加载
 app.on('before-quit', () => {
-  try {
-    // 停止 NFS 服务器（同步操作，确保 WinNFSd 进程被终止）
-    destroyNfsManager();
-    // 停止 TFTP 服务器
-    destroyTftpManager();
-    // 停止 FTP 服务器
-    destroyFtpManager();
-  } catch (error) {
-    console.error('Error during cleanup:', error);
-  }
+  // NFS 清理（同步，确保 WinNFSd 进程终止）
+  import('./nfs/manager.js').then(m => m.destroyNfsManager()).catch(() => {});
+  // TFTP 清理
+  import('./tftp/manager.js').then(m => m.destroyTftpManager()).catch(() => {});
+  // FTP 清理
+  import('./ftp/manager.js').then(m => m.destroyFtpManager()).catch(() => {});
 });
 
-// 应用退出前清理 MCP（异步）
 app.on('before-quit', async () => {
-  await destroyMcpManager();
+  await import('./mcp/manager.js').then(m => m.destroyMcpManager()).catch(() => {});
 });
 
-// 异步清理（连接等）
 app.on('before-quit', async () => {
   try {
+    const { ConnectionFactory } = await import('./connection/factory.js');
     await ConnectionFactory.destroyAll();
   } catch (error) {
     console.error('Error cleaning up connections:', error);

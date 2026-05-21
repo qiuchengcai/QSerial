@@ -5,6 +5,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
+import { SearchAddon } from 'xterm-addon-search';
 import { useTerminalStore } from '@/stores/terminal';
 import { useThemeStore } from '@/stores/theme';
 import { useConfigStore } from '@/stores/config';
@@ -30,14 +31,25 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
   const unsubscribersRef = useRef<(() => void)[]>([]);
   const messageShownRef = useRef(false);
+  const wasDisconnectedRef = useRef(false);
   const isComposingRef = useRef(false);
   const compositionDataRef = useRef<string>('');
   const [logStarting, setLogStarting] = useState(false);
   const [reconnectLoading, setReconnectLoading] = useState(false);
   const initializedRef = useRef(false);
   const disposedRef = useRef(false);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
+  const [filterEnabled, setFilterEnabled] = useState(false);
+  const [filterText, setFilterText] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const filterInputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchPosRef = useRef(-1);
   const [showSerialShareDialog, setShowSerialShareDialog] = useState(false);
   const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const mountCountRef = useRef(0);
@@ -214,6 +226,9 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
         openedRef.current = true;
         // open 之后再加载 FitAddon，避免 addon wrap open() 后 Viewport 异步初始化竞态
         xterm.loadAddon(fitAddon);
+        const searchAddon = new SearchAddon();
+        searchAddonRef.current = searchAddon;
+        xterm.loadAddon(searchAddon);
         // 延迟一帧 fit，确保 Viewport 内部异步初始化(setTimeout→rAF)完成
         requestAnimationFrame(() => {
           if (mountCountRef.current !== mountId) return;
@@ -303,8 +318,12 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     // 启动
     openXterm();
 
-    // 添加复制粘贴支持
+    // 添加复制粘贴和搜索支持
     xterm.attachCustomKeyEventHandler((event) => {
+      if (event.ctrlKey && event.key === 'f') {
+        openSearch();
+        return false;
+      }
       if (event.ctrlKey && event.key === 'c') {
         const selection = xterm.getSelection();
         if (selection) {
@@ -378,16 +397,19 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
           if (currentSession?.connectionType === ConnectionType.SERIAL) {
             showConnectionSuccessMessage(xterm);
           }
-          if (currentSession) {
+          if (wasDisconnectedRef.current && currentSession) {
             xterm.write('\r\n\x1b[32m--- 连接已恢复 ---\x1b[0m\r\n');
           }
+          wasDisconnectedRef.current = false;
         } else if (state === 'disconnected') {
+          wasDisconnectedRef.current = true;
           messageShownRef.current = false;
           const currentSession = useTerminalStore.getState().sessions[sessionId];
           if (currentSession) {
             xterm.write('\r\n\x1b[33m--- 连接已断开，点击右上角"重连"按钮重新连接 ---\x1b[0m\r\n');
           }
         } else if (state === 'reconnecting') {
+          wasDisconnectedRef.current = true;
           xterm.write('\r\n\x1b[33m--- 连接已断开，正在重连... ---\x1b[0m\r\n');
         }
       }
@@ -456,6 +478,134 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       xtermRef.current.focus();
     }
   }, [isActive, activeTabId]);
+
+  // 搜索状态管理 — 使用 ref 避免闭包陈旧问题
+  const searchStateRef = useRef({ text: '', filterText: '', caseSensitive: false });
+
+  // 转义正则特殊字符
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const bufferSearch = useCallback((forward: boolean) => {
+    const term = xtermRef.current;
+    if (!term) return;
+    const { text, filterText: ft, caseSensitive } = searchStateRef.current;
+    if (!text.trim()) return;
+    const buffer = term.buffer.active;
+    const flags = caseSensitive ? 'g' : 'gi';
+    const primaryRe = new RegExp(escapeRegex(text), flags);
+    const hasFilter = ft.trim().length > 0;
+    const filterRe = hasFilter ? new RegExp(escapeRegex(ft), flags) : null;
+    const total = buffer.length;
+    const start = searchPosRef.current;
+
+    for (let i = 0; i < total; i++) {
+      const idx = forward
+        ? ((start + i) % total + total) % total
+        : ((start - i - 1) % total + total) % total;
+      const line = buffer.getLine(idx);
+      if (!line) continue;
+      const lineText = line.translateToString();
+      if (filterRe && !filterRe.test(lineText)) continue;
+      const m = primaryRe.exec(lineText);
+      if (m) {
+        const col = m.index;
+        searchPosRef.current = idx;
+        term.select(idx - buffer.baseY, col, text.length);
+        term.scrollToLine(idx - buffer.baseY);
+        return;
+      }
+    }
+  }, []);
+
+  const findNext = useCallback(() => {
+    try { searchAddonRef.current?.findNext(''); } catch { /* ignore */ }
+    const state = searchStateRef.current;
+    if (state.filterText.trim() || !searchAddonRef.current) {
+      bufferSearch(true);
+    } else {
+      searchAddonRef.current.findNext(state.text, { caseSensitive: state.caseSensitive, incremental: false });
+    }
+  }, [bufferSearch]);
+
+  const findPrevious = useCallback(() => {
+    try { searchAddonRef.current?.findNext(''); } catch { /* ignore */ }
+    const state = searchStateRef.current;
+    if (state.filterText.trim() || !searchAddonRef.current) {
+      bufferSearch(false);
+    } else {
+      searchAddonRef.current.findPrevious(state.text, { caseSensitive: state.caseSensitive, incremental: false });
+    }
+  }, [bufferSearch]);
+
+  const doSearch = useCallback((text: string, filter: string, caseSensitive: boolean) => {
+    searchStateRef.current = { text, caseSensitive, filterText: filter };
+    searchPosRef.current = -1;
+    if (!text.trim()) return;
+    if (filter.trim()) {
+      bufferSearch(true);
+    } else {
+      try { searchAddonRef.current?.findNext(text, { caseSensitive, incremental: false }); } catch { /* ignore */ }
+    }
+  }, [bufferSearch]);
+
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchText(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      doSearch(value, searchStateRef.current.filterText, searchStateRef.current.caseSensitive);
+    }, 150);
+  }, [doSearch]);
+
+  const handleFilterInput = useCallback((value: string) => {
+    setFilterText(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      doSearch(searchStateRef.current.text, value, searchStateRef.current.caseSensitive);
+    }, 150);
+  }, [doSearch]);
+
+  const toggleSearchCase = useCallback(() => {
+    const next = !searchStateRef.current.caseSensitive;
+    setSearchCaseSensitive(next);
+    searchStateRef.current.caseSensitive = next;
+    doSearch(searchStateRef.current.text, searchStateRef.current.filterText, next);
+  }, [doSearch]);
+
+  const toggleFilter = useCallback(() => {
+    setFilterEnabled((prev) => {
+      if (prev) {
+        setFilterText('');
+        doSearch(searchStateRef.current.text, '', searchStateRef.current.caseSensitive);
+      }
+      return !prev;
+    });
+    setTimeout(() => filterInputRef.current?.focus(), 50);
+  }, [doSearch]);
+
+  const openSearch = useCallback(() => {
+    setSearchVisible(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }, []);
+
+  const closeSearch = useCallback(() => {
+    setSearchVisible(false);
+    setSearchText('');
+    setSearchCaseSensitive(false);
+    setFilterEnabled(false);
+    setFilterText('');
+    searchPosRef.current = -1;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    try { searchAddonRef.current?.findNext(''); } catch { /* ignore */ }
+  }, []);
+
+  // 监听 Ctrl+F 快捷键（全局快捷键可能被终端 textarea 拦截，所以在此额外监听）
+  useEffect(() => {
+    const handler = () => {
+      if (isActive) openSearch();
+    };
+    window.addEventListener('qserial:open-search', handler);
+    return () => window.removeEventListener('qserial:open-search', handler);
+  }, [isActive, openSearch]);
 
   // 开始实时日志记录
   const handleStartLog = async () => {
@@ -533,6 +683,112 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       {/* 控制按钮组 */}
       {isActive && (
         <div className="absolute top-2 right-2 z-10 flex gap-2">
+          {/* 搜索栏 / 搜索按钮 */}
+          {searchVisible ? (
+            <div className="flex flex-col bg-surface/90 border border-primary/40 rounded">
+              <div className="flex items-center gap-1.5 px-2 py-1">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary flex-shrink-0">
+                  <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M7.5 7.5L10.5 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (e.shiftKey) findPrevious(); else findNext();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      closeSearch();
+                    }
+                  }}
+                  className="bg-transparent text-xs text-text outline-none w-36 placeholder:text-text-tertiary/50"
+                  placeholder="搜索..."
+                />
+                <button
+                  onClick={findPrevious}
+                  className="text-text-secondary/60 hover:text-text transition-colors p-0.5"
+                  title="上一个 (Shift+Enter)"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 7.5L6 4.5l3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+                <button
+                  onClick={findNext}
+                  className="text-text-secondary/60 hover:text-text transition-colors p-0.5"
+                  title="下一个 (Enter)"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5l3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+                <button
+                  onClick={toggleSearchCase}
+                  className={`text-[11px] leading-none px-1 py-0.5 rounded transition-colors ${
+                    searchCaseSensitive ? 'bg-primary/30 text-primary' : 'text-text-secondary/50 hover:text-text-secondary'
+                  }`}
+                  title="大小写敏感"
+                >
+                  Aa
+                </button>
+                <button
+                  onClick={toggleFilter}
+                  className={`p-0.5 rounded transition-colors ${
+                    filterEnabled ? 'bg-accent/30 text-accent' : 'text-text-secondary/50 hover:text-text-secondary'
+                  }`}
+                  title="二次筛选 — 只匹配同时包含筛选词的行"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M1 2h10L7 6.5V10l-2 1V6.5L1 2z" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={closeSearch}
+                  className="text-text-secondary/50 hover:text-text transition-colors p-0.5"
+                  title="关闭 (Esc)"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                </button>
+              </div>
+              {filterEnabled && (
+                <div className="flex items-center gap-1.5 px-2 pb-1 border-t border-border/50">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-accent flex-shrink-0 ml-0.5">
+                    <path d="M2 3l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <input
+                    ref={filterInputRef}
+                    type="text"
+                    value={filterText}
+                    onChange={(e) => handleFilterInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (e.shiftKey) findPrevious(); else findNext();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeSearch();
+                      }
+                    }}
+                    className="bg-transparent text-xs text-text outline-none w-36 placeholder:text-text-tertiary/50"
+                    placeholder="筛选词..."
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={openSearch}
+              className="px-2 py-1 border rounded text-xs transition-colors bg-surface/80 border-border hover:bg-hover flex items-center gap-1.5"
+              title="搜索 (Ctrl+F)"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-text-secondary">
+                <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.2"/>
+                <path d="M7.5 7.5L10.5 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              搜索
+            </button>
+          )}
+
           {/* 日志控制按钮 */}
           <button
             onClick={isLogging ? handleStopLog : handleStartLog}

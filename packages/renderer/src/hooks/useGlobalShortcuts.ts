@@ -86,6 +86,13 @@ export function useGlobalShortcuts() {
         return;
       }
 
+      // Ctrl+F — 终端搜索
+      if (ctrl && !shift && e.key === 'f') {
+        e.preventDefault();
+        dispatch('qserial:open-search');
+        return;
+      }
+
       // Ctrl+D — 断开当前连接
       if (ctrl && !shift && e.key === 'd') {
         e.preventDefault();
