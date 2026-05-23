@@ -186,6 +186,10 @@ export class TelnetConnection implements IConnection {
     this.write(Buffer.from(hex, 'hex'));
   }
 
+  set(_options: { brk?: boolean; dtr?: boolean; rts?: boolean }): void {
+    // Telnet does not support DTR/RTS/break control
+  }
+
   resize(_cols: number, _rows: number): void {
     // Telnet 不支持 resize（除非通过 NAWS 协商，这里简化处理）
   }

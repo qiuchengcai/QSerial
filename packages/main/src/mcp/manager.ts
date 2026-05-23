@@ -12,6 +12,7 @@ import type { ConnectionOptions, ConnectionServerOptions } from '@qserial/shared
 import { ConnectionFactory } from '../connection/factory.js';
 import { ConnectionServerConnection } from '../connection/connectionServer.js';
 import { SerialConnection } from '../connection/serial.js';
+import { xmodemSend } from './xmodem.js';
 import {
   IPC_CHANNELS,
   ConnectionState,
@@ -112,6 +113,19 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'connection_write_hex',
+    description: '向指定连接发送十六进制数据。输入为不带分隔符的十六进制字符串，如 "7E01FFAABB"。适用于嵌入式设备的二进制协议（Modbus、自定义帧等）。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
+        hex: { type: 'string', description: '十六进制字符串，如 "7E01FFAABB"' },
+      },
+      required: ['hex'],
+    },
+  },
+  {
     name: 'connection_read',
     description: '读取连接输出。默认读后清空缓冲区（consume=true）。设置 consume=false 可预览不清空（配合 max_bytes 限制返回长度）。设置 consume=true 且 max_bytes=0 可仅清空不返回数据。',
     inputSchema: {
@@ -121,6 +135,17 @@ const MCP_TOOLS = [
         connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
         consume: { type: 'boolean', description: '是否消费（清空）缓冲区，默认 true', default: true },
         max_bytes: { type: 'integer', description: '最多返回字节数，默认 4096（仅 consume=false 时生效）', default: 4096 },
+      },
+    },
+  },
+  {
+    name: 'connection_clear_buffer',
+    description: '清空指定连接的输出缓冲区，释放内存。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
       },
     },
   },
@@ -168,6 +193,17 @@ const MCP_TOOLS = [
   {
     name: 'connection_disconnect',
     description: '断开并销毁指定连接。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
+      },
+    },
+  },
+  {
+    name: 'connection_reconnect',
+    description: '重新连接已断开的连接，保持相同的连接 ID。不会销毁连接对象。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -232,6 +268,59 @@ const MCP_TOOLS = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'session_save',
+    description: '保存会话配置。提供 sessionId 则更新已有会话，否则新建。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: { type: 'string', description: '已有会话 ID（可选，提供则更新，不提供则新建）' },
+        name: { type: 'string', description: '会话名称' },
+        type: { type: 'string', description: '连接类型: serial, ssh, telnet, pty' },
+        serialConfig: { type: 'object', description: '[serial] 串口配置 { path, baudRate, dataBits, stopBits, parity }' },
+        sshConfig: { type: 'object', description: '[ssh] SSH 配置 { host, port, username, password? }' },
+        telnetConfig: { type: 'object', description: '[telnet] Telnet 配置 { host, port }' },
+        ptyConfig: { type: 'object', description: '[pty] PTY 配置 { shell }' },
+      },
+      required: ['name', 'type'],
+    },
+  },
+  {
+    name: 'session_delete',
+    description: '删除已保存的会话配置。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sessionId: { type: 'string', description: '要删除的会话 ID' },
+      },
+      required: ['sessionId'],
+    },
+  },
+  {
+    name: 'connection_set_dtr_rts',
+    description: '控制串口 DTR 和 RTS 信号线状态。仅对串口连接有效。常用于 MCU（ESP32/Arduino/STM32）自动复位进入烧录模式。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
+        dtr: { type: 'boolean', description: 'DTR 信号状态（可选，不传则不改变）' },
+        rts: { type: 'boolean', description: 'RTS 信号状态（可选，不传则不改变）' },
+      },
+    },
+  },
+  {
+    name: 'connection_set_break',
+    description: '发送串口 break 信号。发送期间其他通信暂停。仅对串口连接有效。常用于中断 U-Boot 自动启动进入命令行。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
+        duration_ms: { type: 'integer', description: 'Break 信号持续时间（毫秒），默认 200，范围 10-5000', default: 200 },
+      },
+    },
+  },
+  {
     name: 'connection_share',
     description: '管理连接共享服务。action=start 启动 TCP Telnet 共享；action=stop 停止共享；action=list 列出所有活跃共享。',
     inputSchema: {
@@ -245,6 +334,21 @@ const MCP_TOOLS = [
         share_id: { type: 'string', description: '[stop] 共享 ID' },
       },
       required: ['action'],
+    },
+  },
+  {
+    name: 'connection_send_file',
+    description: '通过 XMODEM 或 YMODEM 协议发送文件到串口设备。仅支持串口连接。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '连接 ID' },
+        connectionId: { type: 'string', description: '连接 ID（id 的别名）' },
+        localPath: { type: 'string', description: '本地文件路径' },
+        protocol: { type: 'string', description: '协议: "xmodem" 或 "ymodem"', enum: ['xmodem', 'ymodem'] },
+        timeout: { type: 'integer', description: '每块传输超时秒数，默认 10', default: 10 },
+      },
+      required: ['localPath', 'protocol'],
     },
   },
   {
@@ -825,6 +929,110 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
+      case 'session_save': {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return '错误: 主窗口未就绪';
+        }
+        const sessionId = args.sessionId as string | undefined;
+        const name = args.name as string;
+        const type = args.type as string;
+        if (!name) return '错误: 未提供 name 参数';
+        if (!type) return '错误: 未提供 type 参数';
+        if (!['serial', 'ssh', 'telnet', 'pty'].includes(type)) {
+          return `错误: 不支持的会话类型 "${type}"`;
+        }
+        try {
+          const sessionData = JSON.stringify({
+            sessionId: sessionId || null,
+            name,
+            type,
+            serialConfig: args.serialConfig || null,
+            sshConfig: args.sshConfig || null,
+            telnetConfig: args.telnetConfig || null,
+            ptyConfig: args.ptyConfig || null,
+          });
+          const result = await mainWindow.webContents.executeJavaScript(`
+            (function() {
+              try {
+                var raw = localStorage.getItem('qserial_saved_sessions');
+                var data = raw ? JSON.parse(raw) : { state: { sessions: [] } };
+                var sessions = data.state ? data.state.sessions : [];
+                var input = ${sessionData};
+                var now = new Date().toISOString();
+                if (input.sessionId) {
+                  var idx = sessions.findIndex(function(s) { return s.id === input.sessionId; });
+                  if (idx < 0) return JSON.stringify({ error: '\\u4f1a\\u8bdd\\u4e0d\\u5b58\\u5728: ' + input.sessionId });
+                  sessions[idx] = {
+                    ...sessions[idx],
+                    name: input.name,
+                    type: input.type,
+                    serialConfig: input.serialConfig || sessions[idx].serialConfig || undefined,
+                    sshConfig: input.sshConfig || sessions[idx].sshConfig || undefined,
+                    telnetConfig: input.telnetConfig || sessions[idx].telnetConfig || undefined,
+                    ptyConfig: input.ptyConfig || sessions[idx].ptyConfig || undefined,
+                    lastUsedAt: now,
+                  };
+                  var resultId = input.sessionId;
+                } else {
+                  var newSession = {
+                    id: crypto.randomUUID(),
+                    name: input.name,
+                    type: input.type,
+                    createdAt: now,
+                    lastUsedAt: now,
+                    serialConfig: input.serialConfig || undefined,
+                    sshConfig: input.sshConfig || undefined,
+                    telnetConfig: input.telnetConfig || undefined,
+                    ptyConfig: input.ptyConfig || undefined,
+                  };
+                  sessions.push(newSession);
+                  var resultId = newSession.id;
+                }
+                data.state.sessions = sessions;
+                localStorage.setItem('qserial_saved_sessions', JSON.stringify(data));
+                return JSON.stringify({ id: resultId });
+              } catch(e) { return JSON.stringify({ error: e.message }); }
+            })()
+          `);
+          const parsed = JSON.parse(result);
+          if (parsed.error) return '错误: ' + parsed.error;
+          return JSON.stringify({ id: parsed.id, message: '会话已保存' }, null, 2);
+        } catch (err) {
+          return '错误: 保存会话失败 — ' + (err as Error).message;
+        }
+      }
+
+      case 'session_delete': {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return '错误: 主窗口未就绪';
+        }
+        const sessionId = args.sessionId as string;
+        if (!sessionId) return '错误: 未提供 sessionId 参数';
+        try {
+          const result = await mainWindow.webContents.executeJavaScript(`
+            (function() {
+              try {
+                var raw = localStorage.getItem('qserial_saved_sessions');
+                if (!raw) return JSON.stringify({ error: '\\u6ca1\\u6709\\u5df2\\u4fdd\\u5b58\\u7684\\u4f1a\\u8bdd' });
+                var data = JSON.parse(raw);
+                var sessions = data.state ? data.state.sessions : [];
+                var before = sessions.length;
+                sessions = sessions.filter(function(s) { return s.id !== '${sessionId.replace(/'/g, "\\'")}'; });
+                if (sessions.length === before) return JSON.stringify({ error: '\\u4f1a\\u8bdd\\u4e0d\\u5b58\\u5728' });
+                data.state.sessions = sessions;
+                localStorage.setItem('qserial_saved_sessions', JSON.stringify(data));
+                return JSON.stringify({ success: true });
+              } catch(e) { return JSON.stringify({ error: e.message }); }
+            })()
+          `);
+          const parsed = JSON.parse(result);
+          if (parsed.error) return '错误: ' + parsed.error;
+          return `会话 ${sessionId} 已删除`;
+        } catch (err) {
+          return '错误: 删除会话失败 — ' + (err as Error).message;
+        }
+      }
+
       case 'connection_list': {
         const id = resolveId(args);
         if (id) {
@@ -888,6 +1096,28 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return output
           ? `${output}\n\n[${meta}]`
           : `已发送 (${data.length} 字符)，无立即回显 [${meta}]`;
+      }
+
+      case 'connection_write_hex': {
+        const id = resolveId(args);
+        const hex = args.hex as string;
+        if (!id) return '错误: 未提供连接 id';
+        if (!hex) return '错误: 未提供 hex 参数';
+        if (!/^[0-9A-Fa-f]*$/.test(hex)) return '错误: hex 参数包含非法字符（仅允许 0-9, A-F, a-f）';
+        if (hex.length % 2 !== 0) return '错误: hex 字符串长度必须为偶数';
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        if (conn.state !== ConnectionState.CONNECTED) {
+          return `错误: 连接 ${id} 未就绪（当前状态：${conn.state}）`;
+        }
+        ensureBuffer(id);
+        conn.writeHex(hex);
+        await waitForData(id, 2000);
+        const output = consumeBuffer(id).toString('utf-8');
+        const meta = `sent=${hex.length / 2}B hex, replied=${output.length}B, ts=${Date.now()}`;
+        return output
+          ? `${output}\n\n[${meta}]`
+          : `已发送 (${hex.length / 2} 字节)，无立即回显 [${meta}]`;
       }
 
       case 'connection_read': {
@@ -1043,6 +1273,27 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
+      case 'connection_reconnect': {
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        try {
+          if (conn.state === ConnectionState.CONNECTED || conn.state === ConnectionState.CONNECTING) {
+            await conn.close();
+          }
+        } catch (err) {
+          return `错误: 关闭连接失败 — ${(err as Error).message}`;
+        }
+        try {
+          await conn.open();
+          ensureBuffer(id);
+          return `连接 ${id} 已重新连接`;
+        } catch (err) {
+          return `错误: 重连失败 — ${(err as Error).message}`;
+        }
+      }
+
       case 'connection_update': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
@@ -1074,6 +1325,107 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return parts.length > 0 ? parts.join('; ') : '错误: 未提供需要修改的参数（cols/rows/baudRate）';
       }
 
+      case 'connection_set_dtr_rts': {
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        if (conn.type !== ConnectionType.SERIAL) {
+          return '错误: 仅串口连接支持 DTR/RTS 控制';
+        }
+        if (conn.state !== ConnectionState.CONNECTED) {
+          return `错误: 连接 ${id} 未就绪（当前状态：${conn.state}）`;
+        }
+        const opts: { dtr?: boolean; rts?: boolean } = {};
+        if (args.dtr !== undefined) opts.dtr = args.dtr === true;
+        if (args.rts !== undefined) opts.rts = args.rts === true;
+        if (Object.keys(opts).length === 0) return '错误: 请至少提供 dtr 或 rts 参数';
+        try {
+          conn.set(opts);
+          const parts: string[] = [];
+          if (args.dtr !== undefined) parts.push(`DTR=${opts.dtr ? '高' : '低'}`);
+          if (args.rts !== undefined) parts.push(`RTS=${opts.rts ? '高' : '低'}`);
+          return `串口信号已设置: ${parts.join(', ')}`;
+        } catch (err) {
+          return `错误: 设置串口信号失败 — ${(err as Error).message}`;
+        }
+      }
+
+      case 'connection_set_break': {
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        if (conn.type !== ConnectionType.SERIAL) {
+          return '错误: 仅串口连接支持 break 信号';
+        }
+        if (conn.state !== ConnectionState.CONNECTED) {
+          return `错误: 连接 ${id} 未就绪（当前状态：${conn.state}）`;
+        }
+        const durationMs = (args.duration_ms as number) || 200;
+        if (durationMs < 10 || durationMs > 5000) {
+          return '错误: duration_ms 应在 10-5000 范围内';
+        }
+        try {
+          conn.set({ brk: true });
+          await sleep(durationMs);
+          conn.set({ brk: false });
+          return `Break 信号已发送 (${durationMs}ms)`;
+        } catch (err) {
+          return `错误: 发送 break 信号失败 — ${(err as Error).message}`;
+        }
+      }
+
+      case 'connection_send_file': {
+        const id = resolveId(args);
+        const localPath = args.localPath as string;
+        const protocol = (args.protocol as string) || 'xmodem';
+        if (!id) return '错误: 未提供连接 id';
+        if (!localPath) return '错误: 未提供 localPath 参数';
+        if (!['xmodem', 'ymodem'].includes(protocol)) {
+          return '错误: protocol 必须是 "xmodem" 或 "ymodem"';
+        }
+        const conn = ConnectionFactory.get(id);
+        if (!conn) return `错误: 找不到连接 ${id}`;
+        if (conn.state !== ConnectionState.CONNECTED) {
+          return `错误: 连接 ${id} 未就绪（当前状态：${conn.state}）`;
+        }
+        if (conn.type !== ConnectionType.SERIAL) {
+          return '错误: 文件传输仅支持串口连接';
+        }
+        let fileData: Buffer;
+        try {
+          fileData = fs.readFileSync(localPath);
+        } catch (err) {
+          return `错误: 读取文件失败 — ${(err as Error).message}`;
+        }
+        if (fileData.length === 0) return '错误: 文件为空';
+
+        ensureBuffer(id);
+        clearBuffer(id);
+
+        const readByte = async (timeoutMs: number): Promise<number> => {
+          await waitForData(id, timeoutMs);
+          const buf = consumeBuffer(id);
+          return buf.length > 0 ? buf[0] : -1;
+        };
+
+        try {
+          const timeout = (args.timeout as number) || 10;
+          await xmodemSend(
+            (data) => conn.write(data),
+            readByte,
+            fileData,
+            protocol as 'xmodem' | 'ymodem',
+            { timeout },
+          );
+          const meta = `file=${localPath}, size=${fileData.length}B, protocol=${protocol}, ts=${Date.now()}`;
+          return `文件已发送: ${localPath} (${fileData.length} 字节, ${protocol})\n[${meta}]`;
+        } catch (err) {
+          return `错误: 文件传输失败 — ${(err as Error).message}`;
+        }
+      }
+
       case 'connection_state': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
@@ -1084,6 +1436,15 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const output = peekBuffer(id, 65536).toString('utf-8');
         const state = analyzeState(output, conn.state);
         return JSON.stringify({ ...state, buffer_bytes: totalBytes, output_tail_bytes: output.length }, null, 2);
+      }
+
+      case 'connection_clear_buffer': {
+        const id = resolveId(args);
+        if (!id) return '错误: 未提供连接 id';
+        if (!ConnectionFactory.get(id)) return `错误: 找不到连接 ${id}`;
+        const before = bufferSize(id);
+        clearBuffer(id);
+        return `缓冲区已清空 (释放 ${before} 字节)`;
       }
 
       case 'connection_login': {

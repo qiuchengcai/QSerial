@@ -39,8 +39,12 @@ export class SerialConnection implements IConnection {
     if (this.port?.isOpen) {
       throw new Error('Connection already open');
     }
+    if (this._state === ConnectionState.CONNECTED || this._state === ConnectionState.CONNECTING) {
+      return;
+    }
 
     this.isClosing = false;
+    this.reconnectCount = 0;
     this._state = ConnectionState.CONNECTING;
     this.emitStateChange();
 
@@ -193,6 +197,14 @@ export class SerialConnection implements IConnection {
 
   writeHex(hex: string): void {
     this.write(Buffer.from(hex, 'hex'));
+  }
+
+  set(options: { brk?: boolean; dtr?: boolean; rts?: boolean }): void {
+    if (this.port?.isOpen) {
+      this.port.set(options);
+    } else if (this.sharedConnection) {
+      this.sharedConnection.set(options);
+    }
   }
 
   resize(_cols: number, _rows: number): void {

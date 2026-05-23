@@ -179,8 +179,7 @@ export class ConnectionServerConnection implements IConnection {
           this.sourceConnectionDown = true;
           this._notifyClientsConnectionDown();
         }
-        this._notifyError(new Error('共享连接已断开'));
-        this.close();
+        this._notifyError(new Error('共享连接已断开，等待恢复...'));
       } else if (state === ConnectionState.CONNECTED) {
         if (this.sourceConnectionDown) {
           this.sourceConnectionDown = false;
@@ -191,8 +190,7 @@ export class ConnectionServerConnection implements IConnection {
 
     this.closeUnsubscriber = this.sharedConnection.onClose(() => {
       if (this.sharedConnection && this.sharedConnection.state === ConnectionState.ERROR) {
-        this._notifyError(new Error('共享连接已关闭'));
-        this.close();
+        this._notifyError(new Error('共享连接异常，等待恢复...'));
       }
     });
 
@@ -372,6 +370,10 @@ export class ConnectionServerConnection implements IConnection {
 
   writeHex(hex: string): void {
     this.write(Buffer.from(hex, 'hex'));
+  }
+
+  set(options: { brk?: boolean; dtr?: boolean; rts?: boolean }): void {
+    this.sharedConnection?.set(options);
   }
 
   resize(cols: number, rows: number): void {

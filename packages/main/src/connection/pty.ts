@@ -198,6 +198,10 @@ export class PtyConnection implements IConnection {
     this.write(Buffer.from(hex, 'hex'));
   }
 
+  set(_options: { brk?: boolean; dtr?: boolean; rts?: boolean }): void {
+    // PTY does not support DTR/RTS/break control
+  }
+
   resize(cols: number, rows: number): void {
     if (this.ptyProcess) {
       this.ptyProcess.resize(cols, rows);

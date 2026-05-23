@@ -135,14 +135,12 @@ export class SerialServerConnection implements IConnection {
 
     this.stateUnsubscriber = this.sharedConnection.onStateChange((state) => {
       if (state === ConnectionState.DISCONNECTED || state === ConnectionState.ERROR) {
-        this._notifyError(new Error('共享连接已断开'));
-        this.close();
+        this._notifyError(new Error('共享连接已断开，等待恢复...'));
       }
     });
 
     this.closeUnsubscriber = this.sharedConnection.onClose(() => {
-      this._notifyError(new Error('共享连接已关闭'));
-      this.close();
+      this._notifyError(new Error('共享连接异常，等待恢复...'));
     });
 
     this.errorUnsubscriber = this.sharedConnection.onError((err) => {
@@ -339,6 +337,14 @@ export class SerialServerConnection implements IConnection {
   writeHex(hex: string): void {
     const buffer = Buffer.from(hex, 'hex');
     this.write(buffer);
+  }
+
+  set(options: { brk?: boolean; dtr?: boolean; rts?: boolean }): void {
+    if (this.serialPort?.isOpen) {
+      this.serialPort.set(options);
+    } else if (this.sharedConnection) {
+      this.sharedConnection.set(options);
+    }
   }
 
   resize(_cols: number, _rows: number): void {

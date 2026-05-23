@@ -148,6 +148,12 @@ export interface ConnectionInfo {
   createdAt: Date;
 }
 
+export interface SetPortOptions {
+  brk?: boolean;
+  dtr?: boolean;
+  rts?: boolean;
+}
+
 /**
  * 连接接口
  */
@@ -163,6 +169,8 @@ export interface IConnection {
 
   write(data: Buffer | string): void;
   writeHex(hex: string): void;
+
+  set(options: SetPortOptions): void;
 
   resize(cols: number, rows: number): void;
 
