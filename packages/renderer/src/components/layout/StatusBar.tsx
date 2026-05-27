@@ -13,6 +13,7 @@ import { useSftpStore } from '@/stores/sftp';
 import { CONNECTION_STATE_NAMES, ConnectionType, ConnectionState } from '@qserial/shared';
 
 export const StatusBar: React.FC = () => {
+  const { t } = useTranslation();
   const terminalState = useTerminalStore();
   const tabs = terminalState?.tabs || [];
   const activeTabId = terminalState?.activeTabId;

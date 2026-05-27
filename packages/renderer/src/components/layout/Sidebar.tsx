@@ -29,6 +29,7 @@ const MAX_SIDEBAR_WIDTH = 500;
 const DEFAULT_SIDEBAR_WIDTH = 210;
 
 export const Sidebar: React.FC = () => {
+  const { t } = useTranslation();
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
