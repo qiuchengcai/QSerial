@@ -1,0 +1,54 @@
+﻿name: Hardware CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firmware/**"
+      - "ci/**"
+  workflow_dispatch:
+    inputs:
+      device:
+        description: "Serial port (e.g. COM3)"
+        required: true
+        default: "COM3"
+      script:
+        description: "Test script path"
+        required: true
+        default: "ci/sample-test.json"
+
+jobs:
+  hardware-test:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run hardware tests
+        run: |
+          node packages/main/dist/cli/index.js \
+            --script ${{ github.event.inputs.script || 'ci/sample-test.json' }} \
+            --device ${{ github.event.inputs.device || 'COM3' }} \
+            --format junit \
+            --output test-results.xml
+        continue-on-error: true
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Hardware Tests
+          path: test-results.xml
+          reporter: java-junit

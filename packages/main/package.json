@@ -28,5 +28,8 @@
     "esbuild": "^0.20.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.3.3"
+  },
+  "bin": {
+    "qserial-test": "./dist/cli/index.js"
   }
 }

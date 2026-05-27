@@ -1,0 +1,27 @@
+﻿{
+  "name": "ESP32 AT Command Smoke Test",
+  "version": "1.0",
+  "description": "Basic AT command verification for ESP32 devices",
+  "tests": [
+    {
+      "name": "ESP32 AT Basic",
+      "connection": {
+        "type": "serial",
+        "port": "COM3",
+        "baudRate": 115200
+      },
+      "setup": [
+        { "send": "", "delay_ms": 2000, "description": "Wait for boot" },
+        { "send": "ATE0", "expect": "OK", "timeout_ms": 3000, "description": "Disable echo" }
+      ],
+      "steps": [
+        { "send": "AT", "expect": "OK", "description": "AT test", "timeout_ms": 3000 },
+        { "send": "AT+GMR", "expect": "AT version", "description": "Firmware version", "timeout_ms": 5000 },
+        { "send": "AT+CWMODE?", "expect": "+CWMODE:", "description": "WiFi mode query", "timeout_ms": 3000 }
+      ],
+      "teardown": [
+        { "send": "ATE1", "description": "Re-enable echo" }
+      ]
+    }
+  ]
+}
