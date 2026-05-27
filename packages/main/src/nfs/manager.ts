@@ -171,7 +171,8 @@ async function startWinnfsd(exportDir: string, _allowedClients: string, options:
 
   // 检查目录是否存在
   if (!fs.existsSync(exportDir)) {
-    throw new Error(`共享目录不存在: ${exportDir}`);
+    console.warn('[NFS] Shared dir not found, skipping');
+      return;
   }
 
   // WinNFSd 需要使用正斜杠或转义的路径
@@ -383,7 +384,8 @@ function restoreExports(): void {
 function startLinuxNfs(exportDir: string, allowedClients: string, options: string): void {
   // 检查目录是否存在
   if (!fs.existsSync(exportDir)) {
-    throw new Error(`共享目录不存在: ${exportDir}`);
+    console.warn('[NFS] Shared dir not found, skipping');
+      return;
   }
 
   // 备份原始 exports

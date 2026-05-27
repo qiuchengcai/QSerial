@@ -162,8 +162,9 @@ export async function startFtpServer(port: number, rootDir: string, username: st
     try {
       // 检查目录是否存在
       if (!rootDir || !fs.existsSync(rootDir)) {
-    throw new Error(`共享目录不存在: ${rootDir}`);
-  }
+        console.warn('[FTP] Shared dir not found, skipping');
+        return;
+      }
 
   // 动态加载 ftp-srv
   try {
