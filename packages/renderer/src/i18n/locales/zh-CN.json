@@ -1,0 +1,160 @@
+{
+  "app": {
+    "name": "QSerial",
+    "version": "v0.3.0"
+  },
+  "menu": {
+    "file": "文件(F)",
+    "edit": "编辑(E)",
+    "view": "视图(V)",
+    "connection": "连接(C)",
+    "tools": "工具(T)",
+    "help": "帮助(H)",
+    "newConnection": "新建连接",
+    "serial": "串口",
+    "ssh": "SSH",
+    "telnet": "Telnet",
+    "localTerminal": "本地终端",
+    "disconnect": "断开连接",
+    "settings": "设置",
+    "toggleDevtools": "开发者工具",
+    "reload": "重新加载",
+    "quit": "退出"
+  },
+  "sidebar": {
+    "connections": "连接管理",
+    "savedSessions": "已保存会话",
+    "serialPorts": "串口列表",
+    "fileTransfer": "文件传输",
+    "noConnections": "暂无连接",
+    "refresh": "刷新"
+  },
+  "toolbar": {
+    "newConnection": "新建连接",
+    "disconnect": "断开",
+    "reconnect": "重连",
+    "clear": "清屏",
+    "copy": "复制",
+    "paste": "粘贴",
+    "quickButtons": "快捷按钮",
+    "share": "共享",
+    "screenshot": "截图",
+    "mcp": "MCP"
+  },
+  "dialogs": {
+    "serialConnect": {
+      "title": "串口连接",
+      "port": "端口",
+      "baudRate": "波特率",
+      "dataBits": "数据位",
+      "stopBits": "停止位",
+      "parity": "校验位",
+      "flowControl": "流控",
+      "connect": "连接",
+      "cancel": "取消",
+      "refresh": "刷新"
+    },
+    "sshConnect": {
+      "title": "SSH 连接",
+      "host": "主机",
+      "port": "端口",
+      "username": "用户名",
+      "password": "密码",
+      "privateKey": "私钥",
+      "passphrase": "密码短语",
+      "jumpHost": "跳板机",
+      "jumpHostHost": "跳板机主机",
+      "jumpHostPort": "跳板机端口",
+      "jumpHostUser": "跳板机用户",
+      "jumpHostPassword": "跳板机密码",
+      "connect": "连接",
+      "cancel": "取消"
+    },
+    "telnetConnect": {
+      "title": "Telnet 连接",
+      "host": "主机",
+      "port": "端口",
+      "connect": "连接",
+      "cancel": "取消"
+    },
+    "ptyConnect": {
+      "title": "本地终端",
+      "shell": "Shell",
+      "connect": "打开",
+      "cancel": "取消"
+    },
+    "settings": {
+      "title": "设置",
+      "general": "常规",
+      "terminal": "终端",
+      "serial": "串口",
+      "ssh": "SSH",
+      "mcp": "MCP",
+      "language": "语言",
+      "theme": "主题",
+      "fontSize": "字体大小",
+      "fontFamily": "字体",
+      "save": "保存",
+      "cancel": "取消",
+      "enabled": "启用",
+      "port": "端口",
+      "authPassword": "认证密码",
+      "listenAddress": "监听地址"
+    },
+    "mcp": {
+      "title": "MCP 服务器",
+      "status": "状态",
+      "running": "运行中",
+      "stopped": "已停止",
+      "start": "启动",
+      "stop": "停止",
+      "tools": "工具",
+      "resources": "资源",
+      "notifications": "通知",
+      "port": "端口",
+      "authEnabled": "认证已启用"
+    },
+    "share": {
+      "title": "连接共享",
+      "create": "创建共享",
+      "stop": "停止共享",
+      "port": "端口",
+      "password": "密码(可选)",
+      "status": "共享状态",
+      "active": "活跃",
+      "inactive": "未共享"
+    }
+  },
+  "terminal": {
+    "connected": "已连接",
+    "disconnected": "已断开",
+    "connecting": "连接中...",
+    "reconnecting": "重连中...",
+    "error": "错误",
+    "baudRate": "波特率",
+    "bytesSent": "已发送",
+    "bytesReceived": "已接收",
+    "duration": "持续时间"
+  },
+  "statusBar": {
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "mcpRunning": "MCP:运行",
+    "mcpStopped": "MCP:停止"
+  },
+  "common": {
+    "ok": "确定",
+    "cancel": "取消",
+    "close": "关闭",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "refresh": "刷新",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否"
+  }
+}

@@ -1,0 +1,160 @@
+{
+  "app": {
+    "name": "QSerial",
+    "version": "v0.3.0"
+  },
+  "menu": {
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "connection": "Connection",
+    "tools": "Tools",
+    "help": "Help",
+    "newConnection": "New Connection",
+    "serial": "Serial",
+    "ssh": "SSH",
+    "telnet": "Telnet",
+    "localTerminal": "Local Terminal",
+    "disconnect": "Disconnect",
+    "settings": "Settings",
+    "toggleDevtools": "Developer Tools",
+    "reload": "Reload",
+    "quit": "Quit"
+  },
+  "sidebar": {
+    "connections": "Connections",
+    "savedSessions": "Saved Sessions",
+    "serialPorts": "Serial Ports",
+    "fileTransfer": "File Transfer",
+    "noConnections": "No connections",
+    "refresh": "Refresh"
+  },
+  "toolbar": {
+    "newConnection": "New Connection",
+    "disconnect": "Disconnect",
+    "reconnect": "Reconnect",
+    "clear": "Clear",
+    "copy": "Copy",
+    "paste": "Paste",
+    "quickButtons": "Quick Buttons",
+    "share": "Share",
+    "screenshot": "Screenshot",
+    "mcp": "MCP"
+  },
+  "dialogs": {
+    "serialConnect": {
+      "title": "Serial Connection",
+      "port": "Port",
+      "baudRate": "Baud Rate",
+      "dataBits": "Data Bits",
+      "stopBits": "Stop Bits",
+      "parity": "Parity",
+      "flowControl": "Flow Control",
+      "connect": "Connect",
+      "cancel": "Cancel",
+      "refresh": "Refresh"
+    },
+    "sshConnect": {
+      "title": "SSH Connection",
+      "host": "Host",
+      "port": "Port",
+      "username": "Username",
+      "password": "Password",
+      "privateKey": "Private Key",
+      "passphrase": "Passphrase",
+      "jumpHost": "Jump Host",
+      "jumpHostHost": "Jump Host Address",
+      "jumpHostPort": "Jump Host Port",
+      "jumpHostUser": "Jump Host User",
+      "jumpHostPassword": "Jump Host Password",
+      "connect": "Connect",
+      "cancel": "Cancel"
+    },
+    "telnetConnect": {
+      "title": "Telnet Connection",
+      "host": "Host",
+      "port": "Port",
+      "connect": "Connect",
+      "cancel": "Cancel"
+    },
+    "ptyConnect": {
+      "title": "Local Terminal",
+      "shell": "Shell",
+      "connect": "Open",
+      "cancel": "Cancel"
+    },
+    "settings": {
+      "title": "Settings",
+      "general": "General",
+      "terminal": "Terminal",
+      "serial": "Serial",
+      "ssh": "SSH",
+      "mcp": "MCP",
+      "language": "Language",
+      "theme": "Theme",
+      "fontSize": "Font Size",
+      "fontFamily": "Font",
+      "save": "Save",
+      "cancel": "Cancel",
+      "enabled": "Enabled",
+      "port": "Port",
+      "authPassword": "Auth Password",
+      "listenAddress": "Listen Address"
+    },
+    "mcp": {
+      "title": "MCP Server",
+      "status": "Status",
+      "running": "Running",
+      "stopped": "Stopped",
+      "start": "Start",
+      "stop": "Stop",
+      "tools": "Tools",
+      "resources": "Resources",
+      "notifications": "Notifications",
+      "port": "Port",
+      "authEnabled": "Auth Enabled"
+    },
+    "share": {
+      "title": "Connection Share",
+      "create": "Create Share",
+      "stop": "Stop Share",
+      "port": "Port",
+      "password": "Password (optional)",
+      "status": "Share Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    }
+  },
+  "terminal": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting...",
+    "reconnecting": "Reconnecting...",
+    "error": "Error",
+    "baudRate": "Baud Rate",
+    "bytesSent": "Sent",
+    "bytesReceived": "Received",
+    "duration": "Duration"
+  },
+  "statusBar": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "mcpRunning": "MCP:Running",
+    "mcpStopped": "MCP:Stopped"
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  }
+}

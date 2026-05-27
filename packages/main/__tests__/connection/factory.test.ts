@@ -67,7 +67,7 @@ vi.mock('net', async (importOriginal) => {
 });
 
 // ====== Now import the factory ======
-import { ConnectionFactory } from '../../src/connection/factory.ts';
+import { ConnectionFactory } from '../../src/services/connection/factory.ts';
 import { ConnectionType, ConnectionState, type IConnection } from '@qserial/shared';
 
 describe('ConnectionFactory', () => {

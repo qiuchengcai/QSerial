@@ -13,6 +13,7 @@ import { initNfsListeners } from './stores/nfs';
 import { initFtpListeners } from './stores/ftp';
 import { initMcpListeners } from './stores/mcp';
 import { useMcpStore } from './stores/mcp';
+import i18n from './i18n';
 
 export const App: React.FC = () => {
   const { initialize: initConfig, config } = useConfigStore();
@@ -124,5 +125,12 @@ export const App: React.FC = () => {
     root.style.transition = 'background-color 150ms ease, color 150ms ease, border-color 150ms ease';
   }, [currentTheme, config.terminal.fontFamily]);
 
+
+  // 璇█鍒囨崲
+  React.useEffect(() => {
+    if (config.app?.language) {
+      i18n.changeLanguage(config.app.language);
+    }
+  }, [config.app?.language]);
   return <Layout />;
 };

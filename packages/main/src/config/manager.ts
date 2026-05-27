@@ -20,6 +20,7 @@ class ConfigManagerImpl {
   private initialized = false;
 
   constructor() {
+    app.setName('QSerial');
     this.configPath = path.join(app.getPath('userData'), 'config.json');
     this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   }

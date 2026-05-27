@@ -26,7 +26,7 @@ vi.mock("electron", () => ({
   app: { getPath: vi.fn(() => "/tmp"), commandLine: { appendSwitch: vi.fn() } },
 }));
 
-import { ConnectionFactory } from "../../src/connection/factory.ts";
+import { ConnectionFactory } from "../../src/services/connection/factory.ts";
 import { ConnectionType } from "@qserial/shared";
 
 describe("MCP Tool Helpers", () => {

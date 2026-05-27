@@ -19,11 +19,11 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // 通用 process.dlopen 补丁：拦截所有 .node 文件加载，网络驱动器场景下自动复制到本地临时目录
-import { ensureNativePatch } from './connection/native-patch.js';
+import { ensureNativePatch } from './services/connection/native-patch.js';
 ensureNativePatch();
 
 // ESM imports 已执行完毕，node-pty 模块已加载。
-import { ensurePtyPatch } from './connection/pty-patch.js';
+import { ensurePtyPatch } from './services/connection/pty-patch.js';
 ensurePtyPatch();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -117,7 +117,7 @@ function createWindow(): void {
   mainWindow.webContents.on('did-start-loading', async () => {
     console.log('Renderer reloading, cleaning up connections...');
     try {
-      const { ConnectionFactory } = await import('./connection/factory.js');
+      const { ConnectionFactory } = await import('./services/connection/factory.js');
       await ConnectionFactory.destroyAll();
     } catch (error) {
       console.error('Error cleaning up connections:', error);
@@ -218,12 +218,12 @@ async function initBackgroundServices(): Promise<void> {
     console.log('IPC handlers setup');
 
     // ConnectionFactory 现在是轻量的（内部动态 import）
-    const { ConnectionFactory } = await import('./connection/factory.js');
+    const { ConnectionFactory } = await import('./services/connection/factory.js');
     ConnectionFactory.initialize();
     console.log('ConnectionFactory initialized');
 
     // NFS manager 延迟加载
-    const { initNfsManager } = await import('./nfs/manager.js');
+    const { initNfsManager } = await import('./services/nfs/manager.js');
     initNfsManager();
     console.log('NFS manager initialized');
 
@@ -231,9 +231,9 @@ async function initBackgroundServices(): Promise<void> {
     const mcpConfig = ConfigManager.get('mcp');
     if (mcpConfig?.enabled) {
       try {
-        const { startMcpServer } = await import('./mcp/manager.js');
+        const { startMcpServer } = await import('./services/mcp/manager.js');
         const port = mcpConfig.port || 9800;
-        const listenAddress = mcpConfig.listenAddress || '0.0.0.0';
+        const listenAddress = mcpConfig.listenAddress || '127.0.0.1';
         const authPassword = mcpConfig.authPassword || '';
         await startMcpServer(port, listenAddress, authPassword);
         ConfigManager.set('mcp', { enabled: true, port, listenAddress, authPassword });
@@ -260,20 +260,20 @@ app.on('window-all-closed', () => {
 // 应用退出前清理 - 使用动态 import 避免启动时加载
 app.on('before-quit', () => {
   // NFS 清理（同步，确保 WinNFSd 进程终止）
-  import('./nfs/manager.js').then(m => m.destroyNfsManager()).catch(() => {});
+  import('./services/nfs/manager.js').then(m => m.destroyNfsManager()).catch(() => {});
   // TFTP 清理
-  import('./tftp/manager.js').then(m => m.destroyTftpManager()).catch(() => {});
+  import('./services/tftp/manager.js').then(m => m.destroyTftpManager()).catch(() => {});
   // FTP 清理
-  import('./ftp/manager.js').then(m => m.destroyFtpManager()).catch(() => {});
+  import('./services/ftp/manager.js').then(m => m.destroyFtpManager()).catch(() => {});
 });
 
 app.on('before-quit', async () => {
-  await import('./mcp/manager.js').then(m => m.destroyMcpManager()).catch(() => {});
+  await import('./services/mcp/manager.js').then(m => m.destroyMcpManager()).catch(() => {});
 });
 
 app.on('before-quit', async () => {
   try {
-    const { ConnectionFactory } = await import('./connection/factory.js');
+    const { ConnectionFactory } = await import('./services/connection/factory.js');
     await ConnectionFactory.destroyAll();
   } catch (error) {
     console.error('Error cleaning up connections:', error);

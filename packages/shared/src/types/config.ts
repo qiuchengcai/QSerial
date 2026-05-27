@@ -91,6 +91,7 @@ export interface McpSettings {
   port: number;
   listenAddress: string;
   authPassword: string;
+  corsOrigins: string[];
 }
 
 /**
@@ -165,6 +166,7 @@ export const DEFAULT_CONFIG: AppConfig = {
 	    port: 9800,
 	    listenAddress: '127.0.0.1',
 	    authPassword: '',
+    corsOrigins: [],
 	  },
   window: {
     width: 1200,

@@ -6,7 +6,7 @@
 import { app, ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@qserial/shared';
 import type { IConnection } from '@qserial/shared';
-import { ConnectionFactory } from '../connection/factory.js';
+import { ConnectionFactory } from '../services/connection/factory.js';
 import { ConfigManager } from '../config/manager.js';
 import { getLocalIp } from '../utils/network.js';
 import { bufferToBase64 } from '@qserial/shared';
@@ -15,18 +15,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // 延迟加载重型模块的辅助函数
-let _SerialConnection: typeof import('../connection/serial.js').SerialConnection | null = null;
+let _SerialConnection: typeof import('../services/connection/serial.js').SerialConnection | null = null;
 async function getSerialConnection() {
   if (!_SerialConnection) {
-    _SerialConnection = (await import('../connection/serial.js')).SerialConnection;
+    _SerialConnection = (await import('../services/connection/serial.js')).SerialConnection;
   }
   return _SerialConnection;
 }
 
-let _ConnectionServerConnection: typeof import('../connection/connectionServer.js').ConnectionServerConnection | null = null;
+let _ConnectionServerConnection: typeof import('../services/connection/connectionServer.js').ConnectionServerConnection | null = null;
 async function getConnectionServerConnection() {
   if (!_ConnectionServerConnection) {
-    _ConnectionServerConnection = (await import('../connection/connectionServer.js')).ConnectionServerConnection;
+    _ConnectionServerConnection = (await import('../services/connection/connectionServer.js')).ConnectionServerConnection;
   }
   return _ConnectionServerConnection;
 }
@@ -73,11 +73,11 @@ export function setupIpcHandlers(): void {
 
 function setupMainWindowRefs(): void {
   // 使用动态 import 避免启动时加载
-  import('../tftp/manager.js').then(m => m.setTftpMainWindow(mainWindow)).catch(() => {});
-  import('../nfs/manager.js').then(m => m.setNfsMainWindow(mainWindow)).catch(() => {});
-  import('../ftp/manager.js').then(m => m.setFtpMainWindow(mainWindow)).catch(() => {});
-  import('../mcp/manager.js').then(m => m.setMcpMainWindow(mainWindow)).catch(() => {});
-  import('../sftp/manager.js').then(m => m.setSftpMainWindow(mainWindow)).catch(() => {});
+  import('../services/tftp/manager.js').then(m => m.setTftpMainWindow(mainWindow)).catch(() => {});
+  import('../services/nfs/manager.js').then(m => m.setNfsMainWindow(mainWindow)).catch(() => {});
+  import('../services/ftp/manager.js').then(m => m.setFtpMainWindow(mainWindow)).catch(() => {});
+  import('../services/mcp/manager.js').then(m => m.setMcpMainWindow(mainWindow)).catch(() => {});
+  import('../services/sftp/manager.js').then(m => m.setSftpMainWindow(mainWindow)).catch(() => {});
 }
 
 /**
@@ -236,17 +236,17 @@ function setupAppHandlers(): void {
  */
 function setupTftpHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.TFTP_START, async (_, { port, rootDir }) => {
-    const { startTftpServer } = await import('../tftp/manager.js');
+    const { startTftpServer } = await import('../services/tftp/manager.js');
     startTftpServer(port, rootDir);
   });
 
   ipcMain.handle(IPC_CHANNELS.TFTP_STOP, async () => {
-    const { stopTftpServer } = await import('../tftp/manager.js');
+    const { stopTftpServer } = await import('../services/tftp/manager.js');
     stopTftpServer();
   });
 
   ipcMain.handle(IPC_CHANNELS.TFTP_GET_STATUS, async () => {
-    const { getTftpStatus } = await import('../tftp/manager.js');
+    const { getTftpStatus } = await import('../services/tftp/manager.js');
     return getTftpStatus();
   });
 
@@ -269,17 +269,17 @@ function setupDialogHandlers(): void {
  */
 function setupNfsHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.NFS_START, async (_, { exportDir, allowedClients, options }) => {
-    const { startNfsServer } = await import('../nfs/manager.js');
+    const { startNfsServer } = await import('../services/nfs/manager.js');
     await startNfsServer(exportDir, allowedClients, options);
   });
 
   ipcMain.handle(IPC_CHANNELS.NFS_STOP, async () => {
-    const { stopNfsServer } = await import('../nfs/manager.js');
+    const { stopNfsServer } = await import('../services/nfs/manager.js');
     stopNfsServer();
   });
 
   ipcMain.handle(IPC_CHANNELS.NFS_GET_STATUS, async () => {
-    const { getNfsStatus } = await import('../nfs/manager.js');
+    const { getNfsStatus } = await import('../services/nfs/manager.js');
     return getNfsStatus();
   });
 
@@ -288,7 +288,7 @@ function setupNfsHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.NFS_GET_MOUNT_HINT, async () => {
-    const { getMountHint } = await import('../nfs/manager.js');
+    const { getMountHint } = await import('../services/nfs/manager.js');
     return getMountHint();
   });
 }
@@ -298,17 +298,17 @@ function setupNfsHandlers(): void {
  */
 function setupFtpHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.FTP_START, async (_, { port, rootDir, username, password }) => {
-    const { startFtpServer } = await import('../ftp/manager.js');
+    const { startFtpServer } = await import('../services/ftp/manager.js');
     await startFtpServer(port, rootDir, username, password);
   });
 
   ipcMain.handle(IPC_CHANNELS.FTP_STOP, async () => {
-    const { stopFtpServer } = await import('../ftp/manager.js');
+    const { stopFtpServer } = await import('../services/ftp/manager.js');
     await stopFtpServer();
   });
 
   ipcMain.handle(IPC_CHANNELS.FTP_GET_STATUS, async () => {
-    const { getFtpStatus } = await import('../ftp/manager.js');
+    const { getFtpStatus } = await import('../services/ftp/manager.js');
     return getFtpStatus();
   });
 
@@ -317,7 +317,7 @@ function setupFtpHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.FTP_GET_CLIENTS, async () => {
-    const { getFtpClients } = await import('../ftp/manager.js');
+    const { getFtpClients } = await import('../services/ftp/manager.js');
     return getFtpClients();
   });
 }
@@ -540,7 +540,7 @@ function setupConnectionServerHandlers(): void {
  */
 function setupMcpHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port, listenAddress, authPassword, autoStart }) => {
-    const { startMcpServer } = await import('../mcp/manager.js');
+    const { startMcpServer } = await import('../services/mcp/manager.js');
     await startMcpServer(port, listenAddress, authPassword);
     if (autoStart) {
       ConfigManager.set('mcp', {
@@ -552,7 +552,7 @@ function setupMcpHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_STOP, async (_, { autoStart }) => {
-    const { stopMcpServer } = await import('../mcp/manager.js');
+    const { stopMcpServer } = await import('../services/mcp/manager.js');
     await stopMcpServer();
     if (autoStart === false) {
       const mcpConfig = ConfigManager.get('mcp');
@@ -561,7 +561,7 @@ function setupMcpHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_GET_STATUS, async () => {
-    const { getMcpStatus } = await import('../mcp/manager.js');
+    const { getMcpStatus } = await import('../services/mcp/manager.js');
     return getMcpStatus();
   });
 }
@@ -572,67 +572,67 @@ function setupMcpHandlers(): void {
  */
 function setupSftpHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SFTP_CREATE, async (_, { connectionId }) => {
-    const { createSftp } = await import('../sftp/manager.js');
+    const { createSftp } = await import('../services/sftp/manager.js');
     return createSftp(connectionId).then((sftpId: string) => ({ sftpId }));
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_DESTROY, async (_, { sftpId }) => {
-    const { destroySftp } = await import('../sftp/manager.js');
+    const { destroySftp } = await import('../services/sftp/manager.js');
     return destroySftp(sftpId);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_LIST, async (_, { sftpId, path }) => {
-    const { listDirectory } = await import('../sftp/manager.js');
+    const { listDirectory } = await import('../services/sftp/manager.js');
     return listDirectory(sftpId, path);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_DOWNLOAD, async (_, { sftpId, remotePath, localPath }) => {
-    const { downloadFile } = await import('../sftp/manager.js');
+    const { downloadFile } = await import('../services/sftp/manager.js');
     return downloadFile(sftpId, remotePath, localPath);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_UPLOAD, async (_, { sftpId, localPath, remotePath }) => {
-    const { uploadFile } = await import('../sftp/manager.js');
+    const { uploadFile } = await import('../services/sftp/manager.js');
     return uploadFile(sftpId, localPath, remotePath);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_MKDIR, async (_, { sftpId, path }) => {
-    const { mkdir } = await import('../sftp/manager.js');
+    const { mkdir } = await import('../services/sftp/manager.js');
     return mkdir(sftpId, path);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_RMDIR, async (_, { sftpId, path }) => {
-    const { rmdir } = await import('../sftp/manager.js');
+    const { rmdir } = await import('../services/sftp/manager.js');
     return rmdir(sftpId, path);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_RM, async (_, { sftpId, path }) => {
-    const { rm } = await import('../sftp/manager.js');
+    const { rm } = await import('../services/sftp/manager.js');
     return rm(sftpId, path);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_RENAME, async (_, { sftpId, oldPath, newPath }) => {
-    const { rename } = await import('../sftp/manager.js');
+    const { rename } = await import('../services/sftp/manager.js');
     return rename(sftpId, oldPath, newPath);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_STAT, async (_, { sftpId, path }) => {
-    const { stat } = await import('../sftp/manager.js');
+    const { stat } = await import('../services/sftp/manager.js');
     return stat(sftpId, path);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_READLINK, async (_, { sftpId, path }) => {
-    const { readlink } = await import('../sftp/manager.js');
+    const { readlink } = await import('../services/sftp/manager.js');
     return readlink(sftpId, path);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_SYMLINK, async (_, { sftpId, target, path }) => {
-    const { symlink } = await import('../sftp/manager.js');
+    const { symlink } = await import('../services/sftp/manager.js');
     return symlink(sftpId, target, path);
   });
 
   ipcMain.handle(IPC_CHANNELS.SFTP_REALPATH, async (_, { sftpId, path }) => {
-    const { realpath } = await import('../sftp/manager.js');
+    const { realpath } = await import('../services/sftp/manager.js');
     return realpath(sftpId, path);
   });
 

@@ -77,6 +77,8 @@ export interface SshConnectionOptions extends BaseConnectionOptions {
   keepaliveInterval?: number;
   /** 是否验证 SSH 主机密钥，默认 true */
   verifyHostKey?: boolean;
+  /** SSH jump host (bastion) */
+  jumpHost?: { host: string; port?: number; username: string; password?: string; privateKey?: string };
 }
 
 /**
