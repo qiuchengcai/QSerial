@@ -1,0 +1,102 @@
+﻿[
+  {
+    "name": "ESP32-DevKit-V1",
+    "category": "microcontroller",
+    "manufacturer": "Espressif",
+    "interfaces": ["serial"],
+    "default_baud": 115200,
+    "probe_patterns": ["ESP32", "esp32", "waiting for download"],
+    "at_commands": true,
+    "common_scripts": ["wifi_connect", "ota_update", "deep_sleep"],
+    "known_issues": ["GPIO12 boot fail if pulled high"],
+    "pinout": "https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-devkitc.html"
+  },
+  {
+    "name": "ESP8266-NodeMCU",
+    "category": "microcontroller",
+    "manufacturer": "Espressif",
+    "interfaces": ["serial"],
+    "default_baud": 115200,
+    "probe_patterns": ["ESP8266", "Ai-Thinker", "NodeMCU"],
+    "at_commands": true,
+    "common_scripts": ["wifi_connect", "deep_sleep"],
+    "known_issues": ["Baud rate may be 74880 on boot", "Limited GPIO"],
+    "pinout": "https://github.com/nodemcu/nodemcu-devkit-v1.0"
+  },
+  {
+    "name": "STM32F4-Discovery",
+    "category": "microcontroller",
+    "manufacturer": "STMicroelectronics",
+    "interfaces": ["serial", "swd"],
+    "default_baud": 115200,
+    "probe_patterns": ["STM32", "STMicroelectronics", "U-Boot SPL"],
+    "at_commands": false,
+    "common_scripts": ["flash_firmware", "uboot_recovery"],
+    "known_issues": ["ST-Link v2 required for debugging"],
+    "pinout": "https://www.st.com/en/evaluation-tools/stm32f4discovery.html"
+  },
+  {
+    "name": "Raspberry-Pi-4",
+    "category": "single-board-computer",
+    "manufacturer": "Raspberry Pi Foundation",
+    "interfaces": ["serial", "ssh"],
+    "default_baud": 115200,
+    "probe_patterns": ["Raspberry Pi", "raspberrypi", "Debian", "Raspbian", "kernel"],
+    "at_commands": false,
+    "default_ssh_port": 22,
+    "default_user": "pi",
+    "common_scripts": ["system_diag", "network_config", "gpio_test"],
+    "known_issues": ["Serial console disabled by default on some images"],
+    "pinout": "https://pinout.xyz/"
+  },
+  {
+    "name": "Arduino-Uno",
+    "category": "microcontroller",
+    "manufacturer": "Arduino",
+    "interfaces": ["serial"],
+    "default_baud": 9600,
+    "probe_patterns": ["Arduino", "avrdude"],
+    "at_commands": false,
+    "common_scripts": ["flash_sketch", "serial_monitor"],
+    "known_issues": ["Auto-reset on serial connect"],
+    "pinout": "https://docs.arduino.cc/hardware/uno-rev3"
+  },
+  {
+    "name": "Cisco-ISR-4321",
+    "category": "network",
+    "manufacturer": "Cisco",
+    "interfaces": ["serial", "ssh", "telnet"],
+    "default_baud": 9600,
+    "probe_patterns": ["Cisco IOS", "Cisco IOS XE", "Router>", "Router#", "Switch>"],
+    "at_commands": false,
+    "default_ssh_port": 22,
+    "common_scripts": ["basic_config", "vlan_setup", "acl_config", "show_diag"],
+    "known_issues": ["Console baud rate may be changed from default"],
+    "config_guide": "https://www.cisco.com/c/en/us/support/routers/4000-series-integrated-services-routers"
+  },
+  {
+    "name": "Ubiquiti-EdgeRouter-X",
+    "category": "network",
+    "manufacturer": "Ubiquiti",
+    "interfaces": ["serial", "ssh"],
+    "default_baud": 115200,
+    "probe_patterns": ["EdgeOS", "EdgeRouter", "Vyatta", "login:"],
+    "at_commands": false,
+    "default_ssh_port": 22,
+    "default_user": "ubnt",
+    "common_scripts": ["basic_config", "firewall_setup", "vlan_setup"],
+    "known_issues": ["Console port is RJ45-to-USB serial"],
+    "config_guide": "https://help.ui.com/hc/en-us/categories/4422640661399"
+  },
+  {
+    "name": "ZTE-MF286",
+    "category": "modem",
+    "manufacturer": "ZTE",
+    "interfaces": ["serial"],
+    "default_baud": 115200,
+    "probe_patterns": ["ZTE", "MF286", "AT", "OK"],
+    "at_commands": true,
+    "common_scripts": ["at_diag", "network_info", "cell_lock"],
+    "known_issues": ["May require specific AT command set", "Some ports locked by firmware"]
+  }
+]

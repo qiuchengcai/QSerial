@@ -1,0 +1,33 @@
+﻿{
+  "name": "community-espat",
+  "version": "1.0.0",
+  "description": "ESP32/ESP8266 AT command set reference and automation prompts",
+  "contributes": {
+    "resources": [
+      {
+        "uri": "qserial://docs/espat/commands",
+        "name": "ESP-AT Commands",
+        "description": "Complete ESP32/ESP8266 AT command reference",
+        "mimeType": "text/markdown"
+      }
+    ],
+    "prompts": [
+      {
+        "name": "espat-wifi",
+        "description": "ESP-AT WiFi connection and configuration workflow",
+        "arguments": [
+          { "name": "ssid", "description": "WiFi SSID", "required": true },
+          { "name": "password", "description": "WiFi password", "required": true }
+        ]
+      },
+      {
+        "name": "espat-tcp",
+        "description": "ESP-AT TCP client connection and data send workflow",
+        "arguments": [
+          { "name": "host", "description": "Remote host IP", "required": true },
+          { "name": "port", "description": "Remote port", "required": true }
+        ]
+      }
+    ]
+  }
+}

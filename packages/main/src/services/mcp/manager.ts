@@ -19,6 +19,8 @@ import { formatOk, formatError, extractPrompt, stripEcho, stripPrompt, historyLo
 import { MCP_RESOURCES, readResource, setResourcesWindow } from './resources.js';
 import { sseClients, sendMCPNotification } from './notifications.js';
 import { drainSampling, resolveSampling, requestSampling } from './sampling.js';
+import { MCP_PROMPTS, getPrompt } from './prompts.js';
+import { loadPlugins, getPluginResources, readPluginResource, getPluginPrompts, getPluginPrompt } from './plugin-loader.js';
 import {
   IPC_CHANNELS,
   ConnectionState,
@@ -1834,6 +1836,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
   }
   mcpListenAddress = listenAddress || '127.0.0.1';
   ConnectionFactory.onDestroy((conn) => removeBuffer(conn.id));
+  loadPlugins();
 
   const httpServer = http.createServer(async (req, res) => {
     const corsOrigin = mcpCorsOrigins.length > 0
@@ -1882,7 +1885,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
           const { id: reqId, method, params } = rpcData;
           if (method === "initialize") {
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {}, sampling: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {}, sampling: {}, prompts: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
             return;
           }
           if (method === "notifications/initialized") { res.writeHead(202); res.end(); return; }
@@ -1905,21 +1908,49 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
           }
                     if (method === "resources/list") {
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { resources: MCP_RESOURCES } }));
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { resources: [...MCP_RESOURCES, ...getPluginResources()] } }));
             return;
           }
           if (method === "resources/read") {
             try {
               const rUri = (params as { uri: string }).uri;
               if (!rUri) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32602, message: "Missing uri" } })); return; }
-              const result = await readResource(rUri);
-              if (!result) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32002, message: "Resource not found: " + rUri } })); return; }
+              let result = await readResource(rUri);
+              if (!result) { const pluginRes = readPluginResource(rUri); if (pluginRes) { result = { contents: [{ uri: rUri, mimeType: pluginRes.mimeType, text: pluginRes.text }] }; } } if (!result) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32002, message: "Resource not found: " + rUri } })); return; }
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result }));
             } catch (e) { const err = e as Error; res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32603, message: err.message } })); }
             return;
           }
           if (method === "sampling/response") { const sr = (params as Record<string,string>); if (sr.samplingId && sr.choice) resolveSampling(sr.samplingId, sr.choice); res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { acknowledged: true } })); return; }
+          
+          if (method === "prompts/list") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { prompts: [...MCP_PROMPTS, ...getPluginPrompts()] } }));
+            return;
+          }
+          if (method === "prompts/get") {
+            const { name, arguments: promptArgs } = (params as { name: string; arguments?: Record<string, string> });
+            let result = getPrompt(name, promptArgs || {});
+            if (!result) { const pluginContent = getPluginPrompt(name); if (pluginContent) { result = { messages: [{ role: "user", content: { type: "text", text: pluginContent } }] }; } } if (!result) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32002, message: "Prompt not found: " + name } })); return; }
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result }));
+            return;
+          }
+          
+          if (method === "prompts/list") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { prompts: [...MCP_PROMPTS, ...getPluginPrompts()] } }));
+            return;
+          }
+          if (method === "prompts/get") {
+            const { name, arguments: promptArgs } = (params as { name: string; arguments?: Record<string, string> });
+            let result = getPrompt(name, promptArgs || {});
+            if (!result) { const pluginContent = getPluginPrompt(name); if (pluginContent) { result = { messages: [{ role: "user", content: { type: "text", text: pluginContent } }] }; } } if (!result) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32002, message: "Prompt not found: " + name } })); return; }
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result }));
+            return;
+          }
           if (method === "ping") { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: {} })); return; }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32601, message: "unknown method: " + method } }));
@@ -1942,7 +1973,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
           const { id: reqId, method, params } = rpcData;
           if (method === "initialize") {
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {}, sampling: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {}, sampling: {}, prompts: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
             return;
           }
           if (method === "notifications/initialized") { res.writeHead(202); res.end(); return; }
@@ -1965,15 +1996,15 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
           }
                     if (method === "resources/list") {
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { resources: MCP_RESOURCES } }));
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { resources: [...MCP_RESOURCES, ...getPluginResources()] } }));
             return;
           }
           if (method === "resources/read") {
             try {
               const rUri = (params as { uri: string }).uri;
               if (!rUri) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32602, message: "Missing uri" } })); return; }
-              const result = await readResource(rUri);
-              if (!result) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32002, message: "Resource not found: " + rUri } })); return; }
+              let result = await readResource(rUri);
+              if (!result) { const pluginRes = readPluginResource(rUri); if (pluginRes) { result = { contents: [{ uri: rUri, mimeType: pluginRes.mimeType, text: pluginRes.text }] }; } } if (!result) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32002, message: "Resource not found: " + rUri } })); return; }
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result }));
             } catch (e) { const err = e as Error; res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32603, message: err.message } })); }
