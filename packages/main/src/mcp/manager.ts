@@ -1606,7 +1606,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
             try {
               const text = await executeTool(params.name, params.arguments || {});
               res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: text.startsWith("error:") } }));
+              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: false } }));
             } catch (e) {
               const error = e as Error;
               res.writeHead(200, { "Content-Type": "application/json" });
@@ -1649,7 +1649,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
             try {
               const text = await executeTool(params.name, params.arguments || {});
               res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: text.startsWith("error:") } }));
+              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: false } }));
             } catch (e) {
               const error = e as Error;
               res.writeHead(200, { "Content-Type": "application/json" });
