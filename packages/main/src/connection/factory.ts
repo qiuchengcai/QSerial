@@ -45,11 +45,7 @@ class ConnectionFactoryImpl {
         connection = new TelnetConnection(options);
         break;
       }
-      case 'serial_server': {
-        const { SerialServerConnection } = await import('./serialServer.js');
-        connection = new SerialServerConnection(options);
-        break;
-      }
+      // serial_server deprecated, use connection_server
       case 'connection_server': {
         const { ConnectionServerConnection } = await import('./connectionServer.js');
         connection = new ConnectionServerConnection(options);

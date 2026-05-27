@@ -24,7 +24,7 @@
   "devDependencies": {
     "@types/ssh2": "^1.15.5",
     "@types/uuid": "^9.0.7",
-    "electron": "^28.2.0",
+    "electron": "^35.7.5",
     "esbuild": "^0.20.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.3.3"

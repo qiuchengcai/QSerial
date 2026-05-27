@@ -281,10 +281,7 @@ app.on('before-quit', async () => {
 });
 
 // 监控 GPU 进程和子进程崩溃
-app.on('gpu-process-crashed', (_event, killed) => {
-  crashLog(`[CRASH] GPU process crashed, killed: ${killed}`);
-});
 
-app.on('child-process-gone', (_event, details) => {
+app.on('child-process-gone' as any, (_event: any, details: any) => {
   crashLog(`[CRASH] Child process gone: ${JSON.stringify(details)}`);
 });
