@@ -176,28 +176,85 @@ app.whenReady().then(async () => {
   // 第三步：后台初始化其余模块（不阻塞 UI）
   initBackgroundServices();
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    {
-      label: app.name,
-      submenu: [
-        { role: 'toggleDevTools', accelerator: 'F12' },
-      ],
-    },
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload', accelerator: 'CmdOrCtrl+R' },
-        { role: 'forceReload', accelerator: 'CmdOrCtrl+Shift+R' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
-      ],
-    },
-  ]));
+  function buildAppMenu(lang: string) {
+    const t = (zh: string, en: string) => lang === 'en-US' ? en : zh;
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      {
+        label: t('文件(F)', '&File'),
+        submenu: [
+          { label: t('新建连接', 'New Connection'), accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('menu:new-connection') },
+          { type: 'separator' },
+          { label: t('设置', 'Settings'), accelerator: 'CmdOrCtrl+,', click: () => mainWindow?.webContents.send('menu:open-settings') },
+          { type: 'separator' },
+          { role: 'quit', label: t('退出', 'Quit') },
+        ],
+      },
+      {
+        label: t('编辑(E)', '&Edit'),
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
+      {
+        label: t('视图(V)', '&View'),
+        submenu: [
+          { role: 'reload', label: t('重新加载', 'Reload') },
+          { role: 'forceReload' },
+          { role: 'toggleDevTools' },
+          { type: 'separator' },
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { type: 'separator' },
+          { role: 'togglefullscreen' },
+        ],
+      },
+      {
+        label: t('连接(C)', '&Connection'),
+        submenu: [
+          { label: t('串口...', 'Serial...'), click: () => mainWindow?.webContents.send('menu:open-serial') },
+          { label: t('SSH...', 'SSH...'), click: () => mainWindow?.webContents.send('menu:open-ssh') },
+          { label: t('Telnet...', 'Telnet...'), click: () => mainWindow?.webContents.send('menu:open-telnet') },
+          { label: t('本地终端...', 'Local Terminal...'), click: () => mainWindow?.webContents.send('menu:open-pty') },
+          { type: 'separator' },
+          { label: t('断开连接', 'Disconnect'), accelerator: 'CmdOrCtrl+D', click: () => mainWindow?.webContents.send('menu:disconnect') },
+        ],
+      },
+      {
+        label: t('工具(T)', '&Tools'),
+        submenu: [
+          { label: 'TFTP', click: () => mainWindow?.webContents.send('menu:open-tftp') },
+          { label: 'NFS', click: () => mainWindow?.webContents.send('menu:open-nfs') },
+          { label: 'FTP', click: () => mainWindow?.webContents.send('menu:open-ftp') },
+          { label: 'MCP', click: () => mainWindow?.webContents.send('menu:open-mcp') },
+          { type: 'separator' },
+          { label: t('连接共享...', 'Connection Share...'), click: () => mainWindow?.webContents.send('menu:open-share') },
+        ],
+      },
+      {
+        label: t('帮助(H)', '&Help'),
+        submenu: [
+          { label: t('关于 QSerial', 'About QSerial'), click: () => mainWindow?.webContents.send('menu:about') },
+        ],
+      },
+    ]));
+  }
+
+  const lang = ConfigManager.get('app').language || 'zh-CN';
+  buildAppMenu(lang);
+  ConfigManager.onChange((key: string) => {
+    if (key === 'app.language') {
+      const newLang = ConfigManager.get('app').language || 'zh-CN';
+      buildAppMenu(newLang);
+    }
+  });
+
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

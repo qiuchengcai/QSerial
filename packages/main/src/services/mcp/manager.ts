@@ -18,6 +18,7 @@ import { xmodemSend } from './xmodem.js';
 import { formatOk, formatError, extractPrompt, stripEcho, stripPrompt, historyLog, appendHistory, parseAtResponse } from './ai-helpers.js';
 import { MCP_RESOURCES, readResource, setResourcesWindow } from './resources.js';
 import { sseClients, sendMCPNotification } from './notifications.js';
+import { drainSampling, resolveSampling, requestSampling } from './sampling.js';
 import {
   IPC_CHANNELS,
   ConnectionState,
@@ -35,6 +36,7 @@ let mcpCorsOrigins: string[] = [];
 
 // 共享桥接池：shareId → { sourceId, serverId }
 const sharePool = new Map<string, { sourceId: string; serverId: string }>();
+const watches = new Map<string, () => void>();
 
 // 简易令牌桶限流：每秒最多 30 个请求，突发最多 50
 // Rate limiting removed (handled by McpServer)
@@ -388,6 +390,54 @@ const MCP_TOOLS = [
         stop_on_error: { type: "boolean", description: "Stop on first error, default true", default: true },
       },
       required: ["steps"],
+    },
+  },
+  {
+    name: 'connection_probe',
+    description: 'Auto-detect device type by sending probe commands and analyzing response patterns.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+        timeout_ms: { type: 'integer', description: 'Per-probe timeout ms, default 3000', default: 3000 },
+      },
+    },
+  },
+  {
+    name: 'connection_watch',
+    description: 'Monitor a connection for patterns and send notifications on match.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+        rules: { type: 'array', description: 'Array of {pattern, regex?, level?}' },
+        duration_ms: { type: 'integer', description: 'Watch duration ms (0=indefinite), default 60000', default: 60000 },
+      },
+      required: ['rules'],
+    },
+  },
+  {
+    name: 'connection_unwatch',
+    description: 'Stop a running watch by watch_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        watch_id: { type: 'string', description: 'Watch ID from connection_watch' },
+      },
+      required: ['watch_id'],
+    },
+  },
+  {
+    name: 'connection_summarize',
+    description: 'Generate structured session summary: duration, commands, bytes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+      },
     },
   },
 ];
@@ -1286,6 +1336,16 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         // 步骤 1: 等待登录提示
         const loginResult = await waitPattern(id, loginPrompt, timeout, true);
         if (!loginResult.matched) {
+          try {
+            const lctx = loginResult.output.slice(-500);
+            const lchoice = await requestSampling(
+              'Login prompt not matched on device',
+              'Device output: ' + lctx + ' | Pattern: ' + loginPrompt,
+              ['retry', 'send_anyway', 'abort'], 15000
+            );
+            if (lchoice === 'retry') return formatError('SAMPLING_RETRY', 'AI suggests retry. Output: ' + lctx);
+            if (lchoice === 'abort') return formatError('SAMPLING_ABORT', 'AI aborted login');
+          } catch { /* sampling timeout */ }
           if (debug) {
             return [
               ...steps,
@@ -1647,11 +1707,108 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           await waitForAnyPattern(rsid, pats, Math.ceil(timeout / 1000));
           const output = consumeBuffer(rsid).toString('utf-8');
           if (output) appendHistory(rsid, 'recv', output);
+          const xp: string = (step.expect as string) || '';
+          const isOk = !xp || output.includes(xp);
+          if (!isOk && xp) {
+            try {
+              const schoice = await requestSampling(
+                'Script step ' + (i+1) + ' failed: expected "' + xp + '" not found',
+                'Command: ' + String(step.send || '') + ' | Output: ' + output.slice(0, 400),
+                ['retry', 'skip', 'abort'], 15000
+              );
+              if (schoice === 'retry') { i--; continue; }
+              if (schoice === 'abort') return formatError('SCRIPT_ABORTED', 'AI aborted at step ' + (i+1));
+            } catch { /* sampling timeout */ }
+            results.push({ step: i, description: (step.description as string) || ('step ' + (i + 1)), ok: false, output: output.slice(0, 2000), duration_ms: Date.now() - t1, error: 'expect not matched' });
+            continue;
+          }
           results.push({ step: i, description: (step.description as string) || ('step ' + (i + 1)), ok: true, output: output.slice(0, 2000), duration_ms: Date.now() - t1 });
         }
         return formatOk({ completed: results.length, total: steps.length, success: true, results });
       }
 
+
+      case 'connection_probe': {
+        const probeId = resolveId(args);
+        if (!probeId) return formatError('MISSING_PARAM', 'missing id');
+        const probeConn = ConnectionFactory.get(probeId);
+        if (!probeConn) return formatError('CONN_NOT_FOUND', 'connection not found');
+        if (probeConn.state !== ConnectionState.CONNECTED) return formatError('CONN_NOT_CONNECTED', 'not connected');
+        const knownDevices = [
+          { name: 'ESP32/ESP8266', patterns: ['ESP32', 'ESP8266', 'AT version', 'ready'], baud_hint: 115200 },
+          { name: 'STM32', patterns: ['STM32', 'STMicroelectronics', 'U-Boot SPL'], baud_hint: 115200 },
+          { name: 'Raspberry Pi', patterns: ['Raspberry Pi', 'raspberrypi', 'Debian', 'Raspbian'], baud_hint: 115200 },
+          { name: 'U-Boot', patterns: ['U-Boot', 'Hit any key', 'Loading from', 'Booting'], baud_hint: 115200 },
+          { name: 'Linux', patterns: ['login:', 'Password:', 'Debian', 'Ubuntu', 'CentOS', 'kernel'], baud_hint: 115200 },
+          { name: 'Cisco IOS', patterns: ['Cisco IOS', 'Router>', 'Switch>', 'enable'], baud_hint: 9600 },
+          { name: 'Arduino', patterns: ['Arduino', 'avrdude'], baud_hint: 9600 },
+          { name: 'BusyBox', patterns: ['BusyBox', '/ #', '# '], baud_hint: 115200 },
+        ];
+        ensureBuffer(probeId); clearBuffer(probeId);
+        probeConn.write(Buffer.from('AT\n', 'utf-8'));
+        appendHistory(probeId, 'send', 'AT\n');
+        await sleep(3000);
+        const probeOutput = consumeBuffer(probeId).toString('utf-8');
+        if (probeOutput) appendHistory(probeId, 'recv', probeOutput);
+        const matches = knownDevices.filter(d => d.patterns.some(p => probeOutput.includes(p)))
+          .map(d => ({ device: d.name, confidence: d.patterns.filter(p => probeOutput.includes(p)).length / d.patterns.length, baud_hint: d.baud_hint }));
+        matches.sort((a,b) => b.confidence - a.confidence);
+        return matches.length > 0 ? formatOk({ best_match: matches[0], all_matches: matches.slice(0, 3) })
+          : formatOk({ device: 'unknown', confidence: 0, output_sample: probeOutput.slice(0, 300) });
+      }
+
+      case 'connection_watch': {
+        const watchId = resolveId(args);
+        if (!watchId) return formatError('MISSING_PARAM', 'missing id');
+        const watchConn = ConnectionFactory.get(watchId);
+        if (!watchConn) return formatError('CONN_NOT_FOUND', 'connection not found');
+        const rules = (args.rules as any[]) || [];
+        if (!Array.isArray(rules) || rules.length === 0) return formatError('MISSING_PARAM', 'missing rules');
+        const duration = (args.duration_ms as number) || 60000;
+        const wid = 'watch_' + crypto.randomUUID().slice(0, 8);
+        const compiled = rules.map((r: any) => ({ pattern: r.pattern as string, isRegex: r.regex !== false, level: (r.level as string) || 'warning' }));
+        let stopped = false;
+        watches.set(wid, () => { stopped = true; });
+        (async () => {
+          const tStart = Date.now();
+          while (!stopped) {
+            if (duration > 0 && Date.now() - tStart > duration) break;
+            await sleep(2000);
+            if (stopped) break;
+            try {
+              const data = Buffer.concat(buffers.get(watchId) || []).toString('utf-8');
+              for (const r of compiled) {
+                if (r.isRegex ? new RegExp(r.pattern, 'i').test(data) : data.includes(r.pattern)) {
+                  sendMCPNotification('connection/data_alert', { id: watchId, pattern: r.pattern, level: r.level, watch_id: wid, context: data.slice(-200) });
+                }
+              }
+            } catch { break; }
+          }
+          watches.delete(wid);
+        })().catch(() => {});
+        return formatOk({ watch_id: wid, rules_count: compiled.length, duration_ms: duration });
+      }
+
+      case 'connection_unwatch': {
+        const wid = args.watch_id as string;
+        if (!wid) return formatError('MISSING_PARAM', 'missing watch_id');
+        const stopFn = watches.get(wid);
+        if (stopFn) { stopFn(); return formatOk({ stopped: wid }); }
+        return formatError('NOT_FOUND', 'watch not found: ' + wid);
+      }
+
+      case 'connection_summarize': {
+        const sumId = resolveId(args);
+        if (!sumId) return formatError('MISSING_PARAM', 'missing id');
+        const log = historyLog.get(sumId) || [];
+        const sendEntries = log.filter(e => e.dir === 'send');
+        const recvEntries = log.filter(e => e.dir === 'recv');
+        const totalSend = sendEntries.reduce((s, e) => s + e.data.length, 0);
+        const totalRecv = recvEntries.reduce((s, e) => s + e.data.length, 0);
+        const tFirst = log.length > 0 ? log[0].ts : 0;
+        const tLast = log.length > 0 ? log[log.length - 1].ts : 0;
+        return formatOk({ connection_id: sumId, duration_ms: tLast - tFirst, total_commands: sendEntries.length, total_bytes_sent: totalSend, total_bytes_received: totalRecv, history_entries: log.length });
+      }
       default:
         return formatError('UNSUPPORTED', 'unknown tool: ' + name);
     }
@@ -1725,7 +1882,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
           const { id: reqId, method, params } = rpcData;
           if (method === "initialize") {
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {}, sampling: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
             return;
           }
           if (method === "notifications/initialized") { res.writeHead(202); res.end(); return; }
@@ -1738,7 +1895,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
             try {
               const text = await executeTool(params.name, params.arguments || {});
               res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: false } }));
+              const sDrain = drainSampling(); const resp = { jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: false } }; if (sDrain) (resp as any).sampling = sDrain; res.end(JSON.stringify(resp));
             } catch (e) {
               const error = e as Error;
               res.writeHead(200, { "Content-Type": "application/json" });
@@ -1762,6 +1919,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
             } catch (e) { const err = e as Error; res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32603, message: err.message } })); }
             return;
           }
+          if (method === "sampling/response") { const sr = (params as Record<string,string>); if (sr.samplingId && sr.choice) resolveSampling(sr.samplingId, sr.choice); res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { acknowledged: true } })); return; }
           if (method === "ping") { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: {} })); return; }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32601, message: "unknown method: " + method } }));
@@ -1784,7 +1942,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
           const { id: reqId, method, params } = rpcData;
           if (method === "initialize") {
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2025-03-26", capabilities: { tools: {}, resources: {}, sampling: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
             return;
           }
           if (method === "notifications/initialized") { res.writeHead(202); res.end(); return; }
@@ -1797,7 +1955,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
             try {
               const text = await executeTool(params.name, params.arguments || {});
               res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: false } }));
+              const sDrain2 = drainSampling(); const resp2 = { jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: false } }; if (sDrain2) (resp2 as any).sampling = sDrain2; res.end(JSON.stringify(resp2));
             } catch (e) {
               const error = e as Error;
               res.writeHead(200, { "Content-Type": "application/json" });
@@ -1821,6 +1979,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
             } catch (e) { const err = e as Error; res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32603, message: err.message } })); }
             return;
           }
+          if (method === "sampling/response") { const sr = (params as Record<string,string>); if (sr.samplingId && sr.choice) resolveSampling(sr.samplingId, sr.choice); res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { acknowledged: true } })); return; }
           if (method === "ping") { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: {} })); return; }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32601, message: "unknown method: " + method } }));
@@ -1903,3 +2062,5 @@ function sendStatus(): void {
 export async function destroyMcpManager(): Promise<void> {
   await stopMcpServer();
 }
+  
+  
