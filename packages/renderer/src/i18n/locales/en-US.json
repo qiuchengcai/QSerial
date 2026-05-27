@@ -139,8 +139,11 @@
   "statusBar": {
     "connected": "Connected",
     "disconnected": "Disconnected",
-    "mcpRunning": "MCP:Running",
-    "mcpStopped": "MCP:Stopped"
+    "mcpRunning": "MCP server running - click to open",
+    "mcpStopped": "MCP:Stopped",
+    "tftpRunning": "TFTP server running - click to open",
+    "nfsRunning": "NFS server running - click to open",
+    "ftpRunning": "FTP server running - click to open"
   },
   "common": {
     "ok": "OK",
@@ -155,6 +158,12 @@
     "success": "Success",
     "confirm": "Confirm",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "duplicate": "Duplicate",
+    "moveUp": "Move Up",
+    "moveDown": "Move Down"
+  },
+  "sftp": {
+    "openBrowser": "Open SFTP file browser"
   }
 }

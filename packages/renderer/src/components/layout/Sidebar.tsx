@@ -1,8 +1,9 @@
 /**
- * 侧边栏组件 — 对齐设计稿："连接"/"服务" 标签切换 + 服务状态区
+ * 侧边栏组件 — 对齐设计稿：连接/服务 标签切换 + 服务状态区
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTerminalStore } from '@/stores/terminal';
 import { useSavedSessionsStore, type SavedSession } from '@/stores/sessions';
 import { useSidebarButtonsStore, type SidebarButtonType } from '@/stores/sidebarButtons';
@@ -327,7 +328,7 @@ export const Sidebar: React.FC = () => {
       {/* 连接内容 */}
       <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
           <div className="p-2.5 border-b border-border">
-            <h3 className="section-header">新建连接</h3>
+            <h3 className="section-header">{t("toolbar.newConnection")}</h3>
             <div className="flex flex-col gap-0.5">
               {connButtons.map((btn) => (
                 <button
@@ -346,7 +347,7 @@ export const Sidebar: React.FC = () => {
 
           {/* 保存的会话 */}
           <div className="flex-1 overflow-y-auto p-2.5">
-            <h3 className="section-header">已保存配置</h3>
+            <h3 className="section-header">{t("sidebar.savedSessions")}</h3>
             {savedSessions.length === 0 ? (
               <div className="text-xs text-text-secondary px-2 py-3 text-center opacity-60">暂无保存的配置</div>
             ) : (
@@ -386,7 +387,7 @@ export const Sidebar: React.FC = () => {
 
       {/* 底部服务状态区（始终可见） */}
       <div className="flex-shrink-0 border-t border-border p-2.5">
-        <h3 className="section-header">服务</h3>
+        <h3 className="section-header">{t("menu.tools")}</h3>
         <div className="flex flex-col gap-1">
           {[
             {
@@ -421,7 +422,7 @@ export const Sidebar: React.FC = () => {
                 <span className="text-[10px] text-success/60 font-mono bg-success/10 px-1.5 py-0.5 rounded">:{svc.port}</span>
               )}
               {!svc.running && (
-                <span className="text-[10px] text-text-secondary/30 opacity-0 group-hover:opacity-100 transition-opacity">{svc.label === 'MCP AI' ? '配置' : '启动'}</span>
+                <span className="text-[10px] text-text-secondary/30 opacity-0 group-hover:opacity-100 transition-opacity">{svc.label === 'MCP AI' ? t('common.edit') : t('dialogs.mcp.start')}</span>
               )}
             </div>
           ))}
@@ -443,14 +444,14 @@ export const Sidebar: React.FC = () => {
         <>
           <div className="fixed inset-0 z-40" onClick={closeContextMenu}/>
           <div className="fixed z-50 bg-surface border border-border rounded shadow-lg py-1 min-w-[120px]" style={{ left: contextMenu.x, top: contextMenu.y }}>
-            <button onClick={() => handleEditSession(contextMenu.session)} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover">编辑配置</button>
+            <button onClick={() => handleEditSession(contextMenu.session)} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover">{t("common.edit")}</button>
             {contextMenu.session.type !== 'serial' && (
-              <button onClick={() => { addSession({ name: contextMenu.session.name + ' - 副本', type: contextMenu.session.type, sshConfig: contextMenu.session.sshConfig ? { ...contextMenu.session.sshConfig } : undefined, telnetConfig: contextMenu.session.telnetConfig ? { ...contextMenu.session.telnetConfig } : undefined, ptyConfig: contextMenu.session.ptyConfig ? { ...contextMenu.session.ptyConfig } : undefined }); closeContextMenu(); }} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover">复制为新配置</button>
+              <button onClick={() => { addSession({ name: contextMenu.session.name + ' - 副本', type: contextMenu.session.type, sshConfig: contextMenu.session.sshConfig ? { ...contextMenu.session.sshConfig } : undefined, telnetConfig: contextMenu.session.telnetConfig ? { ...contextMenu.session.telnetConfig } : undefined, ptyConfig: contextMenu.session.ptyConfig ? { ...contextMenu.session.ptyConfig } : undefined }); closeContextMenu(); }} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover">{t("common.duplicate")}</button>
             )}
-            <button onClick={() => { removeSession(contextMenu.session.id); closeContextMenu(); }} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover text-red-500">删除配置</button>
+            <button onClick={() => { removeSession(contextMenu.session.id); closeContextMenu(); }} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover text-red-500">{t("common.delete")}</button>
             <div className="my-1 border-t border-border"/>
-            <button onClick={() => { if (reorderSessions && contextMenu.index > 0) reorderSessions(contextMenu.index, contextMenu.index - 1); closeContextMenu(); }} disabled={contextMenu.index === 0} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed">上移</button>
-            <button onClick={() => { if (reorderSessions && contextMenu.index < savedSessions.length - 1) reorderSessions(contextMenu.index, contextMenu.index + 1); closeContextMenu(); }} disabled={contextMenu.index === savedSessions.length - 1} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed">下移</button>
+            <button onClick={() => { if (reorderSessions && contextMenu.index > 0) reorderSessions(contextMenu.index, contextMenu.index - 1); closeContextMenu(); }} disabled={contextMenu.index === 0} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed">{t("common.moveUp")}</button>
+            <button onClick={() => { if (reorderSessions && contextMenu.index < savedSessions.length - 1) reorderSessions(contextMenu.index, contextMenu.index + 1); closeContextMenu(); }} disabled={contextMenu.index === savedSessions.length - 1} className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover disabled:opacity-30 disabled:cursor-not-allowed">{t("common.moveDown")}</button>
           </div>
         </>
       )}

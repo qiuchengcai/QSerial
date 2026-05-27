@@ -139,8 +139,11 @@
   "statusBar": {
     "connected": "已连接",
     "disconnected": "未连接",
-    "mcpRunning": "MCP:运行",
-    "mcpStopped": "MCP:停止"
+    "mcpRunning": "MCP 服务器运行中 - 点击打开",
+    "mcpStopped": "MCP:停止",
+    "tftpRunning": "TFTP 服务器运行中 - 点击打开",
+    "nfsRunning": "NFS 服务器运行中 - 点击打开",
+    "ftpRunning": "FTP 服务器运行中 - 点击打开"
   },
   "common": {
     "ok": "确定",
@@ -155,6 +158,12 @@
     "success": "成功",
     "confirm": "确认",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "duplicate": "复制为新配置",
+    "moveUp": "上移",
+    "moveDown": "下移"
+  },
+  "sftp": {
+    "openBrowser": "打开 SFTP 文件浏览器"
   }
 }

@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTerminalStore } from '@/stores/terminal';
 import { useTftpStore } from '@/stores/tftp';
 import { useNfsStore } from '@/stores/nfs';
@@ -66,7 +67,7 @@ export const StatusBar: React.FC = () => {
       {/* 左侧信息 */}
       <div className="flex items-center gap-3 min-w-0">
         {!activeSession && (
-          <span className="text-text-tertiary/60 truncate">未连接</span>
+          <span className="text-text-tertiary/60 truncate">{t("statusBar.disconnected")}</span>
         )}
         {activeSession && (
           <>
@@ -140,7 +141,7 @@ export const StatusBar: React.FC = () => {
           <div
             className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-tftp'))}
-            title="TFTP 服务器运行中 — 点击打开"
+            title={t("statusBar.tftpRunning")}
           >
             <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">TFTP</span>
@@ -152,7 +153,7 @@ export const StatusBar: React.FC = () => {
           <div
             className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-nfs'))}
-            title="NFS 服务器运行中 — 点击打开"
+            title={t("statusBar.nfsRunning")}
           >
             <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">NFS</span>
@@ -164,7 +165,7 @@ export const StatusBar: React.FC = () => {
           <div
             className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-ftp'))}
-            title="FTP 服务器运行中 — 点击打开"
+            title={t("statusBar.ftpRunning")}
           >
             <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">FTP</span>
@@ -176,7 +177,7 @@ export const StatusBar: React.FC = () => {
           <div
             className="flex items-center gap-1 flex-shrink-0 ml-4 pl-4 border-l border-border cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => window.dispatchEvent(new CustomEvent('qserial:open-mcp'))}
-            title="MCP 服务器运行中 — 点击打开"
+            title={t("statusBar.mcpRunning")}
           >
             <span className="w-2 h-2 rounded-full bg-success" />
             <span className="text-text-secondary">MCP</span>
@@ -193,9 +194,9 @@ export const StatusBar: React.FC = () => {
             className={`flex items-center gap-1 px-2 py-0.5 rounded hover:bg-hover transition-colors ${
               panelVisible ? 'bg-hover text-success' : 'text-text-secondary/60'
             }`}
-            title="打开 SFTP 文件浏览器"
+            title={t("sftp.openBrowser")}
           >
-            <span className="text-[11px] tracking-wide">文件</span>
+            <span className="text-[11px] tracking-wide">{t("sidebar.fileTransfer")}</span>
           </button>
         )}
         <button
@@ -205,7 +206,7 @@ export const StatusBar: React.FC = () => {
           共享
         </button>
         <span className="w-px h-3.5 bg-border flex-shrink-0" />
-        <span className="text-text-secondary/60">v0.2.0</span>
+        <span className="text-text-secondary/60">{t("app.version")}</span>
       </div>
     </div>
   );
