@@ -12,6 +12,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@qserial/shared": "workspace:*",
     "electron-log": "^5.0.3",
     "node-pty": "^1.0.0",

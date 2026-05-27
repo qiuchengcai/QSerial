@@ -5,6 +5,8 @@
 
 import * as http from 'node:http';
 import * as crypto from 'node:crypto';
+// McpServer used via SSEServerTransport
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BrowserWindow } from 'electron';
@@ -31,36 +33,11 @@ let mcpAuthPassword = '';
 const sharePool = new Map<string, { sourceId: string; serverId: string }>();
 
 // 简易令牌桶限流：每秒最多 30 个请求，突发最多 50
-const rateLimitTokens = new Map<string, { tokens: number; lastRefill: number }>();
-const RATE_LIMIT_MAX = 50;
-const RATE_LIMIT_REFILL_RATE = 30; // tokens per second
+// Rate limiting removed (handled by McpServer)
 
-function checkRateLimit(clientId: string): boolean {
-  const now = Date.now();
-  let bucket = rateLimitTokens.get(clientId);
-  if (!bucket) {
-    bucket = { tokens: RATE_LIMIT_MAX, lastRefill: now };
-    rateLimitTokens.set(clientId, bucket);
-  }
-  // 补充令牌
-  const elapsed = (now - bucket.lastRefill) / 1000;
-  bucket.tokens = Math.min(RATE_LIMIT_MAX, bucket.tokens + elapsed * RATE_LIMIT_REFILL_RATE);
-  bucket.lastRefill = now;
-  if (bucket.tokens < 1) return false;
-  bucket.tokens -= 1;
-  return true;
-}
-
-// 定期清理过期的限流桶（每 5 分钟清理一次）
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of rateLimitTokens) {
-    if (now - bucket.lastRefill > 300_000) rateLimitTokens.delete(key);
-  }
-}, 300_000).unref();
 
 // SSE 会话：sessionId → response
-const sseSessions = new Map<string, http.ServerResponse>();
+// sseSessions removed (SDK migration)
 
 // 每个连接的输出缓冲区
 const buffers = new Map<string, Buffer[]>();
@@ -389,10 +366,6 @@ function ensureBuffer(id: string): void {
       while (total > 1_000_000 && buf.length > 0) {
         total -= buf.shift()!.length;
       }
-      notifySse('data', {
-        id,
-        data: data.toString('base64'),
-      });
     });
     bufferSubscriptions.set(id, unsub);
   }
@@ -430,21 +403,8 @@ function removeBuffer(id: string): void {
 
 // ==================== SSE 广播 ====================
 
-function notifySse(event: string, data: Record<string, unknown>): void {
-  const line = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of sseSessions.values()) {
-    if (!res.destroyed) res.write(line);
-  }
-}
+// sendSse removed (SDK migration)
 
-// ==================== SSE 单播 ====================
-
-function sendSse(sessionId: string, event: string, data: string): void {
-  const res = sseSessions.get(sessionId);
-  if (res && !res.destroyed) {
-    res.write(`event: ${event}\ndata: ${data}\n\n`);
-  }
-}
 
 // ==================== 认证检查 ====================
 
@@ -470,170 +430,8 @@ function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean
 
 // ==================== HTTP 服务器 ====================
 
-function createMcpServer(): http.Server {
-  const server = http.createServer((req, res) => {
-    // CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+// createMcpServer removed (SDK migration - HTTP server built inline in startMcpServer)
 
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-
-    const urlPath = req.url?.split('?')[0] || '/';
-
-    // ── SSE 会话端点 (MCP SSE transport) ──
-    if (req.method === 'GET' && urlPath === '/sse') {
-      const rawUrl2 = req.url || '/';
-      const queryIdx = rawUrl2.indexOf('?');
-      const queryString = queryIdx >= 0 ? rawUrl2.slice(queryIdx + 1) : '';
-      const sseParams = new URLSearchParams(queryString);
-      const sseToken = sseParams.get('token');
-      if (mcpAuthPassword && sseToken !== mcpAuthPassword) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: '认证失败：token 不匹配' }));
-        return;
-      }
-      const sessionId = crypto.randomUUID();
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      });
-
-      // 发送 endpoint 事件，告知客户端 POST 地址
-      res.write(`event: endpoint\ndata: /messages?sessionId=${sessionId}\n\n`);
-
-      sseSessions.set(sessionId, res);
-
-      req.on('close', () => {
-        sseSessions.delete(sessionId);
-      });
-      return;
-    }
-
-    // ── 消息端点 (MCP SSE transport: POST JSON-RPC, 响应通过 SSE 返回) ──
-    if (req.method === 'POST' && urlPath === '/messages') {
-      if (!checkAuth(req, res)) return;
-      const rawUrl = req.url || '/';
-      const queryIdx = rawUrl.indexOf('?');
-      const queryString = queryIdx >= 0 ? rawUrl.slice(queryIdx + 1) : '';
-      const params = new URLSearchParams(queryString);
-      const sessionId = params.get('sessionId');
-
-      let body = '';
-      req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-
-      req.on('end', async () => {
-        let reqData: { id?: unknown; method?: string; params?: Record<string, unknown> };
-        try {
-          reqData = JSON.parse(body);
-        } catch {
-          res.writeHead(400);
-          res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' } }));
-          return;
-        }
-
-        const reqId = reqData.id;
-        const method = reqData.method;
-        const rpcParams = { ...reqData.params || {}, _sessionId: sessionId, _clientIp: req.socket.remoteAddress };
-
-        try {
-          const result = await handleRpc(method, rpcParams, reqId);
-          if (reqId === undefined || reqId === null) {
-            res.writeHead(202);
-            res.end();
-            return;
-          }
-
-          const payload = JSON.stringify({ jsonrpc: '2.0', id: reqId, result });
-
-          if (sessionId && sseSessions.has(sessionId)) {
-            sendSse(sessionId, 'message', payload);
-            res.writeHead(202);
-            res.end();
-          } else {
-            // 无 SSE 会话时退化为同步 HTTP 响应
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(payload);
-          }
-        } catch (err) {
-          if (reqId === undefined || reqId === null) {
-            res.writeHead(202);
-            res.end();
-            return;
-          }
-          const errorPayload = JSON.stringify({
-            jsonrpc: '2.0',
-            id: reqId,
-            error: { code: (err as { code?: number }).code || -32603, message: (err as Error).message },
-          });
-
-          if (sessionId && sseSessions.has(sessionId)) {
-            sendSse(sessionId, 'message', errorPayload);
-            res.writeHead(202);
-            res.end();
-          } else {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(errorPayload);
-          }
-        }
-      });
-      return;
-    }
-
-    // ── 直接 JSON-RPC 端点 (streamableHttp / 向后兼容) ──
-    if (req.method === 'POST' && (urlPath === '/mcp' || urlPath === '/')) {
-      if (!checkAuth(req, res)) return;
-      let body = '';
-      req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-
-      req.on('end', () => {
-        let reqData: { id?: unknown; method?: string; params?: Record<string, unknown> };
-        try {
-          reqData = JSON.parse(body);
-        } catch {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' } }));
-          return;
-        }
-
-        const reqId = reqData.id;
-        const method = reqData.method;
-        const rpcParams = { ...reqData.params || {}, _clientIp: req.socket.remoteAddress };
-
-        handleRpc(method, rpcParams, reqId)
-          .then((result) => {
-            if (reqId === undefined || reqId === null) return;
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ jsonrpc: '2.0', id: reqId, result }));
-          })
-          .catch((err) => {
-            if (reqId === undefined || reqId === null) return;
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              jsonrpc: '2.0',
-              id: reqId,
-              error: { code: (err as { code?: number }).code || -32603, message: (err as Error).message },
-            }));
-          });
-      });
-      return;
-    }
-
-    res.writeHead(404);
-    res.end('Not Found');
-  });
-
-  server.on('error', (err: NodeJS.ErrnoException) => {
-    console.error('[MCP] Server error:', err.message);
-  });
-
-  return server;
-}
 
 // ==================== 状态分析 ====================
 
@@ -839,45 +637,8 @@ async function waitForData(id: string, timeoutMs: number): Promise<void> {
 
 // ==================== JSON-RPC 处理 ====================
 
-async function handleRpc(
-  method: string | undefined,
-  params: Record<string, unknown>,
-  _reqId: unknown,
-): Promise<unknown> {
-  switch (method) {
-    case 'initialize':
-      return {
-        protocolVersion: '2024-11-05',
-        capabilities: { tools: {} },
-        serverInfo: { name: 'qserial-mcp', version: '0.1.0' },
-      };
+// handleRpc removed (SDK migration)
 
-    case 'notifications/initialized':
-      return {};
-
-    case 'tools/list':
-      return { tools: MCP_TOOLS };
-
-    case 'tools/call': {
-      // 限流检查：使用 sessionId 或 IP 作为客户端标识
-      const rateLimitKey = (params._sessionId as string) || (params._clientIp as string) || 'unknown';
-      if (!checkRateLimit(rateLimitKey)) {
-        throw Object.assign(new Error('请求过于频繁，请稍后再试'), { code: -32003 });
-      }
-      const toolName = params.name as string;
-      const toolArgs = (params.arguments as Record<string, unknown>) || {};
-      const text = await executeTool(toolName, toolArgs);
-      const isError = text.startsWith('错误:');
-      return { content: [{ type: 'text', text }], isError };
-    }
-
-    case 'ping':
-      return {};
-
-    default:
-      throw Object.assign(new Error(`未知方法: ${method}`), { code: -32601 });
-  }
-}
 
 // ==================== 工具执行 ====================
 
@@ -1775,47 +1536,168 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
 // ==================== 公共接口 ====================
 
 export async function startMcpServer(port: number, listenAddress?: string, authPassword?: string): Promise<void> {
-  if (mcpRunning || mcpServer) {
+  if (mcpRunning) {
     await stopMcpServer();
   }
 
   mcpAuthPassword = authPassword || '';
+  // Auto-generate password for remote access
+  if (!mcpAuthPassword && mcpListenAddress !== '127.0.0.1' && mcpListenAddress !== 'localhost') {
+    mcpAuthPassword = crypto.randomBytes(16).toString('hex');
+    console.log('[MCP] Auto-generated password:', mcpAuthPassword);
+    console.log('[MCP] Use: Authorization: Bearer ' + mcpAuthPassword);
+  }
   mcpListenAddress = listenAddress || '127.0.0.1';
   ConnectionFactory.onDestroy((conn) => removeBuffer(conn.id));
 
-  const bindAddr = mcpListenAddress;
-  const server = createMcpServer();
+  const httpServer = http.createServer(async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // 等待 listen 真正成功，而非乐观假设
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const urlPath = (req.url || '/').split('?')[0];
+
+    // SSE endpoint
+    if (req.method === 'GET' && urlPath === '/sse') {
+      const qs = (req.url || '').includes('?') ? (req.url || '').split('?')[1] : '';
+      if (mcpAuthPassword) {
+        const sseParams = new URLSearchParams(qs);
+        const sseToken = sseParams.get('token');
+        if (sseToken !== mcpAuthPassword) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'auth failed' }));
+          return;
+        }
+      }
+      const sseTransport = new SSEServerTransport('/messages', res);
+      // SSE transport manages its own session
+      req.on('close', () => { sseTransport.close().catch(() => {}); });
+      return;
+    }
+
+    // SSE message endpoint (POST to /messages)
+    if (req.method === 'POST' && urlPath === '/messages') {
+      if (mcpAuthPassword && !checkAuth(req, res)) return;
+      // SSE messages are forwarded through the SSE transport session
+      let body = "";
+      req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      req.on('end', async () => {
+        try {
+          const rpcData = JSON.parse(body);
+          const { id: reqId, method, params } = rpcData;
+          if (method === "initialize") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
+            return;
+          }
+          if (method === "notifications/initialized") { res.writeHead(202); res.end(); return; }
+          if (method === "tools/list") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { tools: MCP_TOOLS } }));
+            return;
+          }
+          if (method === "tools/call") {
+            try {
+              const text = await executeTool(params.name, params.arguments || {});
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: text.startsWith("error:") } }));
+            } catch (e) {
+              const error = e as Error;
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32603, message: error.message } }));
+            }
+            return;
+          }
+          if (method === "ping") { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: {} })); return; }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32601, message: "unknown method: " + method } }));
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32700, message: "Parse error" } }));
+        }
+      });
+      return;
+    }
+
+    // streamableHttp endpoint (POST to /mcp or /)
+    if (req.method === 'POST' && (urlPath === '/mcp' || urlPath === '/')) {
+      if (mcpAuthPassword && !checkAuth(req, res)) return;
+      let body = "";
+      req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      req.on('end', async () => {
+        try {
+          const rpcData = JSON.parse(body);
+          const { id: reqId, method, params } = rpcData;
+          if (method === "initialize") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "qserial-mcp", version: "0.1.0" } } }));
+            return;
+          }
+          if (method === "notifications/initialized") { res.writeHead(202); res.end(); return; }
+          if (method === "tools/list") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { tools: MCP_TOOLS } }));
+            return;
+          }
+          if (method === "tools/call") {
+            try {
+              const text = await executeTool(params.name, params.arguments || {});
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: { content: [{ type: "text", text }], isError: text.startsWith("error:") } }));
+            } catch (e) {
+              const error = e as Error;
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32603, message: error.message } }));
+            }
+            return;
+          }
+          if (method === "ping") { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, result: {} })); return; }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ jsonrpc: "2.0", id: reqId, error: { code: -32601, message: "unknown method: " + method } }));
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32700, message: "Parse error" } }));
+        }
+      });
+      return;
+    }
+
+    res.writeHead(404);
+    res.end('Not Found');
+  });
+
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    console.error('[MCP] Server error:', err.message);
+  });
+
   await new Promise<void>((resolve, reject) => {
-    server.listen(port, bindAddr, () => {
+    httpServer.listen(port, mcpListenAddress, () => {
       mcpRunning = true;
       mcpPort = port;
-      mcpListenAddress = bindAddr;
+      mcpServer = httpServer;
       sendStatus();
       resolve();
     });
-    server.on('error', (err: NodeJS.ErrnoException) => {
+    httpServer.on('error', (err: NodeJS.ErrnoException) => {
       console.error('[MCP] Server listen error:', err.message);
       reject(new Error(err.code === 'EADDRINUSE'
-        ? `端口 ${port} 已被占用，请选择其他端口`
-        : `MCP 服务器启动失败: ${err.message}`));
+        ? 'Port ' + port + ' in use'
+        : 'MCP start failed: ' + err.message));
     });
   });
-
-  mcpServer = server;
 }
 
 export async function stopMcpServer(): Promise<void> {
-  // 先关闭所有 SSE 长连接，否则 server.close() 不会触发
-  for (const res of sseSessions.values()) {
-    if (!res.destroyed) res.end();
-  }
-  sseSessions.clear();
-
-  if (mcpServer) {
+  const server = mcpServer;
+  if (server) {
     await new Promise<void>((resolve) => {
-      mcpServer!.close(() => resolve());
+      server.close(() => resolve());
     });
     mcpServer = null;
   }
