@@ -71,7 +71,7 @@ const SCREENSHOT_DIR = path.resolve(process.cwd?.() || __dirname, '../../docs');
 
 const MCP_TOOLS = [
   {
-    name: 'connection_list',
+    name: 'conn.list',
     description: '列出所有活跃连接，或传 id 获取指定连接详细信息（含完整连接参数）。无参数时返回摘要列表，传 id 时返回详情。',
     inputSchema: {
       type: 'object',
@@ -82,7 +82,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_write',
+    name: 'conn.data.write',
     description: '向指定连接发送数据或命令。支持发送前延迟和条件等待。注意：终端命令末尾需包含 \\n 换行符。',
     inputSchema: {
       type: 'object',
@@ -98,7 +98,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_write_hex',
+    name: 'conn.data.write_hex',
     description: '向指定连接发送十六进制数据。输入为不带分隔符的十六进制字符串，如 "7E01FFAABB"。适用于嵌入式设备的二进制协议（Modbus、自定义帧等）。',
     inputSchema: {
       type: 'object',
@@ -111,7 +111,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_read',
+    name: 'conn.data.read',
     description: '读取连接输出。默认读后清空缓冲区（consume=true）。设置 consume=false 可预览不清空（配合 max_bytes 限制返回长度）。设置 consume=true 且 max_bytes=0 可仅清空不返回数据。',
     inputSchema: {
       type: 'object',
@@ -124,7 +124,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_clear_buffer',
+    name: 'conn.data.clear',
     description: '清空指定连接的输出缓冲区，释放内存。',
     inputSchema: {
       type: 'object',
@@ -135,7 +135,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_expect',
+    name: 'conn.data.expect',
     description: '等待连接输出中出现指定模式。支持普通子串匹配和正则表达式匹配。',
     inputSchema: {
       type: 'object',
@@ -150,7 +150,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_create',
+    name: 'conn.create',
     description: '创建并连接新设备。type=serial 需提供 path/baudRate；type=ssh 需提供 host/username/password；type=telnet 需提供 host/port；type=pty 可无额外参数。如需关联已保存的会话配置（让 GUI 按钮变绿），传入从 session_list 获取的 id 作为 savedSessionId。',
     inputSchema: {
       type: 'object',
@@ -176,7 +176,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_disconnect',
+    name: 'conn.disconnect',
     description: '断开并销毁指定连接。',
     inputSchema: {
       type: 'object',
@@ -187,7 +187,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_reconnect',
+    name: 'conn.reconnect',
     description: '重新连接已断开的连接，保持相同的连接 ID。不会销毁连接对象。',
     inputSchema: {
       type: 'object',
@@ -198,7 +198,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_update',
+    name: 'conn.update',
     description: '修改连接参数。支持调整终端尺寸 (cols/rows) 或串口波特率。修改波特率会断开重连。',
     inputSchema: {
       type: 'object',
@@ -212,7 +212,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_state',
+    name: 'conn.analyze.state',
     description: '分析连接的当前交互状态。检测终端处于登录界面、Shell、程序运行中等阶段。',
     inputSchema: {
       type: 'object',
@@ -223,7 +223,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_login',
+    name: 'conn.script.login',
     description: '自动化串口/Telnet 登录流程。支持正则模式匹配，提供每步详细调试输出。',
     inputSchema: {
       type: 'object',
@@ -243,17 +243,17 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'serial_list',
+    name: 'device.ports',
     description: '列出系统中所有可用的串口设备（路径、厂商、产品ID等）。',
     inputSchema: { type: 'object', properties: {} },
   },
   {
-    name: 'session_list',
+    name: 'session.list',
     description: '列出 QSerial 中已保存的所有会话配置（串口、SSH、Telnet 等），包含完整连接参数。可直接用 connection_create 连接这些会话。',
     inputSchema: { type: 'object', properties: {} },
   },
   {
-    name: 'session_save',
+    name: 'session.save',
     description: '保存会话配置。提供 sessionId 则更新已有会话，否则新建。',
     inputSchema: {
       type: 'object',
@@ -270,7 +270,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'session_delete',
+    name: 'session.delete',
     description: '删除已保存的会话配置。',
     inputSchema: {
       type: 'object',
@@ -281,7 +281,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_set_dtr_rts',
+    name: 'conn.hw.dtr_rts',
     description: '控制串口 DTR 和 RTS 信号线状态。仅对串口连接有效。常用于 MCU（ESP32/Arduino/STM32）自动复位进入烧录模式。',
     inputSchema: {
       type: 'object',
@@ -294,7 +294,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_set_break',
+    name: 'conn.hw.break',
     description: '发送串口 break 信号。发送期间其他通信暂停。仅对串口连接有效。常用于中断 U-Boot 自动启动进入命令行。',
     inputSchema: {
       type: 'object',
@@ -306,7 +306,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_share',
+    name: 'conn.share',
     description: '管理连接共享服务。action=start 启动 TCP Telnet 共享；action=stop 停止共享；action=list 列出所有活跃共享。',
     inputSchema: {
       type: 'object',
@@ -322,7 +322,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_send_file',
+    name: 'conn.file.send',
     description: '通过 XMODEM 或 YMODEM 协议发送文件到串口设备。仅支持串口连接。',
     inputSchema: {
       type: 'object',
@@ -337,7 +337,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'window_screenshot',
+    name: 'app.screenshot',
     description: '抓取当前软件窗口。mode=html(默认,快速) 返回body DOM，compact=true去掉Vite样式减体积，false保留完整CSS；mode=image 返回SVG+JPEG，quality/scale可调。截图与DOM尺寸获取并行加速。',
     inputSchema: {
       type: 'object',
@@ -351,7 +351,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: "connection_send_command",
+    name: "conn.data.send",
     description: "Send command and wait for response, returning clean output. Auto-appends newline, strips echo and prompt.",
     inputSchema: {
       type: "object",
@@ -369,7 +369,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: "connection_get_history",
+    name: "conn.data.history",
     description: "Get recent send/receive history for a connection.",
     inputSchema: {
       type: "object",
@@ -381,7 +381,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: "connection_run_script",
+    name: "conn.script.run",
     description: "Execute a sequence of {send, expect} steps.",
     inputSchema: {
       type: "object",
@@ -395,7 +395,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_probe',
+    name: 'conn.analyze.probe',
     description: 'Auto-detect device type by sending probe commands and analyzing response patterns.',
     inputSchema: {
       type: 'object',
@@ -407,7 +407,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_watch',
+    name: 'conn.watch.start',
     description: 'Monitor a connection for patterns and send notifications on match.',
     inputSchema: {
       type: 'object',
@@ -421,7 +421,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_unwatch',
+    name: 'conn.watch.stop',
     description: 'Stop a running watch by watch_id.',
     inputSchema: {
       type: 'object',
@@ -432,7 +432,7 @@ const MCP_TOOLS = [
     },
   },
   {
-    name: 'connection_summarize',
+    name: 'conn.analyze.report',
     description: 'Generate structured session summary: duration, commands, bytes.',
     inputSchema: {
       type: 'object',
@@ -746,12 +746,12 @@ async function waitForData(id: string, timeoutMs: number): Promise<void> {
 async function executeTool(name: string, args: Record<string, unknown>): Promise<string> {
   try {
     switch (name) {
-      case 'serial_list': {
+      case 'device.ports': {
         const ports = await SerialConnection.listPorts();
         return JSON.stringify(ports, null, 2);
       }
 
-      case 'session_list': {
+      case 'session.list': {
         if (!mainWindow || mainWindow.isDestroyed()) {
           return '错误: 主窗口未就绪';
         }
@@ -791,7 +791,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'session_save': {
+      case 'session.save': {
         if (!mainWindow || mainWindow.isDestroyed()) {
           return '错误: 主窗口未就绪';
         }
@@ -870,7 +870,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'session_delete': {
+      case 'session.delete': {
         if (!mainWindow || mainWindow.isDestroyed()) {
           return '错误: 主窗口未就绪';
         }
@@ -901,7 +901,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_list': {
+      case 'conn.list': {
         const id = resolveId(args);
         if (id) {
           // 传 id → 返回单个连接详情
@@ -929,7 +929,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         );
       }
 
-      case 'connection_write': {
+      case 'conn.data.write': {
         const id = resolveId(args);
         const data = args.data as string;
         if (!id) return '错误: 未提供连接 id';
@@ -966,7 +966,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           : `已发送 (${data.length} 字符)，无立即回显 [${meta}]`;
       }
 
-      case 'connection_write_hex': {
+      case 'conn.data.write_hex': {
         const id = resolveId(args);
         const hex = args.hex as string;
         if (!id) return '错误: 未提供连接 id';
@@ -988,7 +988,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           : `已发送 (${hex.length / 2} 字节)，无立即回显 [${meta}]`;
       }
 
-      case 'connection_read': {
+      case 'conn.data.read': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         if (!ConnectionFactory.get(id)) return `错误: 找不到连接 ${id}`;
@@ -1020,7 +1020,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_expect': {
+      case 'conn.data.expect': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         const pattern = args.pattern as string;
@@ -1044,7 +1044,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return `错误: 超时 (${timeout}s) 未匹配/${isRegex ? 'regex' : 'substr'}: "${pattern}"。最后 1000 字节:\n${tail}`;
       }
 
-      case 'connection_create': {
+      case 'conn.create': {
         const ctype = args.type as string;
         if (!['serial', 'ssh', 'telnet', 'pty'].includes(ctype)) {
           return `错误: 不支持的连接类型 "${ctype}"，支持: serial, ssh, telnet, pty`;
@@ -1127,7 +1127,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_disconnect': {
+      case 'conn.disconnect': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
@@ -1142,7 +1142,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_reconnect': {
+      case 'conn.reconnect': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
@@ -1163,7 +1163,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_update': {
+      case 'conn.update': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
@@ -1194,7 +1194,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return parts.length > 0 ? parts.join('; ') : '错误: 未提供需要修改的参数（cols/rows/baudRate）';
       }
 
-      case 'connection_set_dtr_rts': {
+      case 'conn.hw.dtr_rts': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
@@ -1220,7 +1220,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_set_break': {
+      case 'conn.hw.break': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
@@ -1245,7 +1245,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_send_file': {
+      case 'conn.file.send': {
         const id = resolveId(args);
         const localPath = args.localPath as string;
         const protocol = (args.protocol as string) || 'xmodem';
@@ -1295,7 +1295,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_state': {
+      case 'conn.analyze.state': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         const conn = ConnectionFactory.get(id);
@@ -1307,7 +1307,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return JSON.stringify({ ...state, buffer_bytes: totalBytes, output_tail_bytes: output.length }, null, 2);
       }
 
-      case 'connection_clear_buffer': {
+      case 'conn.data.clear': {
         const id = resolveId(args);
         if (!id) return '错误: 未提供连接 id';
         if (!ConnectionFactory.get(id)) return `错误: 找不到连接 ${id}`;
@@ -1316,7 +1316,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return `缓冲区已清空 (释放 ${before} 字节)`;
       }
 
-      case 'connection_login': {
+      case 'conn.script.login': {
         const id = resolveId(args);
         const username = args.username as string;
         const password = (args.password as string) || '';
@@ -1437,7 +1437,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return steps.join('\n') + `\n\n${output.slice(-500)}`;
       }
 
-      case 'connection_share': {
+      case 'conn.share': {
         const action = args.action as string;
         if (!action || !['start', 'stop', 'list'].includes(action)) {
           return '错误: 请提供 action 参数: "start" / "stop" / "list"';
@@ -1555,7 +1555,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return `错误: 未知 action "${action}"`;
       }
 
-      case 'window_screenshot': {
+      case 'app.screenshot': {
         if (!mainWindow || mainWindow.isDestroyed()) {
           return '错误: 主窗口未就绪';
         }
@@ -1643,7 +1643,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         }
       }
 
-      case 'connection_send_command': {
+      case 'conn.data.send': {
         const id = resolveId(args);
         const command = args.command as string;
         if (!id) return formatError('MISSING_PARAM', 'missing id');
@@ -1680,7 +1680,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         });
       }
 
-      case 'connection_get_history': {
+      case 'conn.data.history': {
         const hid = resolveId(args);
         if (!hid) return formatError('MISSING_PARAM', 'missing id');
         const maxEntries = (args.max_entries as number) || 20;
@@ -1691,7 +1691,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return formatOk({ entries, count: entries.length, total_send_bytes: totalSend, total_recv_bytes: totalRecv });
       }
 
-      case 'connection_run_script': {
+      case 'conn.script.run': {
         const rsid = resolveId(args);
         if (!rsid) return formatError('MISSING_PARAM', 'missing id');
         const steps = args.steps as Array<Record<string, unknown>> | undefined;
@@ -1736,7 +1736,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       }
 
 
-      case 'connection_probe': {
+      case 'conn.analyze.probe': {
         const probeId = resolveId(args);
         if (!probeId) return formatError('MISSING_PARAM', 'missing id');
         const probeConn = ConnectionFactory.get(probeId);
@@ -1765,7 +1765,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           : formatOk({ device: 'unknown', confidence: 0, output_sample: probeOutput.slice(0, 300) });
       }
 
-      case 'connection_watch': {
+      case 'conn.watch.start': {
         const watchId = resolveId(args);
         if (!watchId) return formatError('MISSING_PARAM', 'missing id');
         const watchConn = ConnectionFactory.get(watchId);
@@ -1797,7 +1797,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return formatOk({ watch_id: wid, rules_count: compiled.length, duration_ms: duration });
       }
 
-      case 'connection_unwatch': {
+      case 'conn.watch.stop': {
         const wid = args.watch_id as string;
         if (!wid) return formatError('MISSING_PARAM', 'missing watch_id');
         const stopFn = watches.get(wid);
@@ -1805,7 +1805,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return formatError('NOT_FOUND', 'watch not found: ' + wid);
       }
 
-      case 'connection_summarize': {
+      case 'conn.analyze.report': {
         const sumId = resolveId(args);
         if (!sumId) return formatError('MISSING_PARAM', 'missing id');
         const log = historyLog.get(sumId) || [];

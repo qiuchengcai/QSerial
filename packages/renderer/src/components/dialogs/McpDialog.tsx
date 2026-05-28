@@ -7,58 +7,60 @@ import { useTranslation } from "react-i18next";
 import { useMcpStore } from "@/stores/mcp";
 
 const ALL_TOOLS = [
-  // Connection (5)
-  { name: "connection_create", cat: "conn", desc: "Create serial/SSH/Telnet/PTY connection (supports jumpHost)", inputs: "type, path/port, baudRate, host, username, password, jumpHost?" },
-  { name: "connection_disconnect", cat: "conn", desc: "Disconnect and destroy a connection", inputs: "id" },
-  { name: "connection_reconnect", cat: "conn", desc: "Reconnect a disconnected connection", inputs: "id" },
-  { name: "connection_update", cat: "conn", desc: "Resize terminal cols/rows or change baud rate", inputs: "id, cols?, rows?, baudRate?" },
-  { name: "connection_list", cat: "conn", desc: "List all active connections or get detailed info by id", inputs: "id?" },
-  // Data (7)
-  { name: "connection_write", cat: "data", desc: "Send text data/command to connection", inputs: "data, id" },
-  { name: "connection_write_hex", cat: "data", desc: "Send hex data (e.g. Modbus frames)", inputs: "hex, id" },
-  { name: "connection_read", cat: "data", desc: "Read output buffer (consume or peek)", inputs: "id, consume?, max_bytes?" },
-  { name: "connection_expect", cat: "data", desc: "Wait for pattern in output (substring or regex)", inputs: "pattern, id, regex?, timeout?" },
-  { name: "connection_clear_buffer", cat: "data", desc: "Clear output buffer", inputs: "id" },
-  { name: "connection_send_command", cat: "data", desc: "Send command + wait for response, auto-strip echo/prompt", inputs: "command, id, timeout_ms?" },
-  { name: "connection_get_history", cat: "data", desc: "Get recent send/receive history", inputs: "id, max_entries?" },
-  // Script (1)
-  { name: "connection_run_script", cat: "script", desc: "Execute multi-step {send, expect} script with Sampling on failure", inputs: "steps[], id, stop_on_error?" },
-  // State (2)
-  { name: "connection_state", cat: "state", desc: "Analyze connection state (login/shell/booting/idle)", inputs: "id" },
-  { name: "connection_login", cat: "state", desc: "Automated login flow with Sampling for unknown prompts", inputs: "username, password, id, loginPrompt?, passwordPrompt?, shellPrompt?" },
-  // Hardware (2)
-  { name: "connection_set_dtr_rts", cat: "hw", desc: "Control DTR/RTS serial signals", inputs: "id, dtr?, rts?" },
-  { name: "connection_set_break", cat: "hw", desc: "Send break signal to serial port", inputs: "id, duration_ms?" },
-  // Discover (4)
-  { name: "serial_list", cat: "discover", desc: "List available serial ports on this machine", inputs: "(none)" },
-  { name: "session_list", cat: "discover", desc: "List saved connection sessions with full config", inputs: "(none)" },
-  { name: "session_save", cat: "discover", desc: "Save current connection as a session", inputs: "id, name" },
-  { name: "session_delete", cat: "discover", desc: "Delete a saved session", inputs: "session_id" },
-  // Share (1)
-  { name: "connection_share", cat: "share", desc: "Start/stop/list TCP connection shares", inputs: "action, connection_id?, local_port?" },
-  // File (2)
-  { name: "connection_send_file", cat: "file", desc: "Send file via XMODEM/YMODEM protocol", inputs: "id, file_path, protocol?" },
-  { name: "window_screenshot", cat: "file", desc: "Capture terminal window screenshot", inputs: "id?" },
-  // AI (4)
-  { name: "connection_probe", cat: "ai", desc: "Auto-detect device type (ESP32/STM32/RPi/Cisco/Arduino/BusyBox)", inputs: "id, timeout_ms?" },
-  { name: "connection_watch", cat: "ai", desc: "Monitor connection for patterns, sends data_alert notifications", inputs: "id, rules[], duration_ms?" },
-  { name: "connection_unwatch", cat: "ai", desc: "Stop a running watch", inputs: "watch_id" },
-  { name: "connection_summarize", cat: "ai", desc: "Generate session summary (duration, commands, bytes)", inputs: "id" },
+  // conn.* — 连接生命周期 (6)
+  { name: "conn.create", cat: "conn", desc: "Create serial/SSH/Telnet/PTY connection (supports jumpHost)", inputs: "type, path/port, baudRate, host, username, password, jumpHost?" },
+  { name: "conn.disconnect", cat: "conn", desc: "Disconnect and destroy a connection", inputs: "id" },
+  { name: "conn.reconnect", cat: "conn", desc: "Reconnect a disconnected connection", inputs: "id" },
+  { name: "conn.update", cat: "conn", desc: "Resize terminal cols/rows or change baud rate", inputs: "id, cols?, rows?, baudRate?" },
+  { name: "conn.list", cat: "conn", desc: "List all active connections or get detailed info by id", inputs: "id?" },
+  { name: "conn.share", cat: "conn", desc: "Start/stop/list TCP connection shares", inputs: "action, connection_id?, local_port?" },
+  // conn.data.* — 数据交互 (7)
+  { name: "conn.data.write", cat: "data", desc: "Send text data/command to connection", inputs: "data, id" },
+  { name: "conn.data.write_hex", cat: "data", desc: "Send hex data (e.g. Modbus frames)", inputs: "hex, id" },
+  { name: "conn.data.read", cat: "data", desc: "Read output buffer (consume or peek)", inputs: "id, consume?, max_bytes?" },
+  { name: "conn.data.expect", cat: "data", desc: "Wait for pattern in output (substring or regex)", inputs: "pattern, id, regex?, timeout?" },
+  { name: "conn.data.clear", cat: "data", desc: "Clear output buffer", inputs: "id" },
+  { name: "conn.data.send", cat: "data", desc: "Send command + wait for response, auto-strip echo/prompt", inputs: "command, id, timeout_ms?" },
+  { name: "conn.data.history", cat: "data", desc: "Get recent send/receive history", inputs: "id, max_entries?" },
+  // conn.hw.* — 硬件控制 (2)
+  { name: "conn.hw.dtr_rts", cat: "hw", desc: "Control DTR/RTS serial signals", inputs: "id, dtr?, rts?" },
+  { name: "conn.hw.break", cat: "hw", desc: "Send break signal to serial port", inputs: "id, duration_ms?" },
+  // conn.script.* — 脚本自动化 (2)
+  { name: "conn.script.run", cat: "script", desc: "Execute multi-step {send, expect} script with Sampling on failure", inputs: "steps[], id, stop_on_error?" },
+  { name: "conn.script.login", cat: "script", desc: "Automated login flow with Sampling for unknown prompts", inputs: "username, password, id, loginPrompt?, passwordPrompt?, shellPrompt?" },
+  // conn.watch.* — 模式监控 (2)
+  { name: "conn.watch.start", cat: "watch", desc: "Monitor connection for patterns, sends data_alert notifications", inputs: "id, rules[], duration_ms?" },
+  { name: "conn.watch.stop", cat: "watch", desc: "Stop a running watch", inputs: "watch_id" },
+  // conn.analyze.* — 连接分析 (3)
+  { name: "conn.analyze.state", cat: "analyze", desc: "Analyze connection state (login/shell/booting/idle)", inputs: "id" },
+  { name: "conn.analyze.probe", cat: "analyze", desc: "Auto-detect device type (ESP32/STM32/RPi/Cisco/Arduino/BusyBox)", inputs: "id, timeout_ms?" },
+  { name: "conn.analyze.report", cat: "analyze", desc: "Generate session summary (duration, commands, bytes)", inputs: "id" },
+  // conn.file.* — 文件传输 (1)
+  { name: "conn.file.send", cat: "file", desc: "Send file via XMODEM/YMODEM protocol", inputs: "id, file_path, protocol?" },
+  // device.* — 设备发现 (1)
+  { name: "device.ports", cat: "discover", desc: "List available serial ports on this machine", inputs: "(none)" },
+  // session.* — 会话管理 (3)
+  { name: "session.list", cat: "session", desc: "List saved connection sessions with full config", inputs: "(none)" },
+  { name: "session.save", cat: "session", desc: "Save current connection as a session (auto-detect type from id)", inputs: "id, name" },
+  { name: "session.delete", cat: "session", desc: "Delete a saved session", inputs: "session_id" },
+  // app.* — 应用工具 (1)
+  { name: "app.screenshot", cat: "app", desc: "Capture terminal window screenshot", inputs: "id?" },
 ];
 
 const CATEGORIES: Record<string, { label: string; icon: string }> = {
   conn: { label: "连接管理", icon: "🔌" },
   data: { label: "数据交互", icon: "📡" },
-  script: { label: "脚本执行", icon: "⚡" },
-  state: { label: "状态感知", icon: "🔍" },
   hw: { label: "硬件控制", icon: "⚙️" },
-  discover: { label: "设备发现", icon: "📋" },
-  share: { label: "连接共享", icon: "🔗" },
+  script: { label: "脚本自动化", icon: "⚡" },
+  watch: { label: "模式监控", icon: "👁️" },
+  analyze: { label: "连接分析", icon: "🔍" },
   file: { label: "文件传输", icon: "📁" },
-  ai: { label: "AI 智能", icon: "🤖" },
+  discover: { label: "设备发现", icon: "📋" },
+  session: { label: "会话管理", icon: "💾" },
+  app: { label: "应用工具", icon: "🖥️" },
 };
 
-const CAT_ORDER = ["conn", "data", "script", "state", "ai", "hw", "discover", "share", "file"];
+const CAT_ORDER = ["conn", "data", "hw", "script", "watch", "analyze", "file", "discover", "session", "app"];
 
 const RESOURCES_INFO = [
   { uri: "qserial://connections/active", desc: "Active connections with status" },
