@@ -84,7 +84,9 @@ export const useTerminalMacroStore = create<TerminalMacroState>()(
         // 过滤 ANSI 转义序列和控制序列
         if (data.includes("\u001b")) return;
         // 过滤 xterm 窗口大小命令
-        if (data.startsWith('COLUMNS=') || data.startsWith('LINES=') || data.includes('export COLUMNS')) return;
+        if (data.startsWith('COLUMNS=') || data.startsWith('LINES=') || data.includes('export COLUMNS') || data.includes('export LINES')) return;
+        // 过滤 xterm 窗口大小请求
+        if (data.length > 20 && (data.includes('COLUMNS') || data.includes('LINES'))) return;
 
         const now = Date.now();
         const delay = now - get().lastStepTime;
