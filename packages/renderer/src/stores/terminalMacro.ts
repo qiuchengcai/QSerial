@@ -81,10 +81,11 @@ export const useTerminalMacroStore = create<TerminalMacroState>()(
 
       addStep: (data: string) => {
         if (!get().isRecording) return;
-        // 过滤 ANSI 转义序列 (ESC[... 等控制序列)
-        if (data.charCodeAt(0) === 0x1b || /^\x1b/.test(data)) return;
-        // 过滤纯控制字符（单独的 escape 等）
-        if (data === '\x1b' || data === '\x1b[Z') return;
+        // 过滤 ANSI 转义序列和控制序列
+        if (data.includes("\u001b")) return;
+        // 过滤 xterm 窗口大小命令
+        if (data.startsWith('COLUMNS=') || data.startsWith('LINES=') || data.includes('export COLUMNS')) return;
+
         const now = Date.now();
         const delay = now - get().lastStepTime;
         set((state) => ({
