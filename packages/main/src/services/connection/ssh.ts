@@ -188,6 +188,7 @@ export class SshConnection implements IConnection {
       throw new Error('未找到 SSH 密钥 (~/.ssh/id_*) 且未提供密码');
     }
 
+
     // 连接策略：先用完整算法列表，失败后回退到保守算法
     const algorithmPresets = ['full', 'legacy'] as const;
     let lastError: Error | null = null;

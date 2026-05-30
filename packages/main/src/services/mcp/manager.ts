@@ -440,6 +440,23 @@ const MCP_TOOLS = [
         id: { type: 'string', description: 'Connection ID' },
         connectionId: { type: 'string', description: 'Connection ID (alias)' },
       },
+    },  },
+  {
+    name: 'app.macro.list',
+    description: 'List all saved terminal macros (recorded by user). Returns name, id, step count, creation time.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'app.macro.run',
+    description: 'Execute a saved terminal macro by name on the given connection. Replays recorded keystrokes with original timing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+        name: { type: 'string', description: 'Macro name to execute (exact match)' },
+      },
+      required: ['name'],
     },
   },
 ];
@@ -864,6 +881,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           `);
           const parsed = JSON.parse(result);
           if (parsed.error) return '错误: ' + parsed.error;
+          sendMCPNotification('session/saved', { id: parsed.id, name });
           return JSON.stringify({ id: parsed.id, message: '会话已保存' }, null, 2);
         } catch (err) {
           return '错误: 保存会话失败 — ' + (err as Error).message;
@@ -895,6 +913,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           `);
           const parsed = JSON.parse(result);
           if (parsed.error) return '错误: ' + parsed.error;
+          sendMCPNotification('session/deleted', { id: sessionId });
           return `会话 ${sessionId} 已删除`;
         } catch (err) {
           return '错误: 删除会话失败 — ' + (err as Error).message;
@@ -1075,6 +1094,9 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           options.port = (args.port as number) || 22;
           options.username = args.username as string;
           if (args.password) options.password = args.password as string;
+          if (args.privateKey) options.privateKey = args.privateKey as string;
+          if (args.passphrase) options.passphrase = args.passphrase as string;
+          if (args.jumpHost) options.jumpHost = args.jumpHost as { host: string; port?: number; username: string; password?: string; privateKey?: string };
         } else if (ctype === 'telnet') {
           if (!args.host) return '错误: telnet 类型需要 host 参数';
           options.host = args.host as string;
@@ -1089,6 +1111,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           const conn = await ConnectionFactory.create(options);
           await conn.open();
           ensureBuffer(id);
+          sendMCPNotification('connection/connected', { id, type: ctype, name });
 
           // 设置数据转发到渲染进程（MCP 连接缺少 IPC 管线的 onData 注册）
           conn.onData((data: Buffer) => {
@@ -1157,6 +1180,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         try {
           await conn.open();
           ensureBuffer(id);
+          sendMCPNotification('connection/connected', { id });
           return `连接 ${id} 已重新连接`;
         } catch (err) {
           return `错误: 重连失败 — ${(err as Error).message}`;
@@ -1474,6 +1498,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
             const serverConn = await ConnectionFactory.create(options);
             await serverConn.open();
             sharePool.set(serverId, { sourceId, serverId });
+            sendMCPNotification('share/started', { share_id: serverId, source_id: sourceId, local_port: localPort });
 
             // 通知渲染进程共享已启动
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1514,6 +1539,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
             await ConnectionFactory.destroy(shareId);
             sharePool.delete(shareId);
             removeBuffer(shareId);
+            sendMCPNotification('share/stopped', { share_id: shareId });
 
             // 通知渲染进程共享已停止
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1715,6 +1741,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           await waitForAnyPattern(rsid, pats, Math.ceil(timeout / 1000));
           const output = consumeBuffer(rsid).toString('utf-8');
           if (output) appendHistory(rsid, 'recv', output);
+          sendMCPNotification('script/step_completed', { connection_id: rsid, step: i, total: steps.length, ok: true });
           const xp: string = (step.expect as string) || '';
           const isOk = !xp || output.includes(xp);
           if (!isOk && xp) {
@@ -1816,6 +1843,38 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const tFirst = log.length > 0 ? log[0].ts : 0;
         const tLast = log.length > 0 ? log[log.length - 1].ts : 0;
         return formatOk({ connection_id: sumId, duration_ms: tLast - tFirst, total_commands: sendEntries.length, total_bytes_sent: totalSend, total_bytes_received: totalRecv, history_entries: log.length });
+      }
+      case 'app.macro.list': {
+        if (!mainWindow || mainWindow.isDestroyed()) return formatError('INTERNAL', 'No window');
+        try {
+          const raw = await mainWindow.webContents.executeJavaScript(
+            "JSON.parse(localStorage.getItem('qserial-terminal-macros') || '{}')?.state?.savedMacros || []"
+          );
+          const list = (raw || []).map((m: any) => ({ name: m.name, id: m.id, steps: m.steps?.length || 0, created: new Date(m.createdAt).toISOString() }));
+          return formatOk({ macros: list, total: list.length });
+        } catch (e: any) { return formatError('INTERNAL', e.message); }
+      }
+      case 'app.macro.run': {
+        const connId = (args.id || args.connectionId) as string | undefined;
+        const macroName = args.name as string;
+        if (!macroName) return formatError('INVALID_PARAM', 'name is required');
+        if (!mainWindow || mainWindow.isDestroyed()) return formatError('INTERNAL', 'No window');
+        try {
+          const raw = await mainWindow.webContents.executeJavaScript(
+            "JSON.parse(localStorage.getItem('qserial-terminal-macros') || '{}')?.state?.savedMacros || []"
+          );
+          const macro = (raw || []).find((m: any) => m.name === macroName);
+          if (!macro) return formatError('NOT_FOUND', 'Macro not found: ' + macroName);
+          const conn = connId ? ConnectionFactory.get(connId) : null;
+          if (!conn) return formatError('NOT_FOUND', 'Connection not found');
+          const results: string[] = [];
+          for (const step of macro.steps) {
+            if (step.delay > 0) await new Promise(r => setTimeout(r, step.delay));
+            await conn.write(step.data);
+            results.push(step.data.replace(/\r?\n/g, '\\n'));
+          }
+          return formatOk({ macro: macroName, steps_executed: results.length, commands: results });
+        } catch (e: any) { return formatError('INTERNAL', e.message); }
       }
       default:
         return formatError('UNSUPPORTED', 'unknown tool: ' + name);

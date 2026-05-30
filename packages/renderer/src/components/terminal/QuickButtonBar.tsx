@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useQuickButtonsStore, type QuickButton, type ButtonGroup, type ButtonBarDirection, PRESET_COLORS } from '@/stores/quickButtons';
+import { useTerminalMacroStore, type SavedMacro } from '@/stores/terminalMacro';
 import { ConnectionState } from '@qserial/shared';
 
 interface ButtonDialogProps {
@@ -315,6 +316,8 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
   const sessions = terminalState?.sessions || {};
   const quickButtonsState = useQuickButtonsStore();
   const groups = quickButtonsState?.groups || [];
+  const { savedMacros, deleteMacro } = useTerminalMacroStore();
+  const [playingMacroId, setPlayingMacroId] = useState<string | null>(null);
   const addGroup = quickButtonsState?.addGroup;
   const updateGroup = quickButtonsState?.updateGroup;
   const removeGroup = quickButtonsState?.removeGroup;
@@ -371,6 +374,20 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
         }
       }, i * delay);
     });
+  };
+
+  
+
+  const playMacro = async (macro: any) => {
+    if (!connectionId || !isConnected) return;
+    setPlayingMacroId(macro.id);
+    try {
+      for (const step of macro.steps) {
+        if (step.delay > 0) await new Promise(r => setTimeout(r, step.delay));
+        await window.qserial.connection.write(connectionId, step.data);
+      }
+    } catch (e) { console.error('Macro playback error:', e); }
+    setPlayingMacroId(null);
   };
 
   const handleContextMenu = (e: React.MouseEvent, type: 'button' | 'group', groupId: string, buttonId?: string, buttonIndex?: number, groupIndex?: number) => {
@@ -733,6 +750,43 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
         editingGroup={editingGroup}
         onSave={handleSaveGroup}
       />
+
+      {/* 已保存宏 */}
+      {savedMacros.length > 0 && (
+        <div className="mt-2 border-t border-border pt-2">
+          <div className="text-xs text-text-secondary mb-1 px-1 font-medium">已保存宏</div>
+          <div className="flex flex-wrap gap-1">
+            {savedMacros.map((macro) => (
+              <div key={macro.id} className="group flex items-center gap-0.5">
+                <button
+                  onClick={() => playMacro(macro)}
+                  disabled={playingMacroId === macro.id || !isConnected}
+                  className={`px-2 py-0.5 text-xs rounded border transition-colors flex items-center gap-1 ${
+                    playingMacroId === macro.id
+                      ? 'bg-yellow-500/20 border-yellow-400 text-yellow-400'
+                      : 'bg-surface/80 border-border hover:bg-hover disabled:opacity-40'
+                  }`}
+                  title={macro.name}
+                >
+                  {playingMacroId === macro.id ? (
+                    <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                  ) : (
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 1.5v7l6-3.5L2 1.5z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/></svg>
+                  )}
+                  {macro.name}
+                </button>
+                <button
+                  onClick={() => deleteMacro(macro.id)}
+                  className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-hover text-text-secondary flex-shrink-0 transition-opacity"
+                  title="删除宏"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 右键菜单 */}
       {contextMenu && (
