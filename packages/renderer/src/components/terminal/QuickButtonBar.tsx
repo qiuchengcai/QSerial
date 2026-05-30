@@ -386,18 +386,24 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
     if (!connectionId || !isConnected) return;
     console.log('[Macro] Playing', macro.name, 'with', macro.steps.length, 'steps');
     setPlayingMacroId(macro.id);
-    // 批量发送: 合并所有步骤为一个字符串，单次 IPC
+    // 批量发送: 合并所有步骤为一个字符串，单次 IPC，延迟上限 200ms/步 总计 1s
     let cumulative = 0;
+    let capped = 0;
     const parts: string[] = [];
     for (let i = 0; i < macro.steps.length; i++) {
       const step = macro.steps[i];
-      const d = step.delay > 0 ? step.delay : 5;
+      let d = step.delay > 0 ? step.delay : 5;
+      // 首步通常为等待提示符时间，压缩到 100ms
+      if (i === 0 && d > 100) d = 100;
+      // 后续步骤上限 200ms
+      if (d > 200) { capped += d - 200; d = 200; }
       cumulative += d;
-      console.log('[Macro] Step', i+1, '/', macro.steps.length, 'delay='+d+'ms', 'data='+JSON.stringify(step.data));
+      if (cumulative > 1000) { capped += cumulative - 1000; cumulative = 1000; }
+      console.log('[Macro] Step', i+1, '/', macro.steps.length, 'original='+step.delay+'ms', 'capped='+d+'ms', 'data='+JSON.stringify(step.data));
       parts.push(step.data);
     }
     const batch = parts.join('');
-    console.log('[Macro] Batch sending', batch.length, 'bytes, total delay', cumulative, 'ms');
+    console.log('[Macro] Batch sending', batch.length, 'bytes, total delay', cumulative, 'ms', capped > 0 ? '(saved ' + capped + 'ms)' : '');
     setTimeout(() => {
       window.qserial.connection.write(connectionId, batch).then(() => {
         console.log('[Macro] Playback complete');
