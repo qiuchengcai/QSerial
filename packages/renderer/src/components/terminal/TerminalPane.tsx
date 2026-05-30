@@ -8,7 +8,7 @@ import { FitAddon } from 'xterm-addon-fit';
 import { SearchAddon } from 'xterm-addon-search';
 import { useTerminalStore } from '@/stores/terminal';
 import { useThemeStore } from '@/stores/theme';
-import { useTerminalMacroStore } from '@/stores/terminalMacro';
+import { useTerminalMacroStore, PRESET_MACRO_COLORS } from '@/stores/terminalMacro';
 import { useConfigStore } from '@/stores/config';
 import { base64ToUint8Array, ConnectionType, ConnectionState } from '@qserial/shared';
 import 'xterm/css/xterm.css';
@@ -43,6 +43,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
   const [isRecording, setIsRecording] = useState(false);
   const [showMacroSave, setShowMacroSave] = useState(false);
   const [macroName, setMacroName] = useState('');
+  const [macroDesc, setMacroDesc] = useState('');
+  const [macroColor, setMacroColor] = useState('');
   const initializedRef = useRef(false);
   const disposedRef = useRef(false);
   const [searchVisible, setSearchVisible] = useState(false);
@@ -663,10 +665,11 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     }
   }, [connectionId, reconnectLoading]);
 
+  const macroStore = useTerminalMacroStore;
   const { startRecording, stopRecording, saveMacro, addStep } = useTerminalMacroStore.getState();
   const handleStartRecord = useCallback(() => { startRecording(); setIsRecording(true); }, [startRecording]);
-  const handleStopRecord = useCallback(() => { stopRecording(); setIsRecording(false); setShowMacroSave(true); }, [stopRecording]);
-  const handleSaveMacro = useCallback(() => { if (!macroName.trim()) return; saveMacro(macroName.trim()); setShowMacroSave(false); setMacroName(''); }, [macroName, saveMacro]);
+  const handleStopRecord = useCallback(() => { stopRecording(); setIsRecording(false); setShowMacroSave(true); setMacroDesc(''); setMacroColor(''); }, [stopRecording]);
+  const handleSaveMacro = useCallback(() => { if (!macroName.trim()) return; const colorObj = PRESET_MACRO_COLORS.find(c => c.value === macroColor); saveMacro(macroName.trim(), macroDesc.trim() || undefined, macroColor || undefined, colorObj?.textColor || undefined); setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); }, [macroName, macroDesc, macroColor, saveMacro]);
 
   const isLogging = session?.logEnabled ?? false;
   const isConnected = session?.connectionState === ConnectionState.CONNECTED;
@@ -838,10 +841,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
           <button
             onClick={isRecording ? handleStopRecord : handleStartRecord}
             className={`px-2 py-1 border rounded text-xs transition-colors flex items-center gap-1.5 ${isRecording ? 'bg-red-500/80 border-red-400 text-white hover:bg-red-600/80' : 'bg-surface/80 border-border hover:bg-hover'}`}
-            title={isRecording ? '停止录制' : '开始录制宏'}
+            title={isRecording ? '停止录制 (' + macroStore.getState().recordingSteps.length + ' 步)' : '开始录制宏'}
           >
             {isRecording ? (
-              <><span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>REC</>
+              <><span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>REC {macroStore.getState().recordingSteps.length > 0 ? '(' + macroStore.getState().recordingSteps.length + ')' : ''}</>
             ) : (
               <><svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-error"><circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.2"/></svg>录制</>
             )}
@@ -877,17 +880,39 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
         </div>
       )}
 
-      {/* 宏保存对话框 */}
+            {/* 宏保存对话框 */}
       {showMacroSave && (
         <div className="dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-surface border border-border/80 rounded-xl shadow-md w-[320px]" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface border border-border/80 rounded-xl shadow-md w-[360px]" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <h3 className="text-sm font-medium">保存录制宏</h3>
+              <span className="text-xs text-text-secondary">{macroStore.getState().recordingSteps.length} 步</span>
             </div>
             <div className="p-4 space-y-3">
-              <input type="text" value={macroName} onChange={e => setMacroName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveMacro(); else if (e.key === 'Escape') { setShowMacroSave(false); setMacroName(''); } }} className="dialog-input" placeholder="输入宏名称..." autoFocus />
+              <div>
+                <label className="block text-xs text-text-secondary mb-1.5 font-medium">名称</label>
+                <input type="text" value={macroName} onChange={e => setMacroName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveMacro(); else if (e.key === 'Escape') { setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); } }} className="dialog-input" placeholder="输入宏名称..." autoFocus />
+              </div>
+              <div>
+                <label className="block text-xs text-text-secondary mb-1.5 font-medium">描述（可选）</label>
+                <input type="text" value={macroDesc} onChange={e => setMacroDesc(e.target.value)} className="dialog-input" placeholder="用途说明..." />
+              </div>
+              <div>
+                <label className="block text-xs text-text-secondary mb-1.5 font-medium">颜色标记（可选）</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_MACRO_COLORS.map((c) => (
+                    <button
+                      key={c.value || 'default'}
+                      onClick={() => setMacroColor(c.value)}
+                      className={`w-5 h-5 rounded border-2 transition-all ${macroColor === c.value ? 'border-white scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: c.value || '#6B7280' }}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
               <div className="flex justify-end gap-2">
-                <button onClick={() => { setShowMacroSave(false); setMacroName(''); }} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-hover">取消</button>
+                <button onClick={() => { setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); }} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-hover">取消</button>
                 <button onClick={handleSaveMacro} disabled={!macroName.trim()} className="px-3 py-1.5 text-xs rounded bg-primary text-white disabled:opacity-50">保存</button>
               </div>
             </div>
@@ -895,7 +920,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
         </div>
       )}
 
-      {/* 串口共享对话框 */}
+{/* 串口共享对话框 */}
       <ConnectionShareDialog
         isOpen={showSerialShareDialog}
         onClose={() => setShowSerialShareDialog(false)}
