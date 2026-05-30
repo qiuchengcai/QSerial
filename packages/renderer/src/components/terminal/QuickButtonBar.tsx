@@ -362,6 +362,10 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
 
   const handleSendCommand = (button: QuickButton) => {
     if (!isConnected || !connectionId) return;
+    if (button.macroId) {
+      const macro = savedMacros.find(m => m.id === button.macroId);
+      if (macro) { playMacro(macro); return; }
+    }
     const commands = button.commands || [button.command];
     const delay = button.delay ?? 100;
     const noNewline = button.noNewline ?? false;
