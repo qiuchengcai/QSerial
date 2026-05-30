@@ -114,6 +114,14 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../../renderer/dist/index.html'));
   }
 
+  // Register F12 devtools shortcut for production builds
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' && !input.control && !input.alt && !input.meta && !input.shift) {
+      mainWindow?.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
+
   mainWindow.webContents.on('did-start-loading', async () => {
     console.log('Renderer reloading, cleaning up connections...');
     try {
@@ -206,7 +214,7 @@ app.whenReady().then(async () => {
         submenu: [
           { role: 'reload', label: t('重新加载', 'Reload') },
           { role: 'forceReload' },
-          { role: 'toggleDevTools' },
+          { role: 'toggleDevTools', accelerator: 'F12' },
           { type: 'separator' },
           { role: 'resetZoom' },
           { role: 'zoomIn' },
