@@ -75,7 +75,7 @@ export const useTerminalMacroStore = create<TerminalMacroState>()(
 
       stopRecording: () => {
         const steps = get().recordingSteps;
-        set({ isRecording: false, recordingSteps: [] });
+        set({ isRecording: false });
         return steps;
       },
 
