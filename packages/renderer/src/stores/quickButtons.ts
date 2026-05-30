@@ -12,6 +12,7 @@ export interface QuickButton {
   commands?: string[]; // 多行命令，优先于 command 使用
   delay?: number; // 多行命令之间的延迟(ms)，默认 100
   noNewline?: boolean; // 为 true 时不自动追加 \r\n，需在命令中用 \n 显式换行
+  macroId?: string; // 关联的终端宏 ID，存在时点击回放宏而非发送文本
   description?: string;
   color?: string; // 按钮颜色
   textColor?: string; // 文字颜色

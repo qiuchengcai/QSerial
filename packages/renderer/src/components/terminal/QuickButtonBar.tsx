@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useQuickButtonsStore, type QuickButton, type ButtonGroup, type ButtonBarDirection, PRESET_COLORS } from '@/stores/quickButtons';
-import { useTerminalMacroStore, type SavedMacro, PRESET_MACRO_COLORS } from '@/stores/terminalMacro';
+import { useTerminalMacroStore } from '@/stores/terminalMacro';
 import { ConnectionState } from '@qserial/shared';
 
 interface ButtonDialogProps {
@@ -316,12 +316,8 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
   const sessions = terminalState?.sessions || {};
   const quickButtonsState = useQuickButtonsStore();
   const groups = quickButtonsState?.groups || [];
-  const { savedMacros, deleteMacro, updateMacro } = useTerminalMacroStore();
+  const { savedMacros, deleteMacro } = useTerminalMacroStore();
   const [playingMacroId, setPlayingMacroId] = useState<string | null>(null);
-  const [editingMacro, setEditingMacro] = useState<SavedMacro | null>(null);
-  const [editMacroName, setEditMacroName] = useState('');
-  const [editMacroDesc, setEditMacroDesc] = useState('');
-  const [editMacroColor, setEditMacroColor] = useState('');
   const addGroup = quickButtonsState?.addGroup;
   const updateGroup = quickButtonsState?.updateGroup;
   const removeGroup = quickButtonsState?.removeGroup;
@@ -755,114 +751,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
         onSave={handleSaveGroup}
       />
 
-            {/* 已保存宏 */}
-      {savedMacros.length > 0 && (
-        <div className="mt-2 border-t border-border pt-2">
-          <div className="flex items-center justify-between mb-1 px-1">
-            <span className="text-xs text-text-secondary font-medium">已保存宏 ({savedMacros.length})</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {savedMacros.map((macro, idx) => (
-              <div key={macro.id} className="group flex items-center gap-0.5">
-                <button
-                  onClick={() => playMacro(macro)}
-                  disabled={playingMacroId === macro.id || !isConnected}
-                  className={`h-7 pl-2.5 pr-2 text-[11px] rounded-[5px] whitespace-nowrap transition-all text-left truncate flex items-center gap-1.5 ${
-                    playingMacroId === macro.id
-                      ? 'bg-yellow-500/20 border border-yellow-400 text-yellow-400'
-                      : macro.color
-                        ? 'border border-transparent hover:-translate-y-[0.5px] active:translate-y-0 disabled:opacity-40'
-                        : 'border border-border hover:bg-hover disabled:opacity-40'
-                  }`}
-                  style={macro.color ? { backgroundColor: macro.color + '30', borderColor: macro.color + '60', color: macro.textColor || macro.color } : undefined}
-                  title={[macro.name, macro.description, macro.steps.length + ' 步'].filter(Boolean).join(' | ')}
-                >
-                  {playingMacroId === macro.id ? (
-                    <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                  ) : (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 1.5v7l6-3.5L2 1.5z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/></svg>
-                  )}
-                  {macro.name}
-                  <span className="opacity-50 text-[10px]">{macro.steps.length}步</span>
-                </button>
-                <button
-                  onClick={() => { setEditingMacro(macro); setEditMacroName(macro.name); setEditMacroDesc(macro.description || ''); setEditMacroColor(macro.color || ''); }}
-                  className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-hover text-text-secondary flex-shrink-0 transition-opacity"
-                  title="编辑宏"
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 9l1-4 4-4 3 3-4 4-4 1z" stroke="currentColor" strokeWidth="0.8"/></svg>
-                </button>
-                <button
-                  onClick={() => deleteMacro(macro.id)}
-                  className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-hover text-text-secondary flex-shrink-0 transition-opacity"
-                  title="删除宏"
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 宏编辑对话框 */}
-      {editingMacro && (
-        <div className="dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-surface border border-border/80 rounded-xl shadow-md w-[340px]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-medium">编辑宏</h3>
-            </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="block text-xs text-text-secondary mb-1.5 font-medium">名称</label>
-                <input type="text" value={editMacroName} onChange={e => setEditMacroName(e.target.value)} className="dialog-input" placeholder="宏名称" />
-              </div>
-              <div>
-                <label className="block text-xs text-text-secondary mb-1.5 font-medium">描述</label>
-                <input type="text" value={editMacroDesc} onChange={e => setEditMacroDesc(e.target.value)} className="dialog-input" placeholder="可选描述" />
-              </div>
-              <div>
-                <label className="block text-xs text-text-secondary mb-1.5 font-medium">颜色标记</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {PRESET_MACRO_COLORS.map((c) => (
-                    <button
-                      key={c.value || 'default'}
-                      onClick={() => setEditMacroColor(c.value)}
-                      className={`w-5 h-5 rounded border-2 transition-all ${editMacroColor === c.value ? 'border-white scale-110' : 'border-transparent'}`}
-                      style={{ backgroundColor: c.value || '#6B7280' }}
-                      title={c.name}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="text-xs text-text-secondary">
-                步骤数: {editingMacro.steps.length} | 创建: {new Date(editingMacro.createdAt).toLocaleString()}
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button onClick={() => setEditingMacro(null)} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-hover">取消</button>
-                <button
-                  onClick={() => {
-                    const colorObj = PRESET_MACRO_COLORS.find(c => c.value === editMacroColor);
-                    updateMacro(editingMacro.id, {
-                      name: editMacroName.trim(),
-                      description: editMacroDesc.trim() || undefined,
-                      color: editMacroColor || undefined,
-                      textColor: colorObj?.textColor || undefined,
-                    });
-                    setEditingMacro(null);
-                  }}
-                  disabled={!editMacroName.trim()}
-                  className="px-3 py-1.5 text-xs rounded bg-primary text-white disabled:opacity-50"
-                >
-                  保存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-{/* 右键菜单 */}
+            {/* 右键菜单 */}
       {contextMenu && (
         <>
           <div

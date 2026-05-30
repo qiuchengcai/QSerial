@@ -9,6 +9,7 @@ import { SearchAddon } from 'xterm-addon-search';
 import { useTerminalStore } from '@/stores/terminal';
 import { useThemeStore } from '@/stores/theme';
 import { useTerminalMacroStore, PRESET_MACRO_COLORS } from '@/stores/terminalMacro';
+import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useConfigStore } from '@/stores/config';
 import { base64ToUint8Array, ConnectionType, ConnectionState } from '@qserial/shared';
 import 'xterm/css/xterm.css';
@@ -669,7 +670,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
   const { startRecording, stopRecording, saveMacro, addStep } = useTerminalMacroStore.getState();
   const handleStartRecord = useCallback(() => { startRecording(); setIsRecording(true); }, [startRecording]);
   const handleStopRecord = useCallback(() => { stopRecording(); setIsRecording(false); setShowMacroSave(true); setMacroDesc(''); setMacroColor(''); }, [stopRecording]);
-  const handleSaveMacro = useCallback(() => { if (!macroName.trim()) return; const colorObj = PRESET_MACRO_COLORS.find(c => c.value === macroColor); saveMacro(macroName.trim(), macroDesc.trim() || undefined, macroColor || undefined, colorObj?.textColor || undefined); setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); }, [macroName, macroDesc, macroColor, saveMacro]);
+  const handleSaveMacro = useCallback(() => { if (!macroName.trim()) return; const colorObj = PRESET_MACRO_COLORS.find(c => c.value === macroColor); const saved = saveMacro(macroName.trim(), macroDesc.trim() || undefined, macroColor || undefined, colorObj?.textColor || undefined); setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); const qbs = useQuickButtonsStore.getState(); if (qbs.groups.length > 0) { qbs.addButton(qbs.groups[0].id, { name: saved.name, command: '', macroId: saved.id, description: saved.description, color: saved.color, textColor: saved.textColor }); } }, [macroName, macroDesc, macroColor, saveMacro]);
 
   const isLogging = session?.logEnabled ?? false;
   const isConnected = session?.connectionState === ConnectionState.CONNECTED;
