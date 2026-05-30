@@ -358,12 +358,14 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       if (data === compositionDataRef.current) {
         console.log('[TerminalPane] onData sending (composition end)');
         window.qserial.connection.write(connectionId, data);
+        console.log('[Macro] Record step:', JSON.stringify(data));
         addStep(data);
         compositionDataRef.current = ''; // 清空标记，防止重复
         return;
       }
       console.log('[TerminalPane] onData sending');
       window.qserial.connection.write(connectionId, data);
+      console.log('[Macro] Record step:', JSON.stringify(data));
       addStep(data);
     });
 
