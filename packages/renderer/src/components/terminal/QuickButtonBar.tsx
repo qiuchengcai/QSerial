@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
 import { useQuickButtonsStore, type QuickButton, type ButtonGroup, type ButtonBarDirection, PRESET_COLORS } from '@/stores/quickButtons';
-import { useTerminalMacroStore, type SavedMacro } from '@/stores/terminalMacro';
+import { useTerminalMacroStore, type SavedMacro, PRESET_MACRO_COLORS } from '@/stores/terminalMacro';
 import { ConnectionState } from '@qserial/shared';
 
 interface ButtonDialogProps {
@@ -316,8 +316,12 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
   const sessions = terminalState?.sessions || {};
   const quickButtonsState = useQuickButtonsStore();
   const groups = quickButtonsState?.groups || [];
-  const { savedMacros, deleteMacro } = useTerminalMacroStore();
+  const { savedMacros, deleteMacro, updateMacro } = useTerminalMacroStore();
   const [playingMacroId, setPlayingMacroId] = useState<string | null>(null);
+  const [editingMacro, setEditingMacro] = useState<SavedMacro | null>(null);
+  const [editMacroName, setEditMacroName] = useState('');
+  const [editMacroDesc, setEditMacroDesc] = useState('');
+  const [editMacroColor, setEditMacroColor] = useState('');
   const addGroup = quickButtonsState?.addGroup;
   const updateGroup = quickButtonsState?.updateGroup;
   const removeGroup = quickButtonsState?.removeGroup;
