@@ -389,7 +389,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
     try {
       for (let i = 0; i < macro.steps.length; i++) {
         const step = macro.steps[i];
-        const d = step.delay > 0 ? step.delay : 50;
+        const d = step.delay > 0 ? step.delay : 10;
         await new Promise(r => setTimeout(r, d));
         console.log('[Macro] Step', i+1, '/', macro.steps.length, 'delay='+d+'ms', 'data='+JSON.stringify(step.data));
         await window.qserial.connection.write(connectionId, step.data);
