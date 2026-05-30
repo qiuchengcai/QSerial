@@ -767,12 +767,12 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
                 <button
                   onClick={() => playMacro(macro)}
                   disabled={playingMacroId === macro.id || !isConnected}
-                  className={`px-2 py-0.5 text-xs rounded border transition-colors flex items-center gap-1 ${
+                  className={`h-7 pl-2.5 pr-2 text-[11px] rounded-[5px] whitespace-nowrap transition-all text-left truncate flex items-center gap-1.5 ${
                     playingMacroId === macro.id
-                      ? 'bg-yellow-500/20 border-yellow-400 text-yellow-400'
+                      ? 'bg-yellow-500/20 border border-yellow-400 text-yellow-400'
                       : macro.color
-                        ? 'border-transparent hover:opacity-85 disabled:opacity-40'
-                        : 'bg-surface/80 border-border hover:bg-hover disabled:opacity-40'
+                        ? 'border border-transparent hover:-translate-y-[0.5px] active:translate-y-0 disabled:opacity-40'
+                        : 'border border-border hover:bg-hover disabled:opacity-40'
                   }`}
                   style={macro.color ? { backgroundColor: macro.color + '30', borderColor: macro.color + '60', color: macro.textColor || macro.color } : undefined}
                   title={[macro.name, macro.description, macro.steps.length + ' 步'].filter(Boolean).join(' | ')}
