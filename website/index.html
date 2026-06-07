@@ -5,313 +5,381 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QSerial - AI-Powered Cross-Platform Terminal</title>
 <meta name="description" content="QSerial is a cross-platform serial/SSH/Telnet terminal tool with 42 built-in MCP AI tools, 21 device auto-detection patterns, and 4 connection protocols.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&family=Lora:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+/* ═══════════════════════════════════════
+   QSerial Landing  -  Design System
+   Inspired by QNote warm-light palette
+   ═══════════════════════════════════════ */
+
 :root {
-  --bg: #0a0a0b;
-  --surface: #131316;
-  --surface2: #1a1a1f;
-  --border: #2a2a32;
-  --text: #e4e4e8;
-  --text2: #9898a8;
-  --text3: #686878;
-  --primary: #6c8cff;
-  --primary2: #4a6cf7;
-  --green: #4ade80;
-  --orange: #fb923c;
-  --red: #f87171;
-  --radius: 8px;
+  --color-bg:        #ffffff;
+  --color-surface:   #fafafa;
+  --color-hover:     #f0f0f0;
+  --color-border:    #e3e3e3;
+  --color-border-light: #eeeeee;
+  --color-muted:     #8d8d8d;
+  --color-text:      #27282b;
+  --color-text-dim:  #717377;
+  --color-accent:    #bf9376;
+  --color-accent-hover: #a67c5e;
+  --color-accent-light: #ebded5;
+  --color-accent-glow: rgba(191,147,118,0.15);
+  --color-tag-bg:    #f8f5f2;
+
+  --bg-primary:      var(--color-bg);
+  --bg-secondary:    var(--color-surface);
+  --text-primary:    var(--color-text);
+  --text-secondary:  var(--color-text-dim);
+  --text-muted:      var(--color-muted);
+  --accent:          var(--color-accent);
+  --border:          var(--color-border);
+
+  --font-heading: "Lora", Georgia, "Times New Roman", serif;
+  --font-ui:      "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+
+  --space-xs: 4px;  --space-sm: 8px; --space-md: 12px;
+  --space-lg: 16px; --space-xl: 24px; --space-2xl: 32px; --space-3xl: 48px;
+  --space-4xl: 64px; --space-5xl: 96px;
+
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 10px; --radius-xl: 14px;
+
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.08);
 }
-* { margin:0; padding:0; box-sizing:border-box; }
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { scroll-behavior:smooth; }
-body { 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  background: var(--bg); color: var(--text); line-height:1.6;
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Nav */
 nav {
-  position: fixed; top:0; left:0; right:0; z-index:100;
-  background: rgba(10,10,11,0.85); backdrop-filter: blur(12px);
+  position: fixed; top:0; left:0; right:0; z-index: 100;
+  background: rgba(255,255,255,0.85); backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
 .nav-inner {
-  max-width: 1200px; margin:0 auto; padding:0 24px;
+  max-width: 1200px; margin:0 auto; padding:0 var(--space-xl);
   display:flex; align-items:center; justify-content:space-between; height:56px;
 }
-.nav-logo { font-size:18px; font-weight:700; color:var(--text); letter-spacing:-0.5px; }
-.nav-logo span { color:var(--primary); }
-.nav-links { display:flex; gap:24px; list-style:none; }
-.nav-links a { color:var(--text2); text-decoration:none; font-size:14px; transition:color .2s; }
-.nav-links a:hover { color:var(--text); }
+.nav-logo { font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px; }
+.nav-logo span { color: var(--accent); }
+.nav-links { display:flex; gap: var(--space-xl); list-style:none; }
+.nav-links a { color: var(--text-secondary); text-decoration:none; font-size: 14px; font-weight: 500; transition: color 0.2s var(--ease-out); }
+.nav-links a:hover { color: var(--text-primary); }
 .nav-cta {
-  background:var(--primary); color:#fff; border:none; padding:8px 18px; border-radius:6px;
-  font-size:13px; font-weight:600; cursor:pointer; transition:background .2s; text-decoration:none;
+  background: var(--accent); color: #fff; border:none; padding: 8px 20px; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600; cursor:pointer; transition: background 0.2s var(--ease-out); text-decoration:none;
+  font-family: var(--font-ui);
 }
-.nav-cta:hover { background:var(--primary2); }
+.nav-cta:hover { background: var(--color-accent-hover); }
 
 /* Hero */
 .hero {
-  padding:160px 24px 100px; text-align:center; max-width:900px; margin:0 auto;
+  padding: 140px var(--space-xl) 80px;
+  text-align: center; max-width: 800px; margin:0 auto;
 }
 .hero-badge {
-  display:inline-block; padding:4px 14px; border-radius:20px;
-  background:var(--primary2)/10; border:1px solid var(--primary2)/20;
-  color:var(--primary); font-size:12px; font-weight:500; margin-bottom:24px;
+  display: inline-block; padding: 4px 16px; border-radius: 20px;
+  background: var(--color-accent-light); color: var(--accent);
+  font-size: 13px; font-weight: 600; margin-bottom: var(--space-xl);
+  font-family: var(--font-ui);
 }
 .hero h1 {
-  font-size:clamp(36px,6vw,64px); font-weight:800; letter-spacing:-1.5px;
-  line-height:1.1; margin-bottom:20px;
+  font-family: var(--font-heading); font-size: clamp(40px, 7vw, 72px);
+  font-weight: 700; letter-spacing: -1.5px; line-height: 1.12; margin-bottom: var(--space-xl);
 }
-.hero h1 span { 
-  background:linear-gradient(135deg, var(--primary), #a78bfa);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+.hero h1 em {
+  font-style: italic; color: var(--accent);
 }
-.hero p {
-  font-size:18px; color:var(--text2); max-width:600px; margin:0 auto 40px; line-height:1.7;
+.hero p.lead {
+  font-size: 18px; color: var(--text-secondary); max-width: 560px;
+  margin: 0 auto var(--space-2xl); line-height: 1.7;
 }
-.hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.hero-btns { display: flex; gap: var(--space-md); justify-content: center; flex-wrap: wrap; }
 .btn {
-  display:inline-flex; align-items:center; gap:8px; padding:12px 28px; border-radius:8px;
-  font-size:15px; font-weight:600; text-decoration:none; transition:all .2s; cursor:pointer; border:none;
+  display: inline-flex; align-items: center; gap: 8px; padding: 13px 30px;
+  border-radius: var(--radius-md); font-size: 15px; font-weight: 600;
+  text-decoration: none; transition: all 0.2s var(--ease-out); cursor: pointer; border: none;
+  font-family: var(--font-ui);
 }
-.btn-primary { background:var(--primary); color:#fff; }
-.btn-primary:hover { background:var(--primary2); transform:translateY(-1px); box-shadow:0 4px 20px rgba(108,140,255,0.3); }
-.btn-outline { background:transparent; color:var(--text); border:1px solid var(--border); }
-.btn-outline:hover { border-color:var(--text2); background:var(--surface); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--color-accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-outline { background: transparent; color: var(--text-primary); border: 1.5px solid var(--border); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); background: var(--color-accent-glow); }
 
-/* Stats */
-.stats {
-  display:flex; justify-content:center; gap:48px; flex-wrap:wrap;
-  padding:40px 24px 80px; max-width:900px; margin:0 auto;
+/* Stats bar */
+.stats-bar {
+  display: flex; justify-content: center; gap: var(--space-5xl); flex-wrap: wrap;
+  padding: 40px var(--space-xl); max-width: 900px; margin: 0 auto var(--space-4xl);
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
 }
-.stat { text-align:center; }
-.stat-num { font-size:36px; font-weight:800; letter-spacing:-1px; }
-.stat-num.g { color:var(--green); }
-.stat-num.p { color:var(--primary); }
-.stat-num.o { color:var(--orange); }
-.stat-label { font-size:13px; color:var(--text3); margin-top:4px; }
+.stat { text-align: center; }
+.stat-num { font-family: var(--font-heading); font-size: 40px; font-weight: 700; letter-spacing: -1px; color: var(--accent); }
+.stat-label { font-size: 13px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
 
 /* Sections */
-.section { padding:80px 24px; }
-.section-inner { max-width:1200px; margin:0 auto; }
-.section-label {
-  font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:2px;
-  color:var(--primary); margin-bottom:12px;
+.section { padding: var(--space-5xl) var(--space-xl); }
+.section-alt { background: var(--bg-secondary); }
+.section-inner { max-width: 1200px; margin:0 auto; }
+.section-eyebrow {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2.5px;
+  color: var(--accent); margin-bottom: var(--space-md); font-family: var(--font-ui);
 }
-.section h2 { font-size:32px; font-weight:700; letter-spacing:-0.5px; margin-bottom:16px; }
-.section p.sub { font-size:16px; color:var(--text2); max-width:600px; margin-bottom:48px; }
+.section h2 {
+  font-family: var(--font-heading); font-size: 34px; font-weight: 700;
+  letter-spacing: -0.5px; margin-bottom: var(--space-md);
+}
+.section p.sub {
+  font-size: 16px; color: var(--text-secondary); max-width: 600px;
+  margin-bottom: var(--space-3xl); line-height: 1.7;
+}
 
-/* Features Grid */
-.features { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:20px; }
+/* Feature cards */
+.features {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-xl);
+}
 .feature-card {
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:28px; transition:border-color .2s, transform .2s;
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-2xl);
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
-.feature-card:hover { border-color:var(--text3); transform:translateY(-2px); }
-.feature-icon { font-size:28px; margin-bottom:16px; display:block; }
-.feature-card h3 { font-size:16px; font-weight:600; margin-bottom:8px; }
-.feature-card p { font-size:14px; color:var(--text2); line-height:1.6; }
+.feature-card:hover {
+  border-color: var(--accent); box-shadow: var(--shadow-md);
+}
+.feature-icon { font-size: 28px; margin-bottom: var(--space-lg); display: block; }
+.feature-card h3 {
+  font-family: var(--font-heading); font-size: 18px; font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+.feature-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
 
-/* Tools Table */
-.tools-preview {
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  overflow:hidden;
+/* Tools grid */
+.tools-wrap {
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
 }
-.tools-header {
-  padding:16px 20px; background:var(--surface2); border-bottom:1px solid var(--border);
-  font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px;
+.tools-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
-.tools-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); }
 .tool-item {
-  padding:12px 20px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);
-  display:flex; align-items:flex-start; gap:8px;
+  padding: 14px 20px; border-bottom: 1px solid var(--color-border-light);
+  border-right: 1px solid var(--color-border-light);
+  display: flex; align-items: baseline; gap: var(--space-sm);
 }
-.tool-name { font-family:'SF Mono','Cascadia Code','Fira Code',monospace; font-size:12px; color:var(--primary); min-width:140px; }
-.tool-desc { font-size:12px; color:var(--text2); }
+.tool-item:nth-child(even) { border-right: none; }
+.tool-name {
+  font-family: var(--font-mono); font-size: 12px; color: var(--accent);
+  min-width: 150px; white-space: nowrap; font-weight: 500;
+}
+.tool-desc { font-size: 13px; color: var(--text-secondary); }
 .cat-tag {
-  font-size:10px; padding:1px 6px; border-radius:3px; background:var(--surface2);
-  color:var(--text3); white-space:nowrap; margin-right:4px;
+  font-size: 10px; padding: 1px 7px; border-radius: var(--radius-sm);
+  background: var(--color-tag-bg); color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  white-space: nowrap; margin-right: 4px;
 }
 
 /* Download */
-.download-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; }
+.dl-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-lg);
+}
 .dl-card {
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:24px; text-align:center; transition:border-color .2s;
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-2xl); text-align: center;
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
-.dl-card:hover { border-color:var(--primary); }
-.dl-os { font-size:14px; font-weight:600; margin-bottom:4px; }
-.dl-arch { font-size:12px; color:var(--text3); margin-bottom:16px; }
+.dl-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.dl-os { font-family: var(--font-heading); font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+.dl-arch { font-size: 13px; color: var(--text-muted); margin-bottom: var(--space-lg); }
 .dl-btn {
-  display:inline-block; background:var(--primary); color:#fff; text-decoration:none;
-  padding:8px 20px; border-radius:6px; font-size:13px; font-weight:600; transition:background .2s;
+  display: inline-block; background: var(--accent); color: #fff;
+  text-decoration: none; padding: 9px 24px; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600; transition: background 0.2s var(--ease-out);
+  font-family: var(--font-ui);
 }
-.dl-btn:hover { background:var(--primary2); }
+.dl-btn:hover { background: var(--color-accent-hover); }
 
 /* Footer */
 footer {
-  border-top:1px solid var(--border); padding:40px 24px; text-align:center;
-  color:var(--text3); font-size:13px;
+  border-top: 1px solid var(--border); padding: var(--space-3xl) var(--space-xl);
+  text-align: center; color: var(--text-muted); font-size: 13px;
 }
-footer a { color:var(--text2); text-decoration:none; }
-footer a:hover { color:var(--text); }
+footer a { color: var(--text-secondary); text-decoration: none; }
+footer a:hover { color: var(--accent); }
 
-/* Responsive */
 @media(max-width:768px) {
-  .nav-links { display:none; }
-  .stats { gap:24px; }
-  .features { grid-template-columns:1fr; }
+  .nav-links { display: none; }
+  .stats-bar { gap: var(--space-2xl); }
+  .features { grid-template-columns: 1fr; }
+  .tools-grid { grid-template-columns: 1fr; }
+  .tool-item:nth-child(even) { border-right: 1px solid var(--color-border-light); }
 }
 </style>
 </head>
 <body>
 
-<!-- Nav -->
 <nav>
   <div class="nav-inner">
-    <div class="nav-logo">Q<span>Serial</span></div>
+    <a href="/qserial" class="nav-logo" style="text-decoration:none;">Q<span>Serial</span></a>
     <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
-      <li><a href="#tools">Tools</a></li>
-      <li><a href="#download">Download</a></li>
+      <li><a href="#features">特性</a></li>
+      <li><a href="#tools">工具</a></li>
+      <li><a href="#download">下载</a></li>
+      <li><a href="https://github.com/qiuchengcai/QSerial" target="_blank">GitHub</a></li>
     </ul>
-    <a href="#download" class="nav-cta">Download</a>
+    <a href="#download" class="nav-cta">免费下载</a>
   </div>
 </nav>
 
-<!-- Hero -->
 <section class="hero">
-  <div class="hero-badge">v0.3.x  Now with 42 MCP AI Tools</div>
-  <h1>Connect.<br><span>Automate.</span><br>Ship Faster.</h1>
-  <p>QSerial is a modern cross-platform terminal for embedded engineers. Serial, SSH, Telnet, PTY  with 42 built-in MCP AI tools, 21 device auto-detection patterns, and full i18n support.</p>
+  <div class="hero-badge">v0.3.x  &middot; 42 个 MCP AI 工具</div>
+  <h1>连接设备，<br><em>交给 AI。</em></h1>
+  <p class="lead">QSerial 是面向嵌入式工程师的现代跨平台终端工具。支持串口、SSH、Telnet、PTY，内置 42 个 MCP AI 工具，自动识别 21 种设备，中英双语完整支持。</p>
   <div class="hero-btns">
-    <a href="#download" class="btn btn-primary">Download Free</a>
-    <a href="https://github.com/qiuchengcai/QSerial" class="btn btn-outline" target="_blank">View on GitHub</a>
+    <a href="#download" class="btn btn-primary">下载 QSerial</a>
+    <a href="https://github.com/qiuchengcai/QSerial" class="btn btn-outline" target="_blank">GitHub &#8599;</a>
   </div>
 </section>
 
-<!-- Stats -->
-<div class="stats">
-  <div class="stat"><div class="stat-num p">42</div><div class="stat-label">MCP AI Tools</div></div>
-  <div class="stat"><div class="stat-num g">21</div><div class="stat-label">Device Probes</div></div>
-  <div class="stat"><div class="stat-num o">4</div><div class="stat-label">Protocols</div></div>
-  <div class="stat"><div class="stat-num g">8</div><div class="stat-label">SFTP Tools</div></div>
-  <div class="stat"><div class="stat-num p">68</div><div class="stat-label">Unit Tests</div></div>
+<div class="stats-bar">
+  <div class="stat"><div class="stat-num">42</div><div class="stat-label">MCP AI 工具</div></div>
+  <div class="stat"><div class="stat-num">21</div><div class="stat-label">设备识别</div></div>
+  <div class="stat"><div class="stat-num">4</div><div class="stat-label">连接协议</div></div>
+  <div class="stat"><div class="stat-num">8</div><div class="stat-label">SFTP 工具</div></div>
+  <div class="stat"><div class="stat-num">68</div><div class="stat-label">单元测试</div></div>
 </div>
 
-<!-- Features -->
-<section class="section" id="features" style="background:var(--surface);">
+<section class="section" id="features">
   <div class="section-inner">
-    <div class="section-label">Features</div>
-    <h2>Everything an embedded engineer needs</h2>
-    <p class="sub">From serial debugging to AI-powered automation, QSerial covers the full embedded development workflow.</p>
+    <div class="section-eyebrow">核心特性</div>
+    <h2>嵌入式工程师所需的一切</h2>
+    <p class="sub">从串口调试到 AI 驱动的自动化，QSerial 覆盖嵌入式开发的完整工作流。</p>
     <div class="features">
       <div class="feature-card">
         <span class="feature-icon">&#129302;</span>
-        <h3>MCP AI Integration</h3>
-        <p>42 built-in MCP tools let AI assistants control your devices. Resources, Notifications, Sampling, and Prompts  all standard.</p>
+        <h3>MCP AI 集成</h3>
+        <p>42 个内置 MCP 工具，让 AI 助手直接操控你的设备。Resources、Notifications、Sampling、Prompts 全部标准实现。</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&#128268;</span>
-        <h3>Multi-Protocol</h3>
-        <p>Serial (COM/tty), SSH (with Jump Host), Telnet, and local PTY. All in one unified interface with consistent tooling.</p>
+        <h3>多协议统一</h3>
+        <p>Serial (COM/tty)、SSH（支持 Jump Host 跳板）、Telnet、本地 PTY。统一界面，一致的操作体验。</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&#128269;</span>
-        <h3>Auto Device Detection</h3>
-        <p>conn.analyze.probe identifies 21 device types: ESP32, STM32, NXP i.MX, Raspberry Pi, Cisco, OpenWrt, and more.</p>
+        <h3>自动设备识别</h3>
+        <p>conn.analyze.probe 自动探测 21 种设备：ESP32、STM32、NXP i.MX、树莓派、Cisco、OpenWrt 等。</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&#9000;</span>
-        <h3>Terminal Macro Recording</h3>
-        <p>Record your login and command sequences. Replay with one click. ANSI filtering keeps macros clean of control characters.</p>
+        <h3>终端宏录制</h3>
+        <p>录制登录和命令序列，一键回放。ANSI 过滤确保宏干净无干扰，延迟自动压缩至即时响应。</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&#128190;</span>
-        <h3>SFTP File Management</h3>
-        <p>Full SFTP client over SSH. Browse, upload, download, mkdir, stat, and delete  all via MCP tools or the built-in panel.</p>
+        <h3>SFTP 文件管理</h3>
+        <p>基于 SSH 的完整 SFTP 客户端。浏览、上传、下载、创建目录、查看元数据、删除 全部可通过 MCP 工具或内置面板操作。</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&#127758;</span>
-        <h3>i18n Ready</h3>
-        <p>Full Chinese (zh-CN) and English (en-US) localization. Menu, dialogs, tool descriptions  everything is bilingual.</p>
+        <h3>中英双语</h3>
+        <p>完整的中文（zh-CN）和英文（en-US）本地化。菜单、对话框、工具描述 全部双语覆盖。</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&#128737;</span>
-        <h3>Secure by Default</h3>
-        <p>MCP server binds to localhost only. Bearer token auth. CORS origins restricted. Your devices stay safe.</p>
+        <h3>默认安全</h3>
+        <p>MCP 服务仅绑定 localhost、Bearer Token 认证、CORS 来源限制。你的设备始终受到保护。</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&#128200;</span>
-        <h3>Watch & Alert</h3>
-        <p>Pattern monitoring with regex support. Match panic/watchdog/error patterns and get real-time MCP notifications.</p>
+        <h3>模式监控告警</h3>
+        <p>支持正则表达式的模式监控。匹配 panic/watchdog/error 等关键模式，实时推送 MCP 通知，结果自动持久化。</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Tools Preview -->
-<section class="section" id="tools">
+<section class="section section-alt" id="tools">
   <div class="section-inner">
-    <div class="section-label">MCP Tools</div>
-    <h2>42 AI-Ready Tools</h2>
-    <p class="sub">Every connection, data, and session operation is exposed as a structured MCP tool that AI clients can discover and invoke.</p>
-    <div class="tools-preview">
+    <div class="section-eyebrow">MCP 工具集</div>
+    <h2>42 个 AI 就绪的工具</h2>
+    <p class="sub">每个连接、数据和会话操作都暴露为结构化 MCP 工具，AI 客户端可自动发现并调用。</p>
+    <div class="tools-wrap">
       <div class="tools-grid">
-        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.create</span><span class="tool-desc">serial/SSH/Telnet/PTY + jumpHost</span></div>
-        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.write</span><span class="tool-desc">send text with delay/expect</span></div>
-        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.write_hex</span><span class="tool-desc">send hex frames (Modbus)</span></div>
-        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.expect</span><span class="tool-desc">wait for pattern (regex ok)</span></div>
-        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.script.login</span><span class="tool-desc">auto login with Sampling</span></div>
-        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.script.run</span><span class="tool-desc">multi-step test scripts</span></div>
-        <div class="tool-item"><span class="cat-tag">watch</span><span class="tool-name">conn.watch.start</span><span class="tool-desc">pattern monitoring + alerts</span></div>
-        <div class="tool-item"><span class="cat-tag">watch</span><span class="tool-name">conn.watch.results</span><span class="tool-desc">persisted alert history</span></div>
-        <div class="tool-item"><span class="cat-tag">record</span><span class="tool-name">conn.record.start</span><span class="tool-desc">terminal session recording</span></div>
-        <div class="tool-item"><span class="cat-tag">record</span><span class="tool-name">conn.record.replay</span><span class="tool-desc">replay at 1x/2x speed</span></div>
-        <div class="tool-item"><span class="cat-tag">analyze</span><span class="tool-name">conn.analyze.probe</span><span class="tool-desc">21-device auto detection</span></div>
-        <div class="tool-item"><span class="cat-tag">analyze</span><span class="tool-name">conn.analyze.report</span><span class="tool-desc">session statistics summary</span></div>
-        <div class="tool-item"><span class="cat-tag">hw</span><span class="tool-name">conn.hw.dtr_rts</span><span class="tool-desc">DTR/RTS signal control</span></div>
-        <div class="tool-item"><span class="cat-tag">hw</span><span class="tool-name">conn.hw.break</span><span class="tool-desc">serial break signal</span></div>
-        <div class="tool-item"><span class="cat-tag">file</span><span class="tool-name">conn.file.send</span><span class="tool-desc">XMODEM/YMODEM transfer</span></div>
-        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.connect</span><span class="tool-desc">SFTP over SSH session</span></div>
-        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.upload</span><span class="tool-desc">upload to remote host</span></div>
-        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.download</span><span class="tool-desc">download from remote</span></div>
-        <div class="tool-item"><span class="cat-tag">session</span><span class="tool-name">session.save</span><span class="tool-desc">save connection config</span></div>
-        <div class="tool-item"><span class="cat-tag">device</span><span class="tool-name">device.ports</span><span class="tool-desc">list available serial ports</span></div>
-        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">app.screenshot</span><span class="tool-desc">capture terminal view</span></div>
-        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">app.macro.run</span><span class="tool-desc">replay saved macros</span></div>
-        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">conn.share</span><span class="tool-desc">TCP connection sharing</span></div>
-        <div class="tool-item" style="background:var(--primary2)/5;"><span class="cat-tag" style="color:var(--primary);">+</span><span class="tool-name" style="color:var(--primary);">&hellip; 18 more tools</span><span class="tool-desc" style="color:var(--text2);">Resources, Notifications, Sampling, Prompts</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.create</span><span class="tool-desc">创建串口/SSH/Telnet/PTY 连接</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.write</span><span class="tool-desc">发送文本，支持延迟和条件等待</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.write_hex</span><span class="tool-desc">发送十六进制帧（Modbus 等）</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.expect</span><span class="tool-desc">等待输出中出现指定模式</span></div>
+        <div class="tool-item"><span class="cat-tag">script</span><span class="tool-name">conn.script.login</span><span class="tool-desc">自动登录，未知提示符触发 AI 决策</span></div>
+        <div class="tool-item"><span class="cat-tag">script</span><span class="tool-name">conn.script.run</span><span class="tool-desc">执行多步骤测试脚本</span></div>
+        <div class="tool-item"><span class="cat-tag">watch</span><span class="tool-name">conn.watch.start</span><span class="tool-desc">模式监控 + 实时告警通知</span></div>
+        <div class="tool-item"><span class="cat-tag">watch</span><span class="tool-name">conn.watch.results</span><span class="tool-desc">查询持久化的告警历史</span></div>
+        <div class="tool-item"><span class="cat-tag">record</span><span class="tool-name">conn.record.start</span><span class="tool-desc">终端会话录制</span></div>
+        <div class="tool-item"><span class="cat-tag">record</span><span class="tool-name">conn.record.replay</span><span class="tool-desc">1x / 2x / 即时速度回放</span></div>
+        <div class="tool-item"><span class="cat-tag">analyze</span><span class="tool-name">conn.analyze.probe</span><span class="tool-desc">21 种设备自动探测</span></div>
+        <div class="tool-item"><span class="cat-tag">analyze</span><span class="tool-name">conn.analyze.report</span><span class="tool-desc">会话统计摘要报告</span></div>
+        <div class="tool-item"><span class="cat-tag">hw</span><span class="tool-name">conn.hw.dtr_rts</span><span class="tool-desc">DTR/RTS 信号控制</span></div>
+        <div class="tool-item"><span class="cat-tag">hw</span><span class="tool-name">conn.hw.break</span><span class="tool-desc">串口 Break 信号</span></div>
+        <div class="tool-item"><span class="cat-tag">file</span><span class="tool-name">conn.file.send</span><span class="tool-desc">XMODEM/YMODEM 文件传输</span></div>
+        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.connect</span><span class="tool-desc">通过 SSH 建立 SFTP 会话</span></div>
+        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.upload</span><span class="tool-desc">上传文件到远程主机</span></div>
+        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.download</span><span class="tool-desc">从远程主机下载文件</span></div>
+        <div class="tool-item"><span class="cat-tag">session</span><span class="tool-name">session.save</span><span class="tool-desc">保存连接配置为会话</span></div>
+        <div class="tool-item"><span class="cat-tag">device</span><span class="tool-name">device.ports</span><span class="tool-desc">列出可用串口列表</span></div>
+        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">app.screenshot</span><span class="tool-desc">捕获终端窗口截图</span></div>
+        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">app.macro.run</span><span class="tool-desc">回放已保存的宏</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.share</span><span class="tool-desc">TCP 连接共享</span></div>
+        <div class="tool-item" style="background: var(--color-accent-light); border-bottom: none;">
+          <span class="cat-tag" style="color: var(--accent);">+18</span>
+          <span class="tool-name" style="color: var(--accent);">更多工具&hellip;</span>
+          <span class="tool-desc">Resources &middot; Notifications &middot; Sampling &middot; Prompts</span>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Download -->
-<section class="section" id="download" style="background:var(--surface);">
+<section class="section" id="download">
   <div class="section-inner">
-    <div class="section-label">Download</div>
-    <h2>Get QSerial</h2>
-    <p class="sub">Free and open-source. Built with Electron 35 + React 18 + TypeScript.</p>
-    <div class="download-cards">
+    <div class="section-eyebrow">下载</div>
+    <h2>获取 QSerial</h2>
+    <p class="sub">免费开源。基于 Electron 35 + React 18 + TypeScript 构建。</p>
+    <div class="dl-grid">
       <div class="dl-card">
         <div class="dl-os">Windows</div>
-        <div class="dl-arch">x64  .exe / .msi</div>
-        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">Download</a>
+        <div class="dl-arch">x64 &middot; .exe / .msi</div>
+        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">下载</a>
       </div>
       <div class="dl-card">
         <div class="dl-os">macOS</div>
         <div class="dl-arch">Apple Silicon / Intel</div>
-        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">Download</a>
+        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">下载</a>
       </div>
       <div class="dl-card">
         <div class="dl-os">Linux</div>
         <div class="dl-arch">AppImage / .deb</div>
-        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">Download</a>
+        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">下载</a>
       </div>
       <div class="dl-card">
-        <div class="dl-os">Source Code</div>
+        <div class="dl-os">源代码</div>
         <div class="dl-arch">pnpm install && pnpm start</div>
         <a href="https://github.com/qiuchengcai/QSerial" class="dl-btn" target="_blank">Clone</a>
       </div>
@@ -319,10 +387,12 @@ footer a:hover { color:var(--text); }
   </div>
 </section>
 
-<!-- Footer -->
 <footer>
-  <p>QSerial  Open-source under MIT License</p>
-  <p style="margin-top:8px;"><a href="https://github.com/qiuchengcai/QSerial" target="_blank">GitHub</a> &middot; Built with Electron + React + TypeScript</p>
+  <p>QSerial &mdash; MIT License</p>
+  <p style="margin-top: var(--space-sm);">
+    <a href="https://github.com/qiuchengcai/QSerial" target="_blank">GitHub</a>
+    &middot; Electron 35 &middot; React 18 &middot; TypeScript &middot; MCP SDK
+  </p>
 </footer>
 
 </body>
