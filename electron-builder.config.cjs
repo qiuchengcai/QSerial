@@ -7,7 +7,7 @@ module.exports = {
   publish: null,
 
   directories: {
-    output: 'release2',
+    output: 'release',
     buildResources: 'build',
   },
 

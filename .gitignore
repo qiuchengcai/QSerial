@@ -43,6 +43,7 @@ node_modules/
 dist/
 release/
 !release/*.zip
+release2/
 
 # pnpm
 .pnpm-store/
