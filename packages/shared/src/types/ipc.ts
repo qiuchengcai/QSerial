@@ -29,11 +29,8 @@ export const IPC_CHANNELS = {
   CONFIG_DELETE: 'config:delete',
   CONFIG_GET_ALL: 'config:getAll',
 
-  // 会话管理
-  SESSION_SAVE: 'session:save',
-  SESSION_LOAD: 'session:load',
-  SESSION_LIST: 'session:list',
-  SESSION_DELETE: 'session:delete',
+  // 会话管理（已废弃：renderer 本地 localStorage 管理，不走 IPC）
+  // SESSION_* 通道已移除，会话 CRUD 由 Zustand persist 处理
 
   // 窗口管理
   WINDOW_MINIMIZE: 'window:minimize',
@@ -68,7 +65,6 @@ export const IPC_CHANNELS = {
   FTP_GET_STATUS: 'ftp:getStatus',
   FTP_PICK_DIR: 'ftp:pickDir',
   FTP_STATUS_EVENT: 'ftp:statusEvent',
-  FTP_TRANSFER_EVENT: 'ftp:transferEvent',
   FTP_GET_CLIENTS: 'ftp:getClients',
   FTP_CLIENT_EVENT: 'ftp:clientEvent',
 
@@ -85,9 +81,6 @@ export const IPC_CHANNELS = {
   CONNECTION_SERVER_START: 'connectionServer:start',
   CONNECTION_SERVER_STOP: 'connectionServer:stop',
   CONNECTION_SERVER_STATUS: 'connectionServer:status',
-
-  // 调试日志
-  DEBUG_LOG: 'debug:log',
 
   // 网络
   GET_LOCAL_IP: 'network:getLocalIp',
@@ -141,8 +134,6 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.CONFIG_SET]: { key: string; value: unknown };
   [IPC_CHANNELS.CONFIG_DELETE]: { key: string };
   [IPC_CHANNELS.CONFIG_GET_ALL]: void;
-  [IPC_CHANNELS.SESSION_LIST]: void;
-  [IPC_CHANNELS.SESSION_DELETE]: { id: string };
   [IPC_CHANNELS.WINDOW_SET_TITLE]: { title: string };
   [IPC_CHANNELS.TFTP_START]: { port: number; rootDir: string };
   [IPC_CHANNELS.TFTP_STOP]: void;
@@ -231,8 +222,6 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.CONFIG_SET]: void;
   [IPC_CHANNELS.CONFIG_DELETE]: void;
   [IPC_CHANNELS.CONFIG_GET_ALL]: Record<string, unknown>;
-  [IPC_CHANNELS.SESSION_LIST]: SessionInfo[];
-  [IPC_CHANNELS.SESSION_DELETE]: void;
   [IPC_CHANNELS.WINDOW_SET_TITLE]: void;
   [IPC_CHANNELS.APP_VERSION]: string;
   [IPC_CHANNELS.TFTP_START]: void;
@@ -281,18 +270,6 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.SFTP_PICK_LOCAL]: string | null;
   [IPC_CHANNELS.SFTP_PICK_LOCAL_DIR]: string | null;
   [IPC_CHANNELS.SFTP_REALPATH]: string;
-}
-
-/**
- * 会话信息
- */
-export interface SessionInfo {
-  id: string;
-  name: string;
-  type: string;
-  options: ConnectionOptions;
-  createdAt: string;
-  updatedAt: string;
 }
 
 /**
@@ -414,31 +391,6 @@ export interface FtpServerStatus {
  */
 export interface FtpStatusEvent {
   running: boolean;
-  error?: string;
-}
-
-/**
- * FTP 传输方向
- */
-export type FtpTransferDirection = 'download' | 'upload';
-
-/**
- * FTP 传输状态
- */
-export type FtpTransferStatus = 'started' | 'progress' | 'completed' | 'error';
-
-/**
- * FTP 传输事件
- */
-export interface FtpTransferEvent {
-  id: string;
-  file: string;
-  direction: FtpTransferDirection;
-  status: FtpTransferStatus;
-  remoteAddress: string;
-  fileSize?: number;
-  transferred?: number;
-  percent?: number;
   error?: string;
 }
 

@@ -127,11 +127,6 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.FTP_STATUS_EVENT, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.FTP_STATUS_EVENT, handler);
     },
-    onTransfer: (callback: (event: unknown) => void) => {
-      const handler = (_: unknown, event: unknown) => callback(event);
-      ipcRenderer.on(IPC_CHANNELS.FTP_TRANSFER_EVENT, handler);
-      return () => ipcRenderer.off(IPC_CHANNELS.FTP_TRANSFER_EVENT, handler);
-    },
     onClient: (callback: (event: unknown) => void) => {
       const handler = (_: unknown, event: unknown) => callback(event);
       ipcRenderer.on(IPC_CHANNELS.FTP_CLIENT_EVENT, handler);
@@ -213,15 +208,6 @@ const api = {
 	      return () => ipcRenderer.off(IPC_CHANNELS.MCP_SHARE_CHANGED, handler);
 	    },
 	  },
-
-  // 调试日志
-  onDebugLog: (callback: (event: { message: string; timestamp: number }) => void) => {
-    const handler = (_: unknown, event: { message: string; timestamp: number }) => {
-      callback(event);
-    };
-    ipcRenderer.on(IPC_CHANNELS.DEBUG_LOG, handler);
-    return () => ipcRenderer.off(IPC_CHANNELS.DEBUG_LOG, handler);
-  },
 
   // 通用对话框
   dialog: {

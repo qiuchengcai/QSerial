@@ -148,7 +148,7 @@ export const ConnectionShareDialog: React.FC<ConnectionShareDialogProps> = ({
   // 监听 MCP 创建的共享变化（跨代码路径同步）
   useEffect(() => {
     if (!isOpen) return;
-    const unsub = (window.qserial as any).mcp?.onShareChanged?.((event: {
+    const unsub = window.qserial.mcp.onShareChanged((event: {
       shareId: string; running: boolean; sourceId?: string; localPort?: number; listenAddress?: string;
     }) => {
       if (event.running) {

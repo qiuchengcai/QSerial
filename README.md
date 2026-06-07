@@ -1,11 +1,11 @@
-﻿# QSerial
+# QSerial
 
 一款现代化的跨平台终端工具，支持串口、SSH、Telnet、本地终端等多种连接方式，内置连接共享、文件传输服务（SFTP/FTP/TFTP/NFS）与 **MCP AI 服务器**，供 Claude Code、CodeBuddy 等 AI Agent 远程操作设备。
 
 ## 特性
 
 - 🔌 **多协议支持**: 本地终端 (PTY)、串口、SSH、Telnet，支持 SSH 跳板机 (Jump Host)
-- 🤖 **内置 MCP AI 服务器**: 30 个 MCP 工具 + 6 个 Resources + 8 种 Notifications + Sampling，支持 streamableHttp / SSE 传输
+- 🤖 **内置 MCP AI 服务器**: 43 个 MCP 工具 + 6 个 Resources + 8 种 Notifications + Sampling，支持 streamableHttp / SSE 传输
 - 🎬 **宏录制与回放**: 录制终端操作序列，一键回放，AI 可通过 MCP 调用
 - 📡 **连接共享**: TCP 共享任意活跃连接，支持密码认证
 - 📁 **SFTP 文件传输**: SSH 连接内置 SFTP 文件浏览器，支持上传/下载/管理远程文件
@@ -32,7 +32,7 @@ QSerial 启动后自动启动 MCP 服务器（默认 127.0.0.1:9800），AI Agen
 
 [INFO] JSON 暂不展示
 
-### MCP 工具 (30个)
+### MCP 工具 (43个)
 
 | 命名空间 | 工具 | 说明 |
 |----------|------|------|
@@ -55,10 +55,23 @@ QSerial 启动后自动启动 MCP 服务器（默认 127.0.0.1:9800），AI Agen
 | | conn.script.login | 自动登录流程（Sampling 辅助） |
 | conn.watch.* | conn.watch.start | 模式匹配监控+告警通知 |
 | | conn.watch.stop | 停止监控 |
+| | conn.watch.results | 获取持久化监控结果 |
+| conn.record.* | conn.record.start | 开始录制终端输出 |
+| | conn.record.stop | 停止录制并获取捕获数据 |
+| | conn.record.list | 列出所有活跃录制 |
+| | conn.record.replay | 回放已保存录制 |
 | conn.analyze.* | conn.analyze.state | 分析连接状态 |
 | | conn.analyze.probe | 探测设备类型 (ESP32/STM32/RPi 等8种) |
 | | conn.analyze.report | 生成会话摘要报告 |
 | conn.file.* | conn.file.send | XMODEM/YMODEM 文件发送 |
+| sftp.* | sftp.connect | 打开 SFTP 会话 |
+| | sftp.disconnect | 关闭 SFTP 会话 |
+| | sftp.list | 列出远程目录内容 |
+| | sftp.download | 下载远程文件 |
+| | sftp.upload | 上传本地文件 |
+| | sftp.mkdir | 创建远程目录 |
+| | sftp.stat | 获取文件/目录元数据 |
+| | sftp.rm | 删除文件或目录 |
 | device.* | device.ports | 列出本机可用串口 |
 | session.* | session.list | 列出已保存会话 |
 | | session.save | 保存连接为会话 |

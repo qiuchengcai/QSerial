@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { IPC_CHANNELS } from "../../src/types/ipc.js";
 
 describe("IPC_CHANNELS", () => {
@@ -16,12 +16,6 @@ describe("IPC_CHANNELS", () => {
     expect(IPC_CHANNELS.CONFIG_GET).toBe("config:get");
     expect(IPC_CHANNELS.CONFIG_SET).toBe("config:set");
     expect(IPC_CHANNELS.CONFIG_DELETE).toBe("config:delete");
-  });
-
-  it("should define session channels", () => {
-    expect(IPC_CHANNELS.SESSION_SAVE).toBe("session:save");
-    expect(IPC_CHANNELS.SESSION_LOAD).toBe("session:load");
-    expect(IPC_CHANNELS.SESSION_LIST).toBe("session:list");
   });
 
   it("should define file transfer channels", () => {

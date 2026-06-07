@@ -51,6 +51,9 @@ pnpm-lock.yaml
 # Vite
 .vite.pid
 
+# Promotion (not for version control)
+docs/PROMOTION_PLAN.md
+
 # Misc
 nul
 *.bak

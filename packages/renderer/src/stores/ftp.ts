@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { FtpClientEvent, FtpTransferEvent } from '@qserial/shared';
+import type { FtpClientEvent } from '@qserial/shared';
 
 interface FtpConfig {
   port: number;
@@ -29,7 +29,6 @@ interface FtpState {
   stopping: boolean;
   error?: string;
   clients: FtpClient[];
-  transfers: FtpTransferEvent[];
 }
 
 interface FtpActions {
@@ -39,10 +38,8 @@ interface FtpActions {
   startServer: () => Promise<void>;
   stopServer: () => Promise<void>;
   loadStatus: () => Promise<void>;
-  handleTransferEvent: (event: FtpTransferEvent) => void;
   handleClientEvent: (event: FtpClientEvent) => void;
   clearClients: () => void;
-  clearTransfers: () => void;
 }
 
 const DEFAULT_CONFIG: FtpConfig = {
@@ -62,7 +59,6 @@ export const useFtpStore = create<FtpState & FtpActions>()(
       stopping: false,
       error: undefined,
       clients: [],
-      transfers: [],
 
       updateConfig: (config) => {
         set((state) => ({
@@ -136,13 +132,6 @@ export const useFtpStore = create<FtpState & FtpActions>()(
         }
       },
 
-      handleTransferEvent: (event) => {
-        set((state) => {
-          const transfers = [event, ...state.transfers].slice(0, 50);
-          return { transfers };
-        });
-      },
-
       handleClientEvent: (event) => {
         set((state) => {
           const newClient: FtpClient = {
@@ -164,10 +153,6 @@ export const useFtpStore = create<FtpState & FtpActions>()(
 
       clearClients: () => {
         set({ clients: [] });
-      },
-
-      clearTransfers: () => {
-        set({ transfers: [] });
       },
     }),
     {
@@ -201,10 +186,6 @@ export function initFtpListeners(): void {
         useFtpStore.setState({ running: true, starting: false });
       }
     }
-  });
-
-  window.qserial.ftp.onTransfer((event) => {
-    useFtpStore.getState().handleTransferEvent(event as FtpTransferEvent);
   });
 
   window.qserial.ftp.onClient((event) => {

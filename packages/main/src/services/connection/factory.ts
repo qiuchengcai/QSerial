@@ -45,7 +45,11 @@ class ConnectionFactoryImpl {
         connection = new TelnetConnection(options);
         break;
       }
-      // serial_server deprecated, use connection_server
+      case 'serial_server': {
+        const { ConnectionServerConnection } = await import('./connectionServer.js');
+        connection = new ConnectionServerConnection(options as unknown as import('@qserial/shared').ConnectionServerOptions);
+        break;
+      }
       case 'connection_server': {
         const { ConnectionServerConnection } = await import('./connectionServer.js');
         connection = new ConnectionServerConnection(options);
