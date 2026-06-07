@@ -43,7 +43,25 @@ const ALL_TOOLS = [
   { name: "session.list", cat: "session", desc: "List saved connection sessions with full config", inputs: "(none)" },
   { name: "session.save", cat: "session", desc: "Save current connection as a session (auto-detect type from id)", inputs: "id, name" },
   { name: "session.delete", cat: "session", desc: "Delete a saved session", inputs: "session_id" },
-  // app.* — 应用工具 (1)
+  // conn.watch.* (3)
+  { name: "conn.watch.start", cat: "watch", desc: "Monitor connection for patterns, sends data_alert notifications", inputs: "id, rules[], duration_ms?" },
+  { name: "conn.watch.stop", cat: "watch", desc: "Stop a running watch", inputs: "watch_id" },
+  { name: "conn.watch.results", cat: "watch", desc: "Get persisted watch alerts with timestamps", inputs: "watch_id?" },
+  // conn.record.* (4)
+  { name: "conn.record.start", cat: "record", desc: "Start recording terminal output with timestamps", inputs: "id" },
+  { name: "conn.record.stop", cat: "record", desc: "Stop recording and return captured frames", inputs: "id" },
+  { name: "conn.record.list", cat: "record", desc: "List all active recordings", inputs: "(none)" },
+  { name: "conn.record.replay", cat: "record", desc: "Replay recorded session at specified speed", inputs: "id, speed?" },
+  // sftp.* (8)
+  { name: "sftp.connect", cat: "sftp", desc: "Open SFTP session over existing SSH connection", inputs: "id" },
+  { name: "sftp.disconnect", cat: "sftp", desc: "Close an SFTP session", inputs: "sftp_id" },
+  { name: "sftp.list", cat: "sftp", desc: "List directory contents on remote host", inputs: "sftp_id, path?" },
+  { name: "sftp.download", cat: "sftp", desc: "Download file from remote host", inputs: "sftp_id, remote_path, local_path" },
+  { name: "sftp.upload", cat: "sftp", desc: "Upload file to remote host", inputs: "sftp_id, local_path, remote_path" },
+  { name: "sftp.mkdir", cat: "sftp", desc: "Create directory on remote host", inputs: "sftp_id, path" },
+  { name: "sftp.stat", cat: "sftp", desc: "Get file metadata (size, permissions)", inputs: "sftp_id, path" },
+  { name: "sftp.rm", cat: "sftp", desc: "Delete file or directory on remote host", inputs: "sftp_id, path" },
+    // app.* — 应用工具 (1)
   { name: "app.screenshot", cat: "app", desc: "Capture terminal window screenshot", inputs: "id?" },
 ];
 
@@ -57,7 +75,9 @@ const CATEGORIES: Record<string, { label: string; icon: string }> = {
   file: { label: "文件传输", icon: "📁" },
   discover: { label: "设备发现", icon: "📋" },
   session: { label: "会话管理", icon: "💾" },
-  app: { label: "应用工具", icon: "🖥️" },
+  record: { label: "Terminal Record", icon: "rec" },
+  sftp: { label: "SFTP Files", icon: "sftp" },
+    app: { label: "应用工具", icon: "🖥️" },
 };
 
 const CAT_ORDER = ["conn", "data", "hw", "script", "watch", "analyze", "file", "discover", "session", "app"];

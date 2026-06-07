@@ -21,6 +21,7 @@ import { sseClients, sendMCPNotification } from './notifications.js';
 import { drainSampling, resolveSampling, requestSampling } from './sampling.js';
 import { MCP_PROMPTS, getPrompt } from './prompts.js';
 import { loadPlugins, getPluginResources, readPluginResource, getPluginPrompts, getPluginPrompt } from './plugin-loader.js';
+import { createSftp, destroySftp, listDirectory, downloadFile, uploadFile, mkdir as sftpMkdir, rm as sftpRm, stat as sftpStat } from '../sftp/manager.js';
 import {
   IPC_CHANNELS,
   ConnectionState,
@@ -39,6 +40,8 @@ let mcpCorsOrigins: string[] = [];
 // 共享桥接池：shareId → { sourceId, serverId }
 const sharePool = new Map<string, { sourceId: string; serverId: string }>();
 const watches = new Map<string, () => void>();
+const watchResults = new Map<string, Array<{ ts: number; pattern: string; level: string; context: string }>>();
+const recordings = new Map<string, { id: string; connectionId: string; startedAt: number; duration_ms: number; frames: Array<{ ts: number; data: string }>; unsub: () => void }>();
 
 // 简易令牌桶限流：每秒最多 30 个请求，突发最多 50
 // Rate limiting removed (handled by McpServer)
@@ -459,7 +462,155 @@ const MCP_TOOLS = [
       required: ['name'],
     },
   },
-];
+
+  {
+    name: 'conn.watch.results',
+    description: 'Get persisted watch results from active or completed watches.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        watch_id: { type: 'string', description: 'Watch ID (optional, omit for all)' },
+      },
+    },
+  },
+  {
+    name: 'conn.record.start',
+    description: 'Start recording terminal output for a connection.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+      },
+    },
+  },
+  {
+    name: 'conn.record.stop',
+    description: 'Stop recording and return captured session data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+      },
+    },
+  },
+  {
+    name: 'conn.record.list',
+    description: 'List all active recordings.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'conn.record.replay',
+    description: 'Replay a saved recording as raw terminal output.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+        speed: { type: 'number', description: 'Playback speed (1=real time, 2=2x, 0=instant)', default: 1 },
+      },
+    },
+  },
+  {
+    name: 'sftp.connect',
+    description: 'Open SFTP session over existing SSH connection.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'SSH Connection ID' },
+        connectionId: { type: 'string', description: 'Connection ID (alias)' },
+      },
+    },
+  },
+  {
+    name: 'sftp.disconnect',
+    description: 'Close an SFTP session.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sftp_id: { type: 'string', description: 'SFTP session ID' },
+      },
+      required: ['sftp_id'],
+    },
+  },
+  {
+    name: 'sftp.list',
+    description: 'List directory contents on remote host via SFTP.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sftp_id: { type: 'string', description: 'SFTP session ID' },
+        path: { type: 'string', description: 'Remote directory path', default: '/' },
+      },
+      required: ['sftp_id'],
+    },
+  },
+  {
+    name: 'sftp.download',
+    description: 'Download a file from remote host to local filesystem.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sftp_id: { type: 'string', description: 'SFTP session ID' },
+        remote_path: { type: 'string', description: 'Remote file path' },
+        local_path: { type: 'string', description: 'Local destination path' },
+      },
+      required: ['sftp_id', 'remote_path', 'local_path'],
+    },
+  },
+  {
+    name: 'sftp.upload',
+    description: 'Upload a local file to remote host via SFTP.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sftp_id: { type: 'string', description: 'SFTP session ID' },
+        local_path: { type: 'string', description: 'Local file path' },
+        remote_path: { type: 'string', description: 'Remote destination path' },
+      },
+      required: ['sftp_id', 'local_path', 'remote_path'],
+    },
+  },
+  {
+    name: 'sftp.mkdir',
+    description: 'Create a directory on remote host via SFTP.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sftp_id: { type: 'string', description: 'SFTP session ID' },
+        path: { type: 'string', description: 'Remote directory path to create' },
+      },
+      required: ['sftp_id', 'path'],
+    },
+  },
+  {
+    name: 'sftp.stat',
+    description: 'Get file/directory metadata via SFTP.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sftp_id: { type: 'string', description: 'SFTP session ID' },
+        path: { type: 'string', description: 'Remote path' },
+      },
+      required: ['sftp_id', 'path'],
+    },
+  },
+  {
+    name: 'sftp.rm',
+    description: 'Delete a file or directory on remote host via SFTP.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sftp_id: { type: 'string', description: 'SFTP session ID' },
+        path: { type: 'string', description: 'Remote path to delete' },
+      },
+      required: ['sftp_id', 'path'],
+    },
+  },];
 
 // ==================== 窗口引用 ====================
 
@@ -1773,11 +1924,24 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           { name: 'ESP32/ESP8266', patterns: ['ESP32', 'ESP8266', 'AT version', 'ready'], baud_hint: 115200 },
           { name: 'STM32', patterns: ['STM32', 'STMicroelectronics', 'U-Boot SPL'], baud_hint: 115200 },
           { name: 'Raspberry Pi', patterns: ['Raspberry Pi', 'raspberrypi', 'Debian', 'Raspbian'], baud_hint: 115200 },
+          { name: 'NXP i.MX', patterns: ['imx6ull', 'imx6', 'imx8', 'imx', 'NXP', 'Freescale', '100ask'], baud_hint: 115200 },
+          { name: 'TI AM335x', patterns: ['AM335', 'BeagleBone', 'beaglebone', 'TI Sitara'], baud_hint: 115200 },
           { name: 'U-Boot', patterns: ['U-Boot', 'Hit any key', 'Loading from', 'Booting'], baud_hint: 115200 },
+          { name: 'Buildroot', patterns: ['Buildroot', 'buildroot'], baud_hint: 115200 },
+          { name: 'Yocto/Poky', patterns: ['Yocto', 'Poky', 'poky'], baud_hint: 115200 },
+          { name: 'OpenWrt', patterns: ['OpenWrt', 'openwrt', 'LuCI', 'Attitude Adjustment', 'Barrier Breaker', 'Chaos Calmer', 'LEDE'], baud_hint: 115200 },
           { name: 'Linux', patterns: ['login:', 'Password:', 'Debian', 'Ubuntu', 'CentOS', 'kernel'], baud_hint: 115200 },
-          { name: 'Cisco IOS', patterns: ['Cisco IOS', 'Router>', 'Switch>', 'enable'], baud_hint: 9600 },
-          { name: 'Arduino', patterns: ['Arduino', 'avrdude'], baud_hint: 9600 },
           { name: 'BusyBox', patterns: ['BusyBox', '/ #', '# '], baud_hint: 115200 },
+          { name: 'Cisco IOS', patterns: ['Cisco IOS', 'Router>', 'Switch>', 'enable'], baud_hint: 9600 },
+          { name: 'Juniper JunOS', patterns: ['JunOS', 'Juniper', 'junos'], baud_hint: 9600 },
+          { name: 'MikroTik RouterOS', patterns: ['MikroTik', 'RouterOS', 'mikrotik'], baud_hint: 115200 },
+          { name: 'EdgeOS (Ubiquiti)', patterns: ['EdgeOS', 'Ubiquiti', 'EdgeRouter', 'Vyatta'], baud_hint: 115200 },
+          { name: 'Arduino', patterns: ['Arduino', 'avrdude'], baud_hint: 9600 },
+          { name: 'FreeRTOS', patterns: ['FreeRTOS', 'freertos'], baud_hint: 115200 },
+          { name: 'Zephyr', patterns: ['Zephyr', 'zephyr'], baud_hint: 115200 },
+          { name: 'NuttX', patterns: ['NuttX', 'nuttx', 'NuttShell'], baud_hint: 115200 },
+          { name: 'Android', patterns: ['Android', 'android', 'bootloader', 'fastboot'], baud_hint: 115200 },
+          { name: 'BIOS/UEFI', patterns: ['BIOS', 'UEFI', 'American Megatrends', 'AMI', 'Insyde', 'Phoenix'], baud_hint: 115200 },
         ];
         ensureBuffer(probeId); clearBuffer(probeId);
         probeConn.write(Buffer.from('AT\n', 'utf-8'));
@@ -1814,12 +1978,16 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
               const data = Buffer.concat(buffers.get(watchId) || []).toString('utf-8');
               for (const r of compiled) {
                 if (r.isRegex ? new RegExp(r.pattern, 'i').test(data) : data.includes(r.pattern)) {
-                  sendMCPNotification('connection/data_alert', { id: watchId, pattern: r.pattern, level: r.level, watch_id: wid, context: data.slice(-200) });
+                  const alertEntry = { ts: Date.now(), pattern: r.pattern, level: r.level, context: data.slice(-200) };
+                  if (!watchResults.has(wid)) watchResults.set(wid, []);
+                  watchResults.get(wid)!.push(alertEntry);
+                  sendMCPNotification('connection/data_alert', { id: watchId, pattern: r.pattern, level: r.level, watch_id: wid, context: alertEntry.context });
                 }
               }
             } catch { break; }
           }
           watches.delete(wid);
+          setTimeout(() => watchResults.delete(wid), 30 * 60 * 1000);
         })().catch(() => {});
         return formatOk({ watch_id: wid, rules_count: compiled.length, duration_ms: duration });
       }
@@ -1828,7 +1996,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const wid = args.watch_id as string;
         if (!wid) return formatError('MISSING_PARAM', 'missing watch_id');
         const stopFn = watches.get(wid);
-        if (stopFn) { stopFn(); return formatOk({ stopped: wid }); }
+        if (stopFn) { stopFn(); const wRes = watchResults.get(wid) || []; return formatOk({ stopped: wid, total_alerts: wRes.length, alerts: wRes }); }
         return formatError('NOT_FOUND', 'watch not found: ' + wid);
       }
 
@@ -1844,6 +2012,138 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const tLast = log.length > 0 ? log[log.length - 1].ts : 0;
         return formatOk({ connection_id: sumId, duration_ms: tLast - tFirst, total_commands: sendEntries.length, total_bytes_sent: totalSend, total_bytes_received: totalRecv, history_entries: log.length });
       }
+      case 'conn.watch.results': {
+        const wid2 = args.watch_id as string;
+        if (wid2) {
+          const results = watchResults.get(wid2);
+          if (!results) return formatError('NOT_FOUND', 'no results');
+          return formatOk({ watch_id: wid2, total: results.length, alerts: results });
+        }
+        const allResults: Record<string, any> = {}; let grandTotal = 0;
+        watchResults.forEach((v, k) => { allResults[k] = { total: v.length, alerts: v.map(a => ({ ts: new Date(a.ts).toISOString(), pattern: a.pattern, level: a.level, context: a.context })) }; grandTotal += v.length; });
+        return formatOk({ watches_count: watchResults.size, total_alerts: grandTotal, watches: allResults });
+      }
+
+      case 'conn.record.start': {
+        const recId = resolveId(args);
+        if (!recId) return formatError('MISSING_PARAM', 'missing id');
+        if (recordings.has(recId)) return formatError('ALREADY_EXISTS', 'already recording');
+        const recConn = ConnectionFactory.get(recId);
+        if (!recConn) return formatError('CONN_NOT_FOUND', 'connection not found');
+        const frames: Array<{ ts: number; data: string }> = [];
+        const t0 = Date.now();
+        const unsub = recConn.onData((data: Buffer) => {
+          frames.push({ ts: Date.now() - t0, data: data.toString('utf-8') });
+        });
+        recordings.set(recId, { id: 'rec_' + crypto.randomUUID().slice(0, 8), connectionId: recId, startedAt: t0, duration_ms: 0, frames, unsub });
+        return formatOk({ recording_id: recordings.get(recId)!.id, connection_id: recId, started: new Date(t0).toISOString() });
+      }
+
+      case 'conn.record.stop': {
+        const recId2 = resolveId(args);
+        if (!recId2) return formatError('MISSING_PARAM', 'missing id');
+        const rec = recordings.get(recId2);
+        if (!rec) return formatError('NOT_FOUND', 'no active recording');
+        rec.unsub();
+        rec.duration_ms = Date.now() - rec.startedAt;
+        recordings.delete(recId2);
+        const totalBytes = rec.frames.reduce((s, f) => s + f.data.length, 0);
+        return formatOk({ recording_id: rec.id, connection_id: rec.connectionId, duration_ms: rec.duration_ms, frames_count: rec.frames.length, total_bytes: totalBytes });
+      }
+
+      case 'conn.record.list': {
+        const list: Array<Record<string, any>> = [];
+        recordings.forEach((v) => {
+          list.push({ recording_id: v.id, connection_id: v.connectionId, started: new Date(v.startedAt).toISOString(), elapsed_ms: Date.now() - v.startedAt, frames_count: v.frames.length });
+        });
+        return formatOk({ active: list.length, recordings: list });
+      }
+
+      case 'conn.record.replay': {
+        const replayId = resolveId(args);
+        if (!replayId) return formatError('MISSING_PARAM', 'missing id');
+        const speed = (args.speed as number) || 1;
+        const rec2 = recordings.get(replayId);
+        if (!rec2) return formatError('NOT_FOUND', 'no active recording');
+        const text = rec2.frames.map(f => f.data).join('');
+        const compact = text.replace(/\x1b\[\d+;\d+R/g, '').replace(/\x1b\]0;[^\x07]*\x07/g, '');
+        return formatOk({ recording_id: rec2.id, frames: rec2.frames.length, duration_ms: Date.now() - rec2.startedAt, speed, output: compact.slice(0, 50000) });
+      }
+
+      case 'sftp.connect': {
+        const sftpConnId = resolveId(args);
+        if (!sftpConnId) return formatError('MISSING_PARAM', 'missing id');
+        try {
+          const sftpId = await createSftp(sftpConnId);
+          return formatOk({ sftp_id: sftpId, connection_id: sftpConnId });
+        } catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
+      case 'sftp.disconnect': {
+        const sftpSid = args.sftp_id as string;
+        if (!sftpSid) return formatError('MISSING_PARAM', 'missing sftp_id');
+        try { await destroySftp(sftpSid); return formatOk({ disconnected: sftpSid }); }
+        catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
+      case 'sftp.list': {
+        const sftpSid = args.sftp_id as string;
+        const dirPath = (args.path as string) || '/';
+        if (!sftpSid) return formatError('MISSING_PARAM', 'missing sftp_id');
+        try {
+          const files = await listDirectory(sftpSid, dirPath);
+          return formatOk({ path: dirPath, count: files.length, files });
+        } catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
+      case 'sftp.download': {
+        const sftpSid = args.sftp_id as string;
+        const remotePath = args.remote_path as string;
+        const localPath = args.local_path as string;
+        if (!sftpSid || !remotePath || !localPath) return formatError('MISSING_PARAM', 'missing params');
+        try {
+          await downloadFile(sftpSid, remotePath, localPath);
+          return formatOk({ downloaded: remotePath, to: localPath });
+        } catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
+      case 'sftp.upload': {
+        const sftpSid = args.sftp_id as string;
+        const localPath = args.local_path as string;
+        const remotePath = args.remote_path as string;
+        if (!sftpSid || !localPath || !remotePath) return formatError('MISSING_PARAM', 'missing params');
+        try {
+          await uploadFile(sftpSid, localPath, remotePath);
+          return formatOk({ uploaded: localPath, to: remotePath });
+        } catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
+      case 'sftp.mkdir': {
+        const sftpSid = args.sftp_id as string;
+        const dirPath = args.path as string;
+        if (!sftpSid || !dirPath) return formatError('MISSING_PARAM', 'missing params');
+        try { await sftpMkdir(sftpSid, dirPath); return formatOk({ created: dirPath }); }
+        catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
+      case 'sftp.stat': {
+        const sftpSid = args.sftp_id as string;
+        const statPath = args.path as string;
+        if (!sftpSid || !statPath) return formatError('MISSING_PARAM', 'missing params');
+        try {
+          const info = await sftpStat(sftpSid, statPath);
+          return formatOk({ path: statPath, stat: info });
+        } catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
+      case 'sftp.rm': {
+        const sftpSid = args.sftp_id as string;
+        const rmPath = args.path as string;
+        if (!sftpSid || !rmPath) return formatError('MISSING_PARAM', 'missing params');
+        try { await sftpRm(sftpSid, rmPath); return formatOk({ deleted: rmPath }); }
+        catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+      }
+
       case 'app.macro.list': {
         if (!mainWindow || mainWindow.isDestroyed()) return formatError('INTERNAL', 'No window');
         try {
@@ -2121,6 +2421,7 @@ export async function stopMcpServer(): Promise<void> {
     mcpServer = null;
   }
 
+  for (const rec of recordings.values()) { try { rec.unsub(); } catch {} } recordings.clear();
   for (const unsub of bufferSubscriptions.values()) {
     unsub();
   }
