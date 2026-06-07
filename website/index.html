@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QSerial - AI-Powered Cross-Platform Terminal</title>
+<meta name="description" content="QSerial is a cross-platform serial/SSH/Telnet terminal tool with 42 built-in MCP AI tools, 21 device auto-detection patterns, and 4 connection protocols.">
+<style>
+:root {
+  --bg: #0a0a0b;
+  --surface: #131316;
+  --surface2: #1a1a1f;
+  --border: #2a2a32;
+  --text: #e4e4e8;
+  --text2: #9898a8;
+  --text3: #686878;
+  --primary: #6c8cff;
+  --primary2: #4a6cf7;
+  --green: #4ade80;
+  --orange: #fb923c;
+  --red: #f87171;
+  --radius: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg); color: var(--text); line-height:1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Nav */
+nav {
+  position: fixed; top:0; left:0; right:0; z-index:100;
+  background: rgba(10,10,11,0.85); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1200px; margin:0 auto; padding:0 24px;
+  display:flex; align-items:center; justify-content:space-between; height:56px;
+}
+.nav-logo { font-size:18px; font-weight:700; color:var(--text); letter-spacing:-0.5px; }
+.nav-logo span { color:var(--primary); }
+.nav-links { display:flex; gap:24px; list-style:none; }
+.nav-links a { color:var(--text2); text-decoration:none; font-size:14px; transition:color .2s; }
+.nav-links a:hover { color:var(--text); }
+.nav-cta {
+  background:var(--primary); color:#fff; border:none; padding:8px 18px; border-radius:6px;
+  font-size:13px; font-weight:600; cursor:pointer; transition:background .2s; text-decoration:none;
+}
+.nav-cta:hover { background:var(--primary2); }
+
+/* Hero */
+.hero {
+  padding:160px 24px 100px; text-align:center; max-width:900px; margin:0 auto;
+}
+.hero-badge {
+  display:inline-block; padding:4px 14px; border-radius:20px;
+  background:var(--primary2)/10; border:1px solid var(--primary2)/20;
+  color:var(--primary); font-size:12px; font-weight:500; margin-bottom:24px;
+}
+.hero h1 {
+  font-size:clamp(36px,6vw,64px); font-weight:800; letter-spacing:-1.5px;
+  line-height:1.1; margin-bottom:20px;
+}
+.hero h1 span { 
+  background:linear-gradient(135deg, var(--primary), #a78bfa);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.hero p {
+  font-size:18px; color:var(--text2); max-width:600px; margin:0 auto 40px; line-height:1.7;
+}
+.hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.btn {
+  display:inline-flex; align-items:center; gap:8px; padding:12px 28px; border-radius:8px;
+  font-size:15px; font-weight:600; text-decoration:none; transition:all .2s; cursor:pointer; border:none;
+}
+.btn-primary { background:var(--primary); color:#fff; }
+.btn-primary:hover { background:var(--primary2); transform:translateY(-1px); box-shadow:0 4px 20px rgba(108,140,255,0.3); }
+.btn-outline { background:transparent; color:var(--text); border:1px solid var(--border); }
+.btn-outline:hover { border-color:var(--text2); background:var(--surface); }
+
+/* Stats */
+.stats {
+  display:flex; justify-content:center; gap:48px; flex-wrap:wrap;
+  padding:40px 24px 80px; max-width:900px; margin:0 auto;
+}
+.stat { text-align:center; }
+.stat-num { font-size:36px; font-weight:800; letter-spacing:-1px; }
+.stat-num.g { color:var(--green); }
+.stat-num.p { color:var(--primary); }
+.stat-num.o { color:var(--orange); }
+.stat-label { font-size:13px; color:var(--text3); margin-top:4px; }
+
+/* Sections */
+.section { padding:80px 24px; }
+.section-inner { max-width:1200px; margin:0 auto; }
+.section-label {
+  font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:2px;
+  color:var(--primary); margin-bottom:12px;
+}
+.section h2 { font-size:32px; font-weight:700; letter-spacing:-0.5px; margin-bottom:16px; }
+.section p.sub { font-size:16px; color:var(--text2); max-width:600px; margin-bottom:48px; }
+
+/* Features Grid */
+.features { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:20px; }
+.feature-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:28px; transition:border-color .2s, transform .2s;
+}
+.feature-card:hover { border-color:var(--text3); transform:translateY(-2px); }
+.feature-icon { font-size:28px; margin-bottom:16px; display:block; }
+.feature-card h3 { font-size:16px; font-weight:600; margin-bottom:8px; }
+.feature-card p { font-size:14px; color:var(--text2); line-height:1.6; }
+
+/* Tools Table */
+.tools-preview {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  overflow:hidden;
+}
+.tools-header {
+  padding:16px 20px; background:var(--surface2); border-bottom:1px solid var(--border);
+  font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px;
+}
+.tools-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); }
+.tool-item {
+  padding:12px 20px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);
+  display:flex; align-items:flex-start; gap:8px;
+}
+.tool-name { font-family:'SF Mono','Cascadia Code','Fira Code',monospace; font-size:12px; color:var(--primary); min-width:140px; }
+.tool-desc { font-size:12px; color:var(--text2); }
+.cat-tag {
+  font-size:10px; padding:1px 6px; border-radius:3px; background:var(--surface2);
+  color:var(--text3); white-space:nowrap; margin-right:4px;
+}
+
+/* Download */
+.download-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; }
+.dl-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:24px; text-align:center; transition:border-color .2s;
+}
+.dl-card:hover { border-color:var(--primary); }
+.dl-os { font-size:14px; font-weight:600; margin-bottom:4px; }
+.dl-arch { font-size:12px; color:var(--text3); margin-bottom:16px; }
+.dl-btn {
+  display:inline-block; background:var(--primary); color:#fff; text-decoration:none;
+  padding:8px 20px; border-radius:6px; font-size:13px; font-weight:600; transition:background .2s;
+}
+.dl-btn:hover { background:var(--primary2); }
+
+/* Footer */
+footer {
+  border-top:1px solid var(--border); padding:40px 24px; text-align:center;
+  color:var(--text3); font-size:13px;
+}
+footer a { color:var(--text2); text-decoration:none; }
+footer a:hover { color:var(--text); }
+
+/* Responsive */
+@media(max-width:768px) {
+  .nav-links { display:none; }
+  .stats { gap:24px; }
+  .features { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">Q<span>Serial</span></div>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#tools">Tools</a></li>
+      <li><a href="#download">Download</a></li>
+    </ul>
+    <a href="#download" class="nav-cta">Download</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-badge">v0.3.x  Now with 42 MCP AI Tools</div>
+  <h1>Connect.<br><span>Automate.</span><br>Ship Faster.</h1>
+  <p>QSerial is a modern cross-platform terminal for embedded engineers. Serial, SSH, Telnet, PTY  with 42 built-in MCP AI tools, 21 device auto-detection patterns, and full i18n support.</p>
+  <div class="hero-btns">
+    <a href="#download" class="btn btn-primary">Download Free</a>
+    <a href="https://github.com/qiuchengcai/QSerial" class="btn btn-outline" target="_blank">View on GitHub</a>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat"><div class="stat-num p">42</div><div class="stat-label">MCP AI Tools</div></div>
+  <div class="stat"><div class="stat-num g">21</div><div class="stat-label">Device Probes</div></div>
+  <div class="stat"><div class="stat-num o">4</div><div class="stat-label">Protocols</div></div>
+  <div class="stat"><div class="stat-num g">8</div><div class="stat-label">SFTP Tools</div></div>
+  <div class="stat"><div class="stat-num p">68</div><div class="stat-label">Unit Tests</div></div>
+</div>
+
+<!-- Features -->
+<section class="section" id="features" style="background:var(--surface);">
+  <div class="section-inner">
+    <div class="section-label">Features</div>
+    <h2>Everything an embedded engineer needs</h2>
+    <p class="sub">From serial debugging to AI-powered automation, QSerial covers the full embedded development workflow.</p>
+    <div class="features">
+      <div class="feature-card">
+        <span class="feature-icon">&#129302;</span>
+        <h3>MCP AI Integration</h3>
+        <p>42 built-in MCP tools let AI assistants control your devices. Resources, Notifications, Sampling, and Prompts  all standard.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128268;</span>
+        <h3>Multi-Protocol</h3>
+        <p>Serial (COM/tty), SSH (with Jump Host), Telnet, and local PTY. All in one unified interface with consistent tooling.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128269;</span>
+        <h3>Auto Device Detection</h3>
+        <p>conn.analyze.probe identifies 21 device types: ESP32, STM32, NXP i.MX, Raspberry Pi, Cisco, OpenWrt, and more.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#9000;</span>
+        <h3>Terminal Macro Recording</h3>
+        <p>Record your login and command sequences. Replay with one click. ANSI filtering keeps macros clean of control characters.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128190;</span>
+        <h3>SFTP File Management</h3>
+        <p>Full SFTP client over SSH. Browse, upload, download, mkdir, stat, and delete  all via MCP tools or the built-in panel.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#127758;</span>
+        <h3>i18n Ready</h3>
+        <p>Full Chinese (zh-CN) and English (en-US) localization. Menu, dialogs, tool descriptions  everything is bilingual.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128737;</span>
+        <h3>Secure by Default</h3>
+        <p>MCP server binds to localhost only. Bearer token auth. CORS origins restricted. Your devices stay safe.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">&#128200;</span>
+        <h3>Watch & Alert</h3>
+        <p>Pattern monitoring with regex support. Match panic/watchdog/error patterns and get real-time MCP notifications.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tools Preview -->
+<section class="section" id="tools">
+  <div class="section-inner">
+    <div class="section-label">MCP Tools</div>
+    <h2>42 AI-Ready Tools</h2>
+    <p class="sub">Every connection, data, and session operation is exposed as a structured MCP tool that AI clients can discover and invoke.</p>
+    <div class="tools-preview">
+      <div class="tools-grid">
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.create</span><span class="tool-desc">serial/SSH/Telnet/PTY + jumpHost</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.write</span><span class="tool-desc">send text with delay/expect</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.write_hex</span><span class="tool-desc">send hex frames (Modbus)</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.data.expect</span><span class="tool-desc">wait for pattern (regex ok)</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.script.login</span><span class="tool-desc">auto login with Sampling</span></div>
+        <div class="tool-item"><span class="cat-tag">conn</span><span class="tool-name">conn.script.run</span><span class="tool-desc">multi-step test scripts</span></div>
+        <div class="tool-item"><span class="cat-tag">watch</span><span class="tool-name">conn.watch.start</span><span class="tool-desc">pattern monitoring + alerts</span></div>
+        <div class="tool-item"><span class="cat-tag">watch</span><span class="tool-name">conn.watch.results</span><span class="tool-desc">persisted alert history</span></div>
+        <div class="tool-item"><span class="cat-tag">record</span><span class="tool-name">conn.record.start</span><span class="tool-desc">terminal session recording</span></div>
+        <div class="tool-item"><span class="cat-tag">record</span><span class="tool-name">conn.record.replay</span><span class="tool-desc">replay at 1x/2x speed</span></div>
+        <div class="tool-item"><span class="cat-tag">analyze</span><span class="tool-name">conn.analyze.probe</span><span class="tool-desc">21-device auto detection</span></div>
+        <div class="tool-item"><span class="cat-tag">analyze</span><span class="tool-name">conn.analyze.report</span><span class="tool-desc">session statistics summary</span></div>
+        <div class="tool-item"><span class="cat-tag">hw</span><span class="tool-name">conn.hw.dtr_rts</span><span class="tool-desc">DTR/RTS signal control</span></div>
+        <div class="tool-item"><span class="cat-tag">hw</span><span class="tool-name">conn.hw.break</span><span class="tool-desc">serial break signal</span></div>
+        <div class="tool-item"><span class="cat-tag">file</span><span class="tool-name">conn.file.send</span><span class="tool-desc">XMODEM/YMODEM transfer</span></div>
+        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.connect</span><span class="tool-desc">SFTP over SSH session</span></div>
+        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.upload</span><span class="tool-desc">upload to remote host</span></div>
+        <div class="tool-item"><span class="cat-tag">sftp</span><span class="tool-name">sftp.download</span><span class="tool-desc">download from remote</span></div>
+        <div class="tool-item"><span class="cat-tag">session</span><span class="tool-name">session.save</span><span class="tool-desc">save connection config</span></div>
+        <div class="tool-item"><span class="cat-tag">device</span><span class="tool-name">device.ports</span><span class="tool-desc">list available serial ports</span></div>
+        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">app.screenshot</span><span class="tool-desc">capture terminal view</span></div>
+        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">app.macro.run</span><span class="tool-desc">replay saved macros</span></div>
+        <div class="tool-item"><span class="cat-tag">app</span><span class="tool-name">conn.share</span><span class="tool-desc">TCP connection sharing</span></div>
+        <div class="tool-item" style="background:var(--primary2)/5;"><span class="cat-tag" style="color:var(--primary);">+</span><span class="tool-name" style="color:var(--primary);">&hellip; 18 more tools</span><span class="tool-desc" style="color:var(--text2);">Resources, Notifications, Sampling, Prompts</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Download -->
+<section class="section" id="download" style="background:var(--surface);">
+  <div class="section-inner">
+    <div class="section-label">Download</div>
+    <h2>Get QSerial</h2>
+    <p class="sub">Free and open-source. Built with Electron 35 + React 18 + TypeScript.</p>
+    <div class="download-cards">
+      <div class="dl-card">
+        <div class="dl-os">Windows</div>
+        <div class="dl-arch">x64  .exe / .msi</div>
+        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">Download</a>
+      </div>
+      <div class="dl-card">
+        <div class="dl-os">macOS</div>
+        <div class="dl-arch">Apple Silicon / Intel</div>
+        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">Download</a>
+      </div>
+      <div class="dl-card">
+        <div class="dl-os">Linux</div>
+        <div class="dl-arch">AppImage / .deb</div>
+        <a href="https://github.com/qiuchengcai/QSerial/releases" class="dl-btn" target="_blank">Download</a>
+      </div>
+      <div class="dl-card">
+        <div class="dl-os">Source Code</div>
+        <div class="dl-arch">pnpm install && pnpm start</div>
+        <a href="https://github.com/qiuchengcai/QSerial" class="dl-btn" target="_blank">Clone</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>QSerial  Open-source under MIT License</p>
+  <p style="margin-top:8px;"><a href="https://github.com/qiuchengcai/QSerial" target="_blank">GitHub</a> &middot; Built with Electron + React + TypeScript</p>
+</footer>
+
+</body>
+</html>
