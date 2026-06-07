@@ -4,9 +4,10 @@ module.exports = {
   appId: 'com.qserial.app',
   productName: 'QSerial',
   copyright: `Copyright © ${new Date().getFullYear()} QSerial Team`,
+  publish: null,
 
   directories: {
-    output: 'release',
+    output: 'release2',
     buildResources: 'build',
   },
 
@@ -189,7 +190,11 @@ module.exports = {
   win: {
     target: [
       {
-        target: 'dir',
+        target: 'nsis',
+        arch: ['x64'],
+      },
+      {
+        target: 'portable',
         arch: ['x64'],
       },
     ],
