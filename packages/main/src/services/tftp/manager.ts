@@ -76,7 +76,7 @@ export function startTftpServer(port: number, rootDir: string): void {
   try {
     // 创建服务器，不提供 requestListener，使用默认的
     server = tftp.createServer({
-      host: '192.168.0.10',
+      host: '0.0.0.0',
       port: port,
       root: rootDir,
       denyPUT: false, // 允许上传
