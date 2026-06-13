@@ -202,6 +202,28 @@ npx vitest run         # 运行 68 个单元测试
 | [UI 设计规范](docs/QSerial-Windows-UI-Design-Spec.md) | Windows 桌面应用 UI 设计说明书 |
 | [归档](docs/archive/) | 历史变更日志、设计方案 |
 
+
+## ☕ 支持这个项目
+
+如果 QSerial 帮到了你，欢迎请作者喝杯咖啡 ☕ 你的支持是项目持续迭代的动力。
+
+<p align="center">
+  <img src="resources/wechat-pay.jpg" width="220" alt="微信赞助" />
+</p>
+
+## 🏢 商业支持 / 定制开发
+
+QSerial 提供专业的商业服务，帮助企业更好地落地 AI + 设备协同：
+
+- **企业私有化部署**：内网部署、定制化配置、技术培训
+- **定制功能开发**：协议适配（Modbus / OPC UA / 私有协议）、批量设备管理、操作审计与合规
+- **团队培训与技术咨询**：MCP 集成、嵌入式 AI 化改造、DevOps 工具链建设
+
+企业版功能规划中（RBAC 权限、LDAP/SSO、集中会话管理、SLA 支持），如有需求可提前沟通。
+
+📧 联系邮箱：[qiucc_kust@163.com](mailto:qiucc_kust@163.com)
+
+---
 ## License
 
 [MIT](LICENSE)
