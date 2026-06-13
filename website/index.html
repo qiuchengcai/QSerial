@@ -166,34 +166,89 @@ body{
 #splash{
   position:fixed; inset:0; z-index:20000;
   background:var(--term-bg); display:flex; align-items:center; justify-content:center;
-  transition:opacity .6s .3s, visibility .9s .3s; opacity:1; visibility:visible;
+  transition:opacity .5s .4s; opacity:1; visibility:visible;
+}
+#splash::before{
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at center, rgba(191,147,118,0.06) 0%, transparent 60%);
+  animation:splashBgPulse 1.8s ease-in-out infinite;
+}
+@keyframes splashBgPulse{
+  0%,100%{opacity:.6}
+  50%{opacity:1}
 }
 #splash.hide{ opacity:0; visibility:hidden; }
-.splash-inner{ text-align:center; }
+#splash.shatter .splash-inner{ animation:splashShatter .5s cubic-bezier(.6,0,1,1) forwards; }
+@keyframes splashShatter{
+  0%{opacity:1;transform:scale(1);filter:blur(0)}
+  100%{opacity:0;transform:scale(.7);filter:blur(8px)}
+}
+.splash-inner{ text-align:center; position:relative; z-index:1; }
 .splash-title{
   font-family:var(--font-heading); font-size:clamp(48px,10vw,96px);
   font-weight:700; color:var(--accent); letter-spacing:-3px;
-  animation:splashReveal .8s cubic-bezier(.16,1,.3,1) forwards;
+  opacity:0; transform:translateY(20px);
+  animation:splashTitleIn .7s cubic-bezier(.16,1,.3,1) .15s forwards;
 }
-@keyframes splashReveal{
-  0%{opacity:0;transform:scale(.5);filter:blur(20px)}
-  100%{opacity:1;transform:scale(1);filter:blur(0)}
+@keyframes splashTitleIn{
+  0%{opacity:0;transform:translateY(20px);filter:blur(8px)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}
+}
+.splash-glow-ring{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:0; height:0; border-radius:50%;
+  border:2px solid rgba(191,147,118,.4);
+  animation:splashRing .9s cubic-bezier(.16,1,.3,1) forwards;
+  pointer-events:none;
+}
+@keyframes splashRing{
+  0%{width:20px;height:20px;opacity:1}
+  100%{width:clamp(200px,50vw,400px);height:clamp(200px,50vw,400px);opacity:0}
 }
 .splash-tagline{
   font-family:var(--font-mono); font-size:13px; color:var(--term-d-green);
-  margin-top:16px; opacity:0; animation:splashFadeIn .6s .4s forwards;
+  margin-top:16px; opacity:0;
 }
-@keyframes splashFadeIn{ to{opacity:1} }
-.splash-particles{
+.splash-tagline.show{ animation:splashFadeUp .5s ease-out forwards; }
+@keyframes splashFadeUp{
+  0%{opacity:0;transform:translateY(8px)}
+  100%{opacity:1;transform:translateY(0)}
+}
+.splash-ambient{
   position:absolute; inset:0; overflow:hidden; pointer-events:none;
 }
-.splash-dot{
+.splash-ambient-dot{
   position:absolute; border-radius:50%; background:var(--accent);
-  animation:splashDot @dur ease-out forwards;
+  animation:splashAmbient var(--ad, 4s) ease-in-out infinite;
 }
-@keyframes splashDot{
-  0%{opacity:1;transform:translate(0,0) scale(1)}
-  100%{opacity:0;transform:translate(var(--sx), var(--sy)) scale(0)}
+@keyframes splashAmbient{
+  0%,100%{opacity:.15;transform:translate(0,0)}
+  25%{opacity:.35;transform:translate(var(--ax, 20px), var(--ay, -30px))}
+  50%{opacity:.15;transform:translate(var(--bx, -15px), var(--by, -50px))}
+  75%{opacity:.3;transform:translate(var(--cx, 25px), var(--cy, -20px))}
+}
+.splash-burst{
+  position:absolute; inset:0; overflow:hidden; pointer-events:none;
+}
+.splash-fragment{
+  position:absolute; border-radius:50%;
+  animation:splashFragment var(--fd, 1s) cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes splashFragment{
+  0%{opacity:1;transform:translate(0,0) rotate(0deg) scale(1)}
+  100%{opacity:0;transform:translate(var(--fx), var(--fy)) rotate(var(--fr, 360deg)) scale(var(--fs, 0))}
+}
+.splash-embers{
+  position:absolute; inset:0; overflow:hidden; pointer-events:none;
+}
+.splash-ember{
+  position:absolute; border-radius:50%;
+  animation:splashEmber var(--ed, 1.8s) cubic-bezier(.25,.8,.25,1) forwards;
+}
+@keyframes splashEmber{
+  0%{opacity:.8;transform:translate(0,0) scale(1)}
+  30%{opacity:1;transform:translate(var(--ex, 0), calc(var(--ey, 0) - 20px)) scale(1.2)}
+  100%{opacity:0;transform:translate(var(--ex, 0), calc(var(--ey, 0) - 120px)) scale(.2)}
 }
 
 nav{
@@ -508,11 +563,14 @@ footer a:hover{ color:var(--accent); }
 
 <!-- ── 6. Splash screen ── -->
 <div id="splash">
+  <div class="splash-ambient" id="splashAmbient"></div>
   <div class="splash-inner">
+    <div class="splash-glow-ring"></div>
     <div class="splash-title">QSerial</div>
-    <div class="splash-tagline">AI 时代的嵌入式终端</div>
+    <div class="splash-tagline" id="splashTagline"></div>
   </div>
-  <div class="splash-particles" id="splashParticles"></div>
+  <div class="splash-burst" id="splashBurst"></div>
+  <div class="splash-embers" id="splashEmbers"></div>
 </div>
 
 <!-- ── 4. Scroll progress bar ── -->
@@ -1347,35 +1405,102 @@ const backTop = document.getElementById('backTop');
 (function(){
   var splash = document.getElementById('splash');
   if (!splash) return;
-  var particlesContainer = document.getElementById('splashParticles');
+  var ambientContainer = document.getElementById('splashAmbient');
+  var burstContainer = document.getElementById('splashBurst');
+  var embersContainer = document.getElementById('splashEmbers');
+  var taglineEl = document.getElementById('splashTagline');
+  var logoEl = splash.querySelector('.splash-title');
 
-  function spawnParticles(){
-    if (!particlesContainer) return;
-    var count = 30;
-    for (var i = 0; i < count; i++) {
+  if (ambientContainer) {
+    for (var i = 0; i < 18; i++) {
       var dot = document.createElement('span');
-      dot.className = 'splash-dot';
-      var angle = Math.random() * Math.PI * 2;
-      var dist = 80 + Math.random() * 160;
-      var sx = Math.cos(angle) * dist;
-      var sy = Math.sin(angle) * dist;
-      var size = 2 + Math.random() * 6;
-      var dur = 0.6 + Math.random() * 0.8;
-      var cx = 50 + (Math.random() - 0.5) * 20;
-      var cy = 50 + (Math.random() - 0.5) * 20;
-      dot.style.cssText = 'left:' + cx + '%;top:' + cy + '%;width:' + size + 'px;height:' + size + 'px;--sx:' + sx + 'px;--sy:' + sy + 'px;animation-duration:' + dur + 's';
-      particlesContainer.appendChild(dot);
-      dot.addEventListener('animationend', function(){ dot.remove(); });
+      dot.className = 'splash-ambient-dot';
+      var size = 1.5 + Math.random() * 3;
+      var left = Math.random() * 90 + 5;
+      var top = Math.random() * 80 + 10;
+      dot.style.cssText = 'left:' + left + '%;top:' + top + '%;width:' + size + 'px;height:' + size + 'px;--ad:' + (3 + Math.random() * 4) + 's;--ax:' + ((Math.random()-0.5)*60) + 'px;--ay:' + ((Math.random()-0.5)*60) + 'px;--bx:' + ((Math.random()-0.5)*60) + 'px;--by:' + ((Math.random()-0.5)*60) + 'px;--cx:' + ((Math.random()-0.5)*60) + 'px;--cy:' + ((Math.random()-0.5)*60) + 'px';
+      ambientContainer.appendChild(dot);
     }
   }
 
-  window.addEventListener('load', function(){
+  var taglineChars = 'AI 时代的嵌入式终端';
+  var charIdx = 0;
+  function typeTagline(){
+    if (charIdx < taglineChars.length) {
+      taglineEl.textContent += taglineChars[charIdx];
+      charIdx++;
+      setTimeout(typeTagline, 60 + Math.random() * 40);
+    } else {
+      taglineEl.classList.add('show');
+    }
+  }
+  setTimeout(typeTagline, 550);
+
+  function spawnFragments(){
+    if (!burstContainer || !logoEl) return;
+    var logoRect = logoEl.getBoundingClientRect();
+    var cx = logoRect.left + logoRect.width / 2;
+    var cy = logoRect.top + logoRect.height / 2;
+    var logoW = logoRect.width;
+    var logoH = logoRect.height;
+
+    var colors = ['#bf9376','#d4a88c','#e8c4a8','#dbb996','#c9a07a','#f5ede7','#faf0e6'];
+
+    for (var i = 0; i < 35; i++) {
+      var frag = document.createElement('span');
+      frag.className = 'splash-fragment';
+      var angle = Math.random() * Math.PI * 2;
+      var dist = 30 + Math.random() * 250;
+      var fx = Math.cos(angle) * dist;
+      var fy = Math.sin(angle) * dist - Math.random() * 60;
+      var size = 1.5 + Math.random() * 6;
+      var fr = (Math.random() - 0.5) * 720;
+      var fs = 0.1 + Math.random() * 0.6;
+      var fd = 0.5 + Math.random() * 1.2;
+      var ox = (Math.random() - 0.5) * logoW;
+      var oy = (Math.random() - 0.5) * logoH;
+      frag.style.cssText = 'left:' + (cx + ox) + 'px;top:' + (cy + oy) + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random()*colors.length)] + ';--fx:' + fx + 'px;--fy:' + fy + 'px;--fr:' + fr + 'deg;--fs:' + fs + ';--fd:' + fd + 's';
+      burstContainer.appendChild(frag);
+      frag.addEventListener('animationend', function(){ frag.remove(); });
+    }
+  }
+
+  function spawnEmbers(){
+    if (!embersContainer || !logoEl) return;
+    var logoRect = logoEl.getBoundingClientRect();
+    var cx = logoRect.left + logoRect.width / 2;
+    var cy = logoRect.top + logoRect.height / 2;
+    var logoW = logoRect.width;
+
+    var colors = ['#bf9376','#d4a88c','#e8c4a8','#faf0e6'];
+
+    for (var i = 0; i < 25; i++) {
+      var ember = document.createElement('span');
+      ember.className = 'splash-ember';
+      var ex = (Math.random() - 0.5) * logoW * 0.9;
+      var ey = 0;
+      var ox = (Math.random() - 0.5) * logoW * 0.7;
+      var oy = (Math.random() - 0.5) * 20;
+      var size = 1.5 + Math.random() * 4;
+      var ed = 1.2 + Math.random() * 1.4;
+      var delay = Math.random() * 0.3;
+      ember.style.cssText = 'left:' + (cx + ox) + 'px;top:' + (cy + oy) + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random()*colors.length)] + ';--ex:' + ex + 'px;--ey:' + ey + 'px;--ed:' + ed + 's;animation-delay:' + delay + 's';
+      embersContainer.appendChild(ember);
+      ember.addEventListener('animationend', function(){ ember.remove(); });
+    }
+  }
+
+  function dimiss(){
+    splash.classList.add('shatter');
+    spawnFragments();
+    spawnEmbers();
     setTimeout(function(){
-      spawnParticles();
       splash.classList.add('hide');
-      setTimeout(function(){ splash.remove(); }, 900);
-    }, 1500);
-  });
+      setTimeout(function(){ splash.remove(); }, 500);
+    }, 300);
+  }
+
+  setTimeout(dimiss, 2200);
 })();
 
 })();
