@@ -32,23 +32,71 @@
 html{ scroll-behavior:smooth; }
 body{
   font-family:var(--font-ui); background:var(--bg); color:var(--text);
-  -webkit-font-smoothing:antialiased; line-height:1.6;
+  -webkit-font-smoothing:antialiased; line-height:1.6; overflow-x:hidden;
 }
+
+/* Scroll reveal base */
+.reveal{ opacity:0; transform:translateY(40px); transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1); }
+.reveal.visible{ opacity:1; transform:translateY(0); }
+.reveal-delay-1{ transition-delay:.1s; }
+.reveal-delay-2{ transition-delay:.2s; }
+.reveal-delay-3{ transition-delay:.3s; }
+.reveal-delay-4{ transition-delay:.4s; }
+.reveal-delay-5{ transition-delay:.5s; }
+.reveal-left{ transform:translateX(-40px); }
+.reveal-left.visible{ transform:translateX(0); }
+.reveal-right{ transform:translateX(40px); }
+.reveal-right.visible{ transform:translateX(0); }
+.reveal-scale{ transform:scale(.9); }
+.reveal-scale.visible{ transform:scale(1); }
+
+/* Card glow trail */
+.glow-card{ position:relative; overflow:hidden; }
+.glow-card::before{
+  content:''; position:absolute; inset:-1px; border-radius:inherit; opacity:0;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(191,147,118,0.25) 0%, transparent 60%);
+  transition:opacity .4s; pointer-events:none; z-index:0;
+}
+.glow-card:hover::before{ opacity:1; }
+.glow-card > *{ position:relative; z-index:1; }
+
+/* Particle canvas */
+#particleCanvas{
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  pointer-events:none; z-index:0; opacity:.45;
+}
+
+/* Typing cursor */
+.typing-cursor{ display:inline-block; width:2px; height:1em; background:var(--accent); margin-left:2px; vertical-align:text-bottom; animation:blink .8s step-end infinite; }
+@keyframes blink{ 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Float animation */
+@keyframes float{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+/* Pulse ring */
+@keyframes pulse-ring{ 0%{box-shadow:0 0 0 0 rgba(191,147,118,.4)} 70%{box-shadow:0 0 0 12px rgba(191,147,118,0)} 100%{box-shadow:0 0 0 0 rgba(191,147,118,0)} }
+
+/* Gradient shift */
+@keyframes gradient-shift{ 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+
+@keyframes fadeInUp{ from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 
 nav{
   position:fixed; top:0; left:0; right:0; z-index:100;
   background:rgba(255,255,255,0.9); backdrop-filter:blur(16px);
-  border-bottom:1px solid var(--border);
+  border-bottom:1px solid transparent; transition:all .4s;
 }
+nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,0,.04); }
 .nav-inner{
   max-width:1200px; margin:0 auto; padding:0 24px;
   display:flex; align-items:center; justify-content:space-between; height:60px;
 }
-.nav-logo{ font-family:var(--font-heading); font-size:22px; font-weight:700; color:var(--text); text-decoration:none; letter-spacing:-0.5px; }
+.nav-logo{ font-family:var(--font-heading); font-size:22px; font-weight:700; color:var(--text); text-decoration:none; letter-spacing:-0.5px; animation:fadeInUp .6s both; }
 .nav-logo span{ color:var(--accent); }
 .nav-cta{
   background:var(--accent); color:#fff; padding:10px 24px; border-radius:8px;
   font-size:14px; font-weight:600; text-decoration:none; transition:all .2s;
+  animation:fadeInUp .6s .1s both;
 }
 .nav-cta:hover{ background:#a67c5e; transform:translateY(-1px); }
 
@@ -62,17 +110,19 @@ nav{
   content:''; position:absolute; top:-300px; left:50%; transform:translateX(-50%);
   width:900px; height:900px; border-radius:50%;
   background:radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
-  pointer-events:none;
+  pointer-events:none; animation:float 8s ease-in-out infinite;
 }
 .hero-inner{ position:relative; z-index:1; max-width:720px; margin:0 auto; }
 .hero-badge{
   display:inline-block; padding:6px 18px; border-radius:20px;
   background:var(--accent-light); color:var(--accent);
   font-size:13px; font-weight:600; margin-bottom:28px; letter-spacing:0.5px;
+  animation:fadeInUp .6s both;
 }
 .hero h1{
   font-family:var(--font-heading); font-size:clamp(42px,8vw,68px);
   font-weight:700; letter-spacing:-2px; line-height:1.12; margin-bottom:24px;
+  animation:fadeInUp .7s .1s both;
 }
 .hero h1 em{
   font-style:italic; color:var(--accent); position:relative;
@@ -84,15 +134,26 @@ nav{
 }
 .hero p{
   font-size:19px; color:var(--text2); max-width:560px; margin:0 auto 40px; line-height:1.7;
+  animation:fadeInUp .7s .2s both;
 }
-.hero-btns{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+.hero-btns{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; animation:fadeInUp .7s .3s both; }
 .btn{
   display:inline-flex; align-items:center; gap:8px; padding:14px 32px;
   border-radius:10px; font-size:16px; font-weight:600; text-decoration:none;
   transition:all .25s; cursor:pointer; border:none; font-family:var(--font-ui);
+  position:relative; overflow:hidden;
 }
-.btn-primary{ background:var(--accent); color:#fff; box-shadow:0 2px 12px rgba(191,147,118,0.3); }
-.btn-primary:hover{ background:#a67c5e; transform:translateY(-2px); box-shadow:0 4px 20px rgba(191,147,118,0.4); }
+.btn::after{
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  background:rgba(255,255,255,.15); opacity:0; transition:opacity .3s;
+}
+.btn:hover::after{ opacity:1; }
+.btn-primary{
+  background:linear-gradient(135deg, var(--accent) 0%, #a67c5e 100%);
+  background-size:200% 200%; animation:gradient-shift 4s ease infinite;
+  color:#fff; box-shadow:0 2px 12px rgba(191,147,118,0.3);
+}
+.btn-primary:hover{ transform:translateY(-2px); box-shadow:0 4px 20px rgba(191,147,118,0.5); }
 .btn-outline{
   background:transparent; color:var(--text); border:1.5px solid var(--border);
 }
@@ -101,6 +162,7 @@ nav{
 /* AI Demo visual */
 .ai-demo{
   max-width:800px; margin:56px auto 0; position:relative; z-index:1;
+  animation:fadeInUp .8s .5s both;
 }
 .ai-bubble{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
@@ -110,6 +172,9 @@ nav{
 .ai-row{
   display:flex; align-items:flex-start; gap:12px; font-size:14px;
 }
+.ai-row:nth-child(1){ opacity:1; }
+.ai-row:nth-child(2), .ai-row:nth-child(3){ opacity:0; transition:opacity .4s; }
+.ai-row.typed{ opacity:1; }
 .ai-user{ color:var(--accent); font-weight:600; min-width:52px; text-align:right; padding-top:6px; }
 .ai-msg{
   background:var(--accent-light); padding:10px 16px; border-radius:8px;
@@ -121,7 +186,7 @@ nav{
 }
 
 /* Sections */
-.section{ padding:100px 24px; }
+.section{ padding:100px 24px; position:relative; }
 .section-alt{ background:var(--surface); }
 .section-inner{ max-width:1100px; margin:0 auto; }
 .section-eyebrow{
@@ -148,6 +213,7 @@ nav{
   border-bottom:1px solid var(--border);
 }
 .compare thead th:last-child{ color:#5a8a6a; background:#eef5f0; }
+.compare tbody tr{ transition:all .3s; }
 .compare td{
   padding:14px 20px; font-size:14px; color:var(--text2); border-bottom:1px solid var(--border);
 }
@@ -160,10 +226,11 @@ nav{
 .tool-cats{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:1000px; margin:0 auto; }
 .tool-cat{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:28px 24px; transition:all .3s;
+  padding:28px 24px; transition:all .4s cubic-bezier(.16,1,.3,1);
 }
-.tool-cat:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-2px); }
-.tool-cat-icon{ font-size:28px; margin-bottom:12px; display:block; }
+.tool-cat:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-4px) scale(1.02); }
+.tool-cat-icon{ font-size:28px; margin-bottom:12px; display:block; transition:transform .3s; }
+.tool-cat:hover .tool-cat-icon{ transform:scale(1.15); }
 .tool-cat h4{ font-family:var(--font-heading); font-size:16px; font-weight:600; margin-bottom:6px; }
 .tool-cat .count{ font-size:12px; color:var(--accent); font-weight:700; margin-bottom:10px; }
 .tool-cat .tools{ font-size:12px; color:var(--text3); line-height:1.8; }
@@ -172,9 +239,9 @@ nav{
 .scenarios{ display:grid; grid-template-columns:repeat(2,1fr); gap:24px; max-width:860px; margin:0 auto; }
 .scenario{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:32px 28px; transition:all .3s;
+  padding:32px 28px; transition:all .4s cubic-bezier(.16,1,.3,1);
 }
-.scenario:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); }
+.scenario:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-3px); }
 .scenario-tag{
   display:inline-block; padding:3px 12px; border-radius:12px;
   font-size:11px; font-weight:700; letter-spacing:1px; margin-bottom:16px;
@@ -206,33 +273,39 @@ nav{
   display:inline-flex; align-items:center; gap:8px;
   padding:10px 20px; border-radius:24px; font-size:14px; font-weight:600;
   border:1.5px solid var(--border); background:#fff;
+  transition:all .3s;
 }
-.pbadge .pb-dot{ width:10px; height:10px; border-radius:50%; }
+.pbadge:hover{ transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+.pbadge .pb-dot{ width:10px; height:10px; border-radius:50%; animation:pulse-ring 2s infinite; }
 .pb-serial{ background:#eef5f0; color:#3d6b4a; border-color:#c4dcca; }
 .pb-serial .pb-dot{ background:#5a8a6a; }
 .pb-ssh{ background:#eef2f8; color:#4a6a9a; border-color:#c4d0e8; }
-.pb-ssh .pb-dot{ background:#4a6a9a; }
+.pb-ssh .pb-dot{ animation-delay:.3s; background:#4a6a9a; }
 .pb-telnet{ background:#fdf4ed; color:#c87a3a; border-color:#e8d0c4; }
-.pb-telnet .pb-dot{ background:#c87a3a; }
+.pb-telnet .pb-dot{ animation-delay:.6s; background:#c87a3a; }
 
 /* Benefit cards */
 .benefits{ display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
 .benefit{
   text-align:center; padding:40px 28px;
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  transition:all .3s;
+  transition:all .4s cubic-bezier(.16,1,.3,1);
 }
 .benefit:hover{ border-color:var(--accent); transform:translateY(-4px); box-shadow:var(--shadow-lg); }
-.benefit-icon{ font-size:44px; margin-bottom:20px; display:block; }
+.benefit-icon{ font-size:44px; margin-bottom:20px; display:block; transition:transform .3s; }
+.benefit:hover .benefit-icon{ transform:scale(1.1) rotate(-3deg); }
 .benefit h3{ font-family:var(--font-heading); font-size:20px; font-weight:600; margin-bottom:10px; }
 .benefit p{ font-size:14px; color:var(--text2); line-height:1.65; }
 
 /* Highlight card */
 .highlight{
-  max-width:800px; margin:0 auto; text-align:center;
-  background:var(--accent-light); border:1px solid var(--accent2);
-  border-radius:var(--radius); padding:48px 40px;
+  max-width:780px; margin:0 auto; text-align:center;
+  background:linear-gradient(135deg, var(--accent-light) 0%, #faf5f0 100%);
+  border:1px solid var(--accent2);
+  border-radius:var(--radius); padding:52px 40px;
+  transition:transform .3s;
 }
+.highlight:hover{ transform:scale(1.01); }
 .highlight h3{
   font-family:var(--font-heading); font-size:26px; font-weight:600; margin-bottom:14px;
 }
@@ -242,17 +315,32 @@ nav{
 .dl-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:800px; margin:0 auto; }
 .dl-card{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:36px 28px; text-align:center; transition:all .3s;
+  padding:36px 28px; text-align:center; transition:all .4s cubic-bezier(.16,1,.3,1);
 }
-.dl-card:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-2px); }
+.dl-card:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-3px); }
+.dl-card:nth-child(1){ border-top:3px solid var(--accent); }
+.dl-card:nth-child(2){ border-top:3px solid #7a5a9a; }
+.dl-card:nth-child(3){ border-top:3px solid #4a6a9a; }
 .dl-os{ font-family:var(--font-heading); font-size:18px; font-weight:600; margin-bottom:6px; }
 .dl-ver{ font-size:13px; color:var(--text3); margin-bottom:20px; }
 .dl-btn{
   display:inline-block; background:var(--accent); color:#fff; text-decoration:none;
   padding:10px 28px; border-radius:8px; font-size:14px; font-weight:600;
-  transition:all .2s;
+  transition:all .25s; position:relative; overflow:hidden;
 }
-.dl-btn:hover{ background:#a67c5e; }
+.dl-btn:hover{ background:#a67c5e; transform:translateY(-1px); }
+.dl-card:nth-child(3) .dl-btn{ background:#4a6a9a; }
+.dl-card:nth-child(3) .dl-btn:hover{ background:#3a5a8a; }
+
+/* Section connector */
+.section-connector{
+  height:60px; background:linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+  margin-top:-1px;
+}
+.section-connector.reverse{ background:linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%); }
+
+/* Stat badge */
+.stat-num{ color:var(--accent); font-weight:700; }
 
 footer{
   border-top:1px solid var(--border); padding:48px 24px; text-align:center;
@@ -260,6 +348,18 @@ footer{
 }
 footer a{ color:var(--text2); text-decoration:none; }
 footer a:hover{ color:var(--accent); }
+
+/* Back to top */
+.back-top{
+  position:fixed; bottom:32px; right:32px; z-index:99;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--accent); color:#fff; border:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; cursor:pointer; opacity:0; transform:translateY(10px);
+  transition:all .3s; pointer-events:none; box-shadow:0 2px 12px rgba(191,147,118,.3);
+}
+.back-top.visible{ opacity:1; transform:translateY(0); pointer-events:auto; }
+.back-top:hover{ transform:translateY(-2px); background:#a67c5e; box-shadow:0 4px 20px rgba(191,147,118,.5); }
 
 @media(max-width:768px){
   .benefits{ grid-template-columns:1fr; }
@@ -272,18 +372,25 @@ footer a:hover{ color:var(--accent); }
   .compare{ overflow-x:auto; }
   .compare table{ min-width:600px; }
 }
+
+@media(prefers-reduced-motion:reduce){
+  .reveal{ opacity:1; transform:none; transition:none; }
+  #particleCanvas{ display:none; }
+  *,*::before,*::after{ animation-duration:.01ms !important; }
+}
 </style>
 </head>
 <body>
 
-<nav>
+<nav id="navbar">
   <div class="nav-inner">
     <a href="/qserial" class="nav-logo">Q<span>Serial</span></a>
     <a href="#download" class="nav-cta">免费下载</a>
   </div>
 </nav>
 
-<section class="hero">
+<section class="hero" id="hero">
+  <canvas id="particleCanvas"></canvas>
   <div class="hero-inner">
     <div class="hero-badge">MCP 嵌入式终端</div>
     <h1>让你的 AI 助手，<br><em>直接操控硬件设备。</em></h1>
@@ -294,19 +401,19 @@ footer a:hover{ color:var(--accent); }
     </div>
   </div>
 
-  <div class="ai-demo">
+  <div class="ai-demo" id="aiDemo">
     <div class="ai-bubble">
-      <div class="ai-row">
+      <div class="ai-row" data-type-row="0">
         <span class="ai-user">你</span>
-        <span class="ai-msg">帮我检查一下 ESP32 的 WiFi 连接状态</span>
+        <span class="ai-msg" data-type-target="0"></span>
       </div>
-      <div class="ai-row">
+      <div class="ai-row" data-type-row="1">
         <span class="ai-user">AI</span>
-        <span class="ai-reply">好的。已通过 QSerial 连接 COM3，自动探测到 ESP32 设备 (115200bps)，发送 AT+CWJAP? 查询中&hellip;</span>
+        <span class="ai-reply" data-type-target="1"><span class="typing-cursor"></span></span>
       </div>
-      <div class="ai-row">
+      <div class="ai-row" data-type-row="2">
         <span class="ai-user">AI</span>
-        <span class="ai-reply">WiFi 已连接：MyNetwork，信号强度 -42dBm，IP 192.168.1.105</span>
+        <span class="ai-reply" data-type-target="2"><span class="typing-cursor"></span></span>
       </div>
     </div>
   </div>
@@ -314,34 +421,34 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section">
   <div class="section-inner">
-    <div class="section-eyebrow">为什么选择 QSerial</div>
-    <h2>传统终端 vs QSerial &mdash; 10 倍效率差距</h2>
-    <p class="lead">嵌入式开发调试中，传统终端工具需要手动敲命令、查手册、开多个窗口。QSerial 改变这一切。</p>
-    <div class="compare">
+    <div class="section-eyebrow reveal">为什么选择 QSerial</div>
+    <h2 class="reveal reveal-delay-1">传统终端 vs QSerial &mdash; <span class="stat-num" data-count="10">0</span> 倍效率差距</h2>
+    <p class="lead reveal reveal-delay-1">嵌入式开发调试中，传统终端工具需要手动敲命令、查手册、开多个窗口。QSerial 改变这一切。</p>
+    <div class="compare reveal reveal-delay-2">
       <table>
         <thead>
           <tr><th>传统方式 (PuTTY / minicom / SecureCRT)</th><th>QSerial + AI</th></tr>
         </thead>
         <tbody>
-          <tr>
+          <tr class="reveal reveal-delay-2">
             <td>选串口 &rarr; 设波特率 &rarr; 查芯片手册 &rarr; 敲 AT 命令 &rarr; 人工看输出</td>
             <td><span class="check">&check;</span> 一句话说需求，AI 自动完成全过程</td>
           </tr>
-          <tr>
+          <tr class="reveal reveal-delay-2">
             <td>ESP32 OTA 升级：串口监视器 + 文件传输工具 + 手动命令行，三个窗口来回切换</td>
             <td><span class="check">&check;</span> 一个 QSerial + AI，无需切换</td>
           </tr>
-          <tr>
+          <tr class="reveal reveal-delay-2">
             <td>设备日志异常：肉眼翻屏查找，凭经验猜原因</td>
             <td><span class="check">&check;</span> AI 自动分析日志、定位根因、给出修复建议</td>
           </tr>
-          <tr>
+          <tr class="reveal reveal-delay-2">
             <td>反复执行相同的登录和调试流程，每天上百条重复命令</td>
             <td><span class="check">&check;</span> 宏录制一次，一键回放</td>
           </tr>
-          <tr>
+          <tr class="reveal reveal-delay-2">
             <td>换一台新 MCU，重新查资料、学习指令集</td>
-            <td><span class="check">&check;</span> 21 种设备自动探测，AI 自动适配命令</td>
+            <td><span class="check">&check;</span> <span class="stat-num" data-count="21">0</span> 种设备自动探测，AI 自动适配命令</td>
           </tr>
         </tbody>
       </table>
@@ -351,21 +458,21 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section section-alt">
   <div class="section-inner">
-    <div class="section-eyebrow">AI 时代的嵌入式开发</div>
-    <h2>你的 AI 助手，现在可以直接操控硬件</h2>
-    <p class="lead">QSerial 将串口、SSH、Telnet 连接全部暴露为标准 MCP 工具，让任何 AI 客户端都能像人类一样操作你的设备。</p>
+    <div class="section-eyebrow reveal">AI 时代的嵌入式开发</div>
+    <h2 class="reveal reveal-delay-1">你的 AI 助手，现在可以直接操控硬件</h2>
+    <p class="lead reveal reveal-delay-1">QSerial 将串口、SSH、Telnet 连接全部暴露为标准 MCP 工具，让任何 AI 客户端都能像人类一样操作你的设备。</p>
     <div class="benefits">
-      <div class="benefit">
+      <div class="benefit glow-card reveal reveal-delay-1">
         <span class="benefit-icon">&#128172;</span>
         <h3>自然语言操控设备</h3>
         <p>对 AI 说出你要做的事，QSerial 自动翻译为设备命令并执行。不需要记 AT 指令，不需要查手册。</p>
       </div>
-      <div class="benefit">
+      <div class="benefit glow-card reveal reveal-delay-2">
         <span class="benefit-icon">&#128269;</span>
         <h3>AI 自动诊断</h3>
         <p>设备输出异常时，AI 自动分析日志、定位根因、给出修复建议。从被动查错到主动预防。</p>
       </div>
-      <div class="benefit">
+      <div class="benefit glow-card reveal reveal-delay-3">
         <span class="benefit-icon">&#9889;</span>
         <h3>10 倍效率提升</h3>
         <p>登录、配置、测试、调试 &mdash; 原来需要手动敲几十条命令的工作，现在一句话完成。</p>
@@ -376,41 +483,41 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section">
   <div class="section-inner">
-    <div class="section-eyebrow">43 个 MCP 工具</div>
-    <h2>不只是终端，是 AI 的硬件接口</h2>
-    <p class="lead">每个 MCP 工具都是设备的一个标准能力。AI 客户端可以像调用函数一样操控你的硬件。</p>
+    <div class="section-eyebrow reveal"><span class="stat-num" data-count="43">0</span> 个 MCP 工具</div>
+    <h2 class="reveal reveal-delay-1">不只是终端，是 AI 的硬件接口</h2>
+    <p class="lead reveal reveal-delay-1">每个 MCP 工具都是设备的一个标准能力。AI 客户端可以像调用函数一样操控你的硬件。</p>
     <div class="tool-cats">
-      <div class="tool-cat">
+      <div class="tool-cat glow-card reveal reveal-delay-1">
         <span class="tool-cat-icon">&#128268;</span>
         <h4>连接管理</h4>
         <div class="count">9 个工具</div>
         <div class="tools">conn.list &middot; conn.create<br>conn.reconnect &middot; conn.update<br>conn.disconnect &middot; conn.share<br>session.list &middot; session.save<br>session.delete</div>
       </div>
-      <div class="tool-cat">
+      <div class="tool-cat glow-card reveal reveal-delay-1">
         <span class="tool-cat-icon">&#8680;</span>
         <h4>数据收发</h4>
         <div class="count">7 个工具</div>
         <div class="tools">conn.data.read &middot; conn.data.write<br>conn.data.write_hex<br>conn.data.send &middot; conn.data.expect<br>conn.data.clear &middot; conn.data.history</div>
       </div>
-      <div class="tool-cat">
+      <div class="tool-cat glow-card reveal reveal-delay-2">
         <span class="tool-cat-icon">&#128300;</span>
         <h4>设备探测与分析</h4>
         <div class="count">5 个工具</div>
         <div class="tools">conn.analyze.probe<br>conn.analyze.state<br>conn.analyze.report<br>conn.script.login<br>conn.script.run</div>
       </div>
-      <div class="tool-cat">
+      <div class="tool-cat glow-card reveal reveal-delay-2">
         <span class="tool-cat-icon">&#128190;</span>
         <h4>文件与协议</h4>
         <div class="count">10 个工具</div>
         <div class="tools">conn.file.send (XMODEM/YMODEM)<br>sftp.connect &middot; sftp.list<br>sftp.upload &middot; sftp.download<br>sftp.mkdir &middot; sftp.stat &middot; sftp.rm</div>
       </div>
-      <div class="tool-cat">
+      <div class="tool-cat glow-card reveal reveal-delay-3">
         <span class="tool-cat-icon">&#9889;</span>
         <h4>硬件控制</h4>
         <div class="count">2 个工具</div>
         <div class="tools">conn.hw.dtr_rts<br>conn.hw.break<br><br><span style="color:var(--text3);">DTR/RTS 信号线控制<br>Break 信号发送<br>适用 ESP32 / Arduino / STM32</span></div>
       </div>
-      <div class="tool-cat">
+      <div class="tool-cat glow-card reveal reveal-delay-3">
         <span class="tool-cat-icon">&#9208;</span>
         <h4>录制与监控</h4>
         <div class="count">10 个工具</div>
@@ -422,26 +529,26 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section section-alt">
   <div class="section-inner">
-    <div class="section-eyebrow">实战场景</div>
-    <h2>从 OTA 升级到工厂产测，AI 全程参与</h2>
-    <p class="lead">以下是 QSerial 在真实嵌入式开发流程中的应用场景。</p>
+    <div class="section-eyebrow reveal">实战场景</div>
+    <h2 class="reveal reveal-delay-1">从 OTA 升级到工厂产测，AI 全程参与</h2>
+    <p class="lead reveal reveal-delay-1">以下是 QSerial 在真实嵌入式开发流程中的应用场景。</p>
     <div class="scenarios">
-      <div class="scenario">
+      <div class="scenario glow-card reveal reveal-left reveal-delay-1">
         <span class="scenario-tag tag-green">ESP32 OTA 升级</span>
         <h4>一句话完成固件推送</h4>
         <p>对它说 &ldquo;把 build/esp32-firmware.bin 通过串口烧录到设备&rdquo;，QSerial 自动完成 DTR/RTS 复位、XMODEM 传输、校验确认。</p>
       </div>
-      <div class="scenario">
+      <div class="scenario glow-card reveal reveal-right reveal-delay-2">
         <span class="scenario-tag tag-blue">批量注册登录</span>
         <h4>自动登录多台设备</h4>
         <p>录制一次登录流程保存为宏 &mdash; 连接新设备时一键回放，自动跳过 BIOS/U-Boot 进入系统 Shell。</p>
       </div>
-      <div class="scenario">
+      <div class="scenario glow-card reveal reveal-left reveal-delay-3">
         <span class="scenario-tag tag-purple">日志异常监控</span>
         <h4>AI 7&times;24 监控设备</h4>
         <p>设置 conn.watch 匹配 &ldquo;ERROR&rdquo;、&ldquo;CRASH&rdquo;、&ldquo;WDT reset&rdquo; 等关键词，设备一旦输出异常即时获取 AI 分析。</p>
       </div>
-      <div class="scenario">
+      <div class="scenario glow-card reveal reveal-right reveal-delay-4">
         <span class="scenario-tag tag-orange">SSH 远程管理</span>
         <h4>一个会话管所有设备</h4>
         <p>通过 SSH 连接 Linux 设备，支持 SFTP 文件管理。对 AI 说 &ldquo;检查所有连接的磁盘使用率&rdquo; 即可获得完整报告。</p>
@@ -452,10 +559,10 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section">
   <div class="section-inner">
-    <div class="section-eyebrow">多协议支持</div>
-    <h2>串口、SSH、Telnet &mdash; 一网打尽</h2>
-    <p class="lead" style="margin-bottom:32px;">QSerial 统一了嵌入式开发中最常用的三种连接协议，你不再需要在多个工具之间切换。</p>
-    <div class="protocol-badges">
+    <div class="section-eyebrow reveal">多协议支持</div>
+    <h2 class="reveal reveal-delay-1">串口、SSH、Telnet &mdash; 一网打尽</h2>
+    <p class="lead reveal reveal-delay-1" style="margin-bottom:32px;">QSerial 统一了嵌入式开发中最常用的三种连接协议，你不再需要在多个工具之间切换。</p>
+    <div class="protocol-badges reveal reveal-scale reveal-delay-2">
       <span class="pbadge pb-serial"><span class="pb-dot"></span> 串口 (UART)</span>
       <span class="pbadge pb-ssh"><span class="pb-dot"></span> SSH</span>
       <span class="pbadge pb-telnet"><span class="pb-dot"></span> Telnet</span>
@@ -465,21 +572,21 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section section-alt">
   <div class="section-inner">
-    <div class="section-eyebrow">21 种设备自动探测</div>
-    <h2>即插即用，告别手动配置</h2>
-    <p class="lead">接入设备后发送探测命令，QSerial 自动识别设备类型并推荐最佳波特率和命令集。</p>
+    <div class="section-eyebrow reveal"><span class="stat-num" data-count="21">0</span> 种设备自动探测</div>
+    <h2 class="reveal reveal-delay-1">即插即用，告别手动配置</h2>
+    <p class="lead reveal reveal-delay-1">接入设备后发送探测命令，QSerial 自动识别设备类型并推荐最佳波特率和命令集。</p>
     <div class="device-grid">
-      <div class="device-card">
+      <div class="device-card glow-card reveal reveal-delay-1">
         <span class="dev-icon">&#128268;</span>
         <div class="dev-name">微控制器</div>
         <div class="dev-types">ESP32 &middot; ESP8266 &middot; STM32<br>Arduino &middot; FreeRTOS<br>Zephyr &middot; NuttX</div>
       </div>
-      <div class="device-card">
+      <div class="device-card glow-card reveal reveal-delay-2">
         <span class="dev-icon">&#128187;</span>
         <div class="dev-name">单板计算机</div>
         <div class="dev-types">Raspberry Pi &middot; NXP i.MX<br>TI AM335x &middot; U-Boot<br>Buildroot &middot; Yocto</div>
       </div>
-      <div class="device-card">
+      <div class="device-card glow-card reveal reveal-delay-3">
         <span class="dev-icon">&#127760;</span>
         <div class="dev-name">网络设备</div>
         <div class="dev-types">Cisco IOS &middot; Juniper JunOS<br>MikroTik RouterOS &middot; EdgeOS<br>OpenWrt &middot; BusyBox</div>
@@ -490,21 +597,21 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section">
   <div class="section-inner">
-    <div class="section-eyebrow">更多亮点</div>
-    <h2>不只是 AI，经典功能同样出色</h2>
-    <p class="lead">即使没有 AI，QSerial 也是你用过最好的嵌入式终端。</p>
+    <div class="section-eyebrow reveal">更多亮点</div>
+    <h2 class="reveal reveal-delay-1">不只是 AI，经典功能同样出色</h2>
+    <p class="lead reveal reveal-delay-1">即使没有 AI，QSerial 也是你用过最好的嵌入式终端。</p>
     <div class="benefits">
-      <div class="benefit">
+      <div class="benefit glow-card reveal reveal-delay-1">
         <span class="benefit-icon">&#128268;</span>
         <h3>即插即用</h3>
         <p>自动识别串口设备，一键连接。21 种设备自动探测与 30+ 波特率支持，告别繁琐的手动配置。</p>
       </div>
-      <div class="benefit">
+      <div class="benefit glow-card reveal reveal-delay-2">
         <span class="benefit-icon">&#9000;</span>
         <h3>宏录制与回放</h3>
         <p>录一次，用一万次。把你反复执行的登录和调试流程保存为宏，一键回放。</p>
       </div>
-      <div class="benefit">
+      <div class="benefit glow-card reveal reveal-delay-3">
         <span class="benefit-icon">&#127758;</span>
         <h3>中文优先</h3>
         <p>完整中文界面与文档。由中国开发者打造，更懂国内嵌入式工程师的工作习惯。</p>
@@ -515,7 +622,7 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section section-alt">
   <div class="section-inner">
-    <div class="highlight">
+    <div class="highlight reveal reveal-scale reveal-delay-1">
       <h3>开源 &amp; 免费</h3>
       <p>QSerial 基于 MIT 协议开源，代码完全透明。你的设备安全由你自己掌控 &mdash; 没有后门，不上传数据，所有操作都在本地完成。</p>
     </div>
@@ -524,21 +631,21 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section" id="download">
   <div class="section-inner">
-    <div class="section-eyebrow" style="text-align:center;">下载</div>
-    <h2 style="text-align:center;">开启 AI 驱动的嵌入式开发</h2>
-    <p class="lead" style="text-align:center; margin-left:auto; margin-right:auto;">免费下载，无需注册。支持 Windows 10 及以上系统。</p>
+    <div class="section-eyebrow reveal" style="text-align:center;">下载</div>
+    <h2 class="reveal reveal-delay-1" style="text-align:center;">开启 AI 驱动的嵌入式开发</h2>
+    <p class="lead reveal reveal-delay-1" style="text-align:center; margin-left:auto; margin-right:auto;">免费下载，无需注册。支持 Windows 10 及以上系统。</p>
     <div class="dl-grid">
-      <div class="dl-card">
+      <div class="dl-card reveal reveal-delay-1">
         <div class="dl-os">安装版</div>
         <div class="dl-ver">v0.2.0 &middot; 安装版 82MB</div>
         <a href="/download/QSerial-0.2.0-x64-win.exe" class="dl-btn">下载 .exe</a>
       </div>
-      <div class="dl-card">
+      <div class="dl-card reveal reveal-delay-2">
         <div class="dl-os">便携版</div>
         <div class="dl-ver">v0.2.0 &middot; Windows x64</div>
         <a href="/download/QSerial-0.2.0-x64-win-portable.exe" class="dl-btn">下载 .exe</a>
       </div>
-      <div class="dl-card">
+      <div class="dl-card reveal reveal-delay-3">
         <div class="dl-os">开源代码</div>
         <div class="dl-ver">MIT License</div>
         <a href="https://github.com/qiuchengcai/QSerial" class="dl-btn" target="_blank">GitHub</a>
@@ -551,6 +658,192 @@ footer a:hover{ color:var(--accent); }
   <p>QSerial &mdash; AI 时代的嵌入式终端 &middot; MIT License</p>
   <p style="margin-top:8px;"><a href="https://github.com/qiuchengcai/QSerial" target="_blank">GitHub</a></p>
 </footer>
+
+<button class="back-top" id="backTop" title="回到顶部">&uarr;</button>
+
+<script>
+(function(){
+
+const hero = document.getElementById('hero');
+const aiDemo = document.getElementById('aiDemo');
+const navbar = document.getElementById('navbar');
+const backTop = document.getElementById('backTop');
+
+/* ── Particle canvas ── */
+(function(){
+  const canvas = document.getElementById('particleCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let w, h, particles = [];
+  const PARTICLE_COUNT = 50;
+  function resize(){
+    const rect = hero.getBoundingClientRect();
+    w = canvas.width = rect.width * devicePixelRatio;
+    h = canvas.height = rect.height * devicePixelRatio;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.5
+    });
+  }
+  function draw(){
+    ctx.clearRect(0, 0, w, h);
+    const cw = w / devicePixelRatio, ch = h / devicePixelRatio;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = cw;
+      if (p.x > cw) p.x = 0;
+      if (p.y < 0) p.y = ch;
+      if (p.y > ch) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(191,147,118,' + (0.25 + p.r * 0.1) + ')';
+      ctx.fill();
+      for (let j = i + 1; j < particles.length; j++) {
+        const q = particles[j];
+        const dx = p.x - q.x, dy = p.y - q.y, dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 130) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = 'rgba(191,147,118,' + (0.12 * (1 - dist / 130)) + ')';
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+  window.addEventListener('resize', function(){
+    resize();
+    particles.forEach(function(p){ p.x = Math.random() * w; p.y = Math.random() * h; });
+  });
+})();
+
+/* ── AI chat typing ── */
+(function(){
+  const userMsg = '帮我检查一下 ESP32 的 WiFi 连接状态';
+  const aiMsg1 = '好的。已通过 QSerial 连接 COM3，自动探测到 ESP32 设备 (115200bps)，发送 AT+CWJAP? 查询中...';
+  const aiMsg2 = 'WiFi 已连接：MyNetwork，信号强度 -42dBm，IP 192.168.1.105';
+  const messages = [userMsg.slice(0), aiMsg1.slice(0), aiMsg2.slice(0)];
+
+  const el0 = document.querySelector('[data-type-target="0"]');
+  const el1 = document.querySelector('[data-type-target="1"]');
+  const el2 = document.querySelector('[data-type-target="2"]');
+  const row1 = document.querySelector('[data-type-row="1"]');
+  const row2 = document.querySelector('[data-type-row="2"]');
+  const targets = [el0, el1, el2];
+  const rows = [null, row1, row2];
+  const cursors = [null, el1.querySelector('.typing-cursor'), el2.querySelector('.typing-cursor')];
+
+  if (!el0 || !el1 || !el2) return;
+
+  let msgIdx = 0, charIdx = 0;
+  function typeNext(){
+    if (msgIdx >= messages.length) return;
+    if (charIdx === 0 && msgIdx > 0 && rows[msgIdx]) {
+      rows[msgIdx].classList.add('typed');
+    }
+    if (charIdx < messages[msgIdx].length) {
+      targets[msgIdx].innerHTML = messages[msgIdx].slice(0, charIdx + 1);
+      if (cursors[msgIdx]) {
+        targets[msgIdx].appendChild(cursors[msgIdx]);
+      }
+      charIdx++;
+      setTimeout(typeNext, msgIdx === 0 ? 35 : 30);
+    } else {
+      if (cursors[msgIdx]) cursors[msgIdx].remove();
+      msgIdx++; charIdx = 0;
+      setTimeout(typeNext, msgIdx === 1 ? 300 : msgIdx === 2 ? 400 : 0);
+    }
+  }
+  var observer = new IntersectionObserver(function(entries){
+    if (entries[0].isIntersecting) { setTimeout(typeNext, 500); observer.disconnect(); }
+  }, { threshold: 0.3 });
+  observer.observe(aiDemo);
+})();
+
+/* ── Number count-up ── */
+(function(){
+  var observed = false;
+  function animateCount(el, target){
+    var current = 0, step = Math.ceil(target / 40);
+    var timer = setInterval(function(){
+      current += step;
+      if (current >= target) { el.textContent = target; clearInterval(timer); }
+      else { el.textContent = current; }
+    }, 40);
+  }
+  var countObserver = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) {
+        var el = e.target;
+        if (!el.dataset.counted) {
+          el.dataset.counted = '1';
+          animateCount(el, parseInt(el.dataset.count));
+        }
+      }
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('[data-count]').forEach(function(el){ countObserver.observe(el); });
+})();
+
+/* ── Scroll reveal ── */
+(function(){
+  var revealObserver = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) e.target.classList.add('visible');
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el){ revealObserver.observe(el); });
+})();
+
+/* ── Glow card mouse follow ── */
+(function(){
+  document.querySelectorAll('.glow-card').forEach(function(card){
+    card.addEventListener('mousemove', function(e){
+      var rect = card.getBoundingClientRect();
+      card.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+      card.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+    });
+  });
+})();
+
+/* ── Hero mouse parallax ── */
+(function(){
+  hero.addEventListener('mousemove', function(e){
+    var x = (e.clientX / window.innerWidth - 0.5) * 16;
+    var y = (e.clientY / window.innerHeight - 0.5) * 16;
+    hero.querySelector('.hero-inner').style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+  });
+  hero.addEventListener('mouseleave', function(){
+    hero.querySelector('.hero-inner').style.transform = 'translate(0, 0)';
+  });
+})();
+
+/* ── Nav scroll effect ── */
+(function(){
+  window.addEventListener('scroll', function(){
+    var scrolled = window.scrollY > 40;
+    navbar.classList.toggle('scrolled', scrolled);
+    backTop.classList.toggle('visible', window.scrollY > 600);
+  });
+})();
+
+/* ── Back to top ── */
+backTop.addEventListener('click', function(){ window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+})();
+</script>
 
 </body>
 </html>
