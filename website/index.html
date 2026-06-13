@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QSerial - AI 时代的嵌入式终端</title>
-<meta name="description" content="QSerial 是全球首款 AI 原生嵌入式终端。让 AI 直接操控你的串口和 SSH 设备，把调试效率提升 10 倍。">
+<meta name="description" content="QSerial 是专为嵌入式开发打造的 MCP 终端。让 AI 直接操控串口、SSH、Telnet 设备，43 个标准 MCP 工具覆盖连接管理、数据收发、设备探测、文件传输。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&family=Lora:wght@500;600;700&display=swap" rel="stylesheet">
@@ -108,18 +108,17 @@ nav{
   display:flex; flex-direction:column; gap:14px;
 }
 .ai-row{
-  display:flex; align-items:center; gap:12px; font-size:14px;
+  display:flex; align-items:flex-start; gap:12px; font-size:14px;
 }
-.ai-user{ color:var(--accent); font-weight:600; min-width:60px; text-align:right; }
+.ai-user{ color:var(--accent); font-weight:600; min-width:52px; text-align:right; padding-top:6px; }
 .ai-msg{
-  background:var(--accent-light); padding:8px 14px; border-radius:8px;
-  color:var(--text); max-width:500px;
+  background:var(--accent-light); padding:10px 16px; border-radius:8px;
+  color:var(--text); max-width:500px; line-height:1.6;
 }
 .ai-reply{
-  background:var(--surface); padding:8px 14px; border-radius:8px;
-  color:var(--text2); font-size:13px; max-width:500px;
+  background:var(--surface); padding:10px 16px; border-radius:8px;
+  color:var(--text2); font-size:13px; max-width:500px; line-height:1.6;
 }
-.ai-arrow{ color:var(--text3); margin:0 4px; }
 
 /* Sections */
 .section{ padding:100px 24px; }
@@ -136,6 +135,85 @@ nav{
 .section p.lead{
   font-size:17px; color:var(--text2); max-width:600px; margin-bottom:56px; line-height:1.7;
 }
+
+/* Comparison table */
+.compare{ max-width:800px; margin:0 auto; }
+.compare table{
+  width:100%; border-collapse:separate; border-spacing:0;
+  border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;
+}
+.compare thead th{
+  background:var(--accent-light); padding:14px 20px; font-size:13px;
+  font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--accent);
+  border-bottom:1px solid var(--border);
+}
+.compare thead th:last-child{ color:#5a8a6a; background:#eef5f0; }
+.compare td{
+  padding:14px 20px; font-size:14px; color:var(--text2); border-bottom:1px solid var(--border);
+}
+.compare tbody tr:last-child td{ border-bottom:none; }
+.compare td:first-child{ font-weight:600; color:var(--text); white-space:nowrap; }
+.compare td:last-child{ color:#3d6b4a; background:#f8fbf9; }
+.compare .check{ color:#5a8a6a; font-weight:700; }
+
+/* Tool grid */
+.tool-cats{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:1000px; margin:0 auto; }
+.tool-cat{
+  background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+  padding:28px 24px; transition:all .3s;
+}
+.tool-cat:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-2px); }
+.tool-cat-icon{ font-size:28px; margin-bottom:12px; display:block; }
+.tool-cat h4{ font-family:var(--font-heading); font-size:16px; font-weight:600; margin-bottom:6px; }
+.tool-cat .count{ font-size:12px; color:var(--accent); font-weight:700; margin-bottom:10px; }
+.tool-cat .tools{ font-size:12px; color:var(--text3); line-height:1.8; }
+
+/* Scenario cards */
+.scenarios{ display:grid; grid-template-columns:repeat(2,1fr); gap:24px; max-width:860px; margin:0 auto; }
+.scenario{
+  background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+  padding:32px 28px; transition:all .3s;
+}
+.scenario:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); }
+.scenario-tag{
+  display:inline-block; padding:3px 12px; border-radius:12px;
+  font-size:11px; font-weight:700; letter-spacing:1px; margin-bottom:16px;
+}
+.tag-green{ background:#eef5f0; color:#5a8a6a; }
+.tag-blue{ background:#eef2f8; color:#4a6a9a; }
+.tag-purple{ background:#f2eef8; color:#7a5a9a; }
+.tag-orange{ background:#fdf4ed; color:#c87a3a; }
+.scenario h4{ font-family:var(--font-heading); font-size:18px; font-weight:600; margin-bottom:8px; }
+.scenario p{ font-size:13px; color:var(--text2); line-height:1.7; }
+
+/* Device badges */
+.device-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:800px; margin:0 auto; }
+.device-card{
+  background:#fff; border:1px solid var(--border); border-radius:10px;
+  padding:20px 18px; text-align:center; transition:all .3s;
+}
+.device-card:hover{ border-color:var(--accent); transform:translateY(-2px); box-shadow:var(--shadow); }
+.device-card .dev-icon{ font-size:28px; margin-bottom:8px; display:block; }
+.device-card .dev-name{ font-size:14px; font-weight:600; margin-bottom:4px; }
+.device-card .dev-types{ font-size:11px; color:var(--text3); line-height:1.6; }
+
+/* Protocol badges */
+.protocol-badges{
+  display:flex; gap:16px; justify-content:center; flex-wrap:wrap;
+  margin-top:24px;
+}
+.pbadge{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 20px; border-radius:24px; font-size:14px; font-weight:600;
+  border:1.5px solid var(--border); background:#fff;
+}
+.pbadge .pb-dot{ width:10px; height:10px; border-radius:50%; }
+.pb-serial{ background:#eef5f0; color:#3d6b4a; border-color:#c4dcca; }
+.pb-serial .pb-dot{ background:#5a8a6a; }
+.pb-ssh{ background:#eef2f8; color:#4a6a9a; border-color:#c4d0e8; }
+.pb-ssh .pb-dot{ background:#4a6a9a; }
+.pb-telnet{ background:#fdf4ed; color:#c87a3a; border-color:#e8d0c4; }
+.pb-telnet .pb-dot{ background:#c87a3a; }
 
 /* Benefit cards */
 .benefits{ display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
@@ -185,9 +263,14 @@ footer a:hover{ color:var(--accent); }
 
 @media(max-width:768px){
   .benefits{ grid-template-columns:1fr; }
+  .tool-cats{ grid-template-columns:1fr; }
+  .scenarios{ grid-template-columns:1fr; }
+  .device-grid{ grid-template-columns:1fr; }
   .dl-grid{ grid-template-columns:1fr; }
   .ai-bubble{ padding:16px; }
   .ai-row{ font-size:12px; }
+  .compare{ overflow-x:auto; }
+  .compare table{ min-width:600px; }
 }
 </style>
 </head>
@@ -202,9 +285,9 @@ footer a:hover{ color:var(--accent); }
 
 <section class="hero">
   <div class="hero-inner">
-    <div class="hero-badge">AI 原生  &middot;  全球首款</div>
+    <div class="hero-badge">MCP 嵌入式终端</div>
     <h1>让你的 AI 助手，<br><em>直接操控硬件设备。</em></h1>
-    <p>将串口和 SSH 连接暴露给 AI。你只需要用自然语言告诉 AI 想做什么，QSerial 会在你的设备上执行  就像给 AI 装上了双手。</p>
+    <p>将串口、SSH、Telnet 连接暴露为 AI 工具。你只需要用自然语言告诉 AI 想做什么，QSerial 会在你的设备上执行 &mdash; 就像给 AI 装上了双手。</p>
     <div class="hero-btns">
       <a href="#download" class="btn btn-primary">免费下载 QSerial</a>
       <a href="https://github.com/qiuchengcai/QSerial" class="btn btn-outline" target="_blank">GitHub</a>
@@ -219,7 +302,7 @@ footer a:hover{ color:var(--accent); }
       </div>
       <div class="ai-row">
         <span class="ai-user">AI</span>
-        <span class="ai-reply">好的。已通过 QSerial 连接 COM3，发送 AT+CWJAP? 查询中&hellip;</span>
+        <span class="ai-reply">好的。已通过 QSerial 连接 COM3，自动探测到 ESP32 设备 (115200bps)，发送 AT+CWJAP? 查询中&hellip;</span>
       </div>
       <div class="ai-row">
         <span class="ai-user">AI</span>
@@ -231,9 +314,46 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section">
   <div class="section-inner">
+    <div class="section-eyebrow">为什么选择 QSerial</div>
+    <h2>传统终端 vs QSerial &mdash; 10 倍效率差距</h2>
+    <p class="lead">嵌入式开发调试中，传统终端工具需要手动敲命令、查手册、开多个窗口。QSerial 改变这一切。</p>
+    <div class="compare">
+      <table>
+        <thead>
+          <tr><th>传统方式 (PuTTY / minicom / SecureCRT)</th><th>QSerial + AI</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>选串口 &rarr; 设波特率 &rarr; 查芯片手册 &rarr; 敲 AT 命令 &rarr; 人工看输出</td>
+            <td><span class="check">&check;</span> 一句话说需求，AI 自动完成全过程</td>
+          </tr>
+          <tr>
+            <td>ESP32 OTA 升级：串口监视器 + 文件传输工具 + 手动命令行，三个窗口来回切换</td>
+            <td><span class="check">&check;</span> 一个 QSerial + AI，无需切换</td>
+          </tr>
+          <tr>
+            <td>设备日志异常：肉眼翻屏查找，凭经验猜原因</td>
+            <td><span class="check">&check;</span> AI 自动分析日志、定位根因、给出修复建议</td>
+          </tr>
+          <tr>
+            <td>反复执行相同的登录和调试流程，每天上百条重复命令</td>
+            <td><span class="check">&check;</span> 宏录制一次，一键回放</td>
+          </tr>
+          <tr>
+            <td>换一台新 MCU，重新查资料、学习指令集</td>
+            <td><span class="check">&check;</span> 21 种设备自动探测，AI 自动适配命令</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <div class="section-inner">
     <div class="section-eyebrow">AI 时代的嵌入式开发</div>
     <h2>你的 AI 助手，现在可以直接操控硬件</h2>
-    <p class="lead">QSerial 是全球首款实现 MCP 协议的嵌入式终端。它把串口、SSH、Telnet 连接全部暴露为标准 AI 工具，让任何 AI 客户端都能像人类一样操作你的设备。</p>
+    <p class="lead">QSerial 将串口、SSH、Telnet 连接全部暴露为标准 MCP 工具，让任何 AI 客户端都能像人类一样操作你的设备。</p>
     <div class="benefits">
       <div class="benefit">
         <span class="benefit-icon">&#128172;</span>
@@ -248,7 +368,53 @@ footer a:hover{ color:var(--accent); }
       <div class="benefit">
         <span class="benefit-icon">&#9889;</span>
         <h3>10 倍效率提升</h3>
-        <p>登录、配置、测试、调试  原来需要手动敲几十条命令的工作，现在一句话完成。</p>
+        <p>登录、配置、测试、调试 &mdash; 原来需要手动敲几十条命令的工作，现在一句话完成。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-inner">
+    <div class="section-eyebrow">43 个 MCP 工具</div>
+    <h2>不只是终端，是 AI 的硬件接口</h2>
+    <p class="lead">每个 MCP 工具都是设备的一个标准能力。AI 客户端可以像调用函数一样操控你的硬件。</p>
+    <div class="tool-cats">
+      <div class="tool-cat">
+        <span class="tool-cat-icon">&#128268;</span>
+        <h4>连接管理</h4>
+        <div class="count">9 个工具</div>
+        <div class="tools">conn.list &middot; conn.create<br>conn.reconnect &middot; conn.update<br>conn.disconnect &middot; conn.share<br>session.list &middot; session.save<br>session.delete</div>
+      </div>
+      <div class="tool-cat">
+        <span class="tool-cat-icon">&#8680;</span>
+        <h4>数据收发</h4>
+        <div class="count">7 个工具</div>
+        <div class="tools">conn.data.read &middot; conn.data.write<br>conn.data.write_hex<br>conn.data.send &middot; conn.data.expect<br>conn.data.clear &middot; conn.data.history</div>
+      </div>
+      <div class="tool-cat">
+        <span class="tool-cat-icon">&#128300;</span>
+        <h4>设备探测与分析</h4>
+        <div class="count">5 个工具</div>
+        <div class="tools">conn.analyze.probe<br>conn.analyze.state<br>conn.analyze.report<br>conn.script.login<br>conn.script.run</div>
+      </div>
+      <div class="tool-cat">
+        <span class="tool-cat-icon">&#128190;</span>
+        <h4>文件与协议</h4>
+        <div class="count">10 个工具</div>
+        <div class="tools">conn.file.send (XMODEM/YMODEM)<br>sftp.connect &middot; sftp.list<br>sftp.upload &middot; sftp.download<br>sftp.mkdir &middot; sftp.stat &middot; sftp.rm</div>
+      </div>
+      <div class="tool-cat">
+        <span class="tool-cat-icon">&#9889;</span>
+        <h4>硬件控制</h4>
+        <div class="count">2 个工具</div>
+        <div class="tools">conn.hw.dtr_rts<br>conn.hw.break<br><br><span style="color:var(--text3);">DTR/RTS 信号线控制<br>Break 信号发送<br>适用 ESP32 / Arduino / STM32</span></div>
+      </div>
+      <div class="tool-cat">
+        <span class="tool-cat-icon">&#9208;</span>
+        <h4>录制与监控</h4>
+        <div class="count">10 个工具</div>
+        <div class="tools">conn.record.start &middot; stop &middot; list<br>conn.record.replay<br>conn.watch.start &middot; stop &middot; results<br>app.macro.list &middot; app.macro.run<br>app.screenshot</div>
       </div>
     </div>
   </div>
@@ -256,9 +422,68 @@ footer a:hover{ color:var(--accent); }
 
 <section class="section section-alt">
   <div class="section-inner">
-    <div class="highlight">
-      <h3>不只是终端，是 AI 的硬件接口</h3>
-      <p>QSerial 内置 43 个标准 MCP 工具，覆盖连接管理、数据收发、设备探测、脚本执行、文件传输、宏录制。你的 AI 助手通过 QSerial 获得完整的硬件操控能力  这是传统终端工具做不到的。</p>
+    <div class="section-eyebrow">实战场景</div>
+    <h2>从 OTA 升级到工厂产测，AI 全程参与</h2>
+    <p class="lead">以下是 QSerial 在真实嵌入式开发流程中的应用场景。</p>
+    <div class="scenarios">
+      <div class="scenario">
+        <span class="scenario-tag tag-green">ESP32 OTA 升级</span>
+        <h4>一句话完成固件推送</h4>
+        <p>对它说 &ldquo;把 build/esp32-firmware.bin 通过串口烧录到设备&rdquo;，QSerial 自动完成 DTR/RTS 复位、XMODEM 传输、校验确认。</p>
+      </div>
+      <div class="scenario">
+        <span class="scenario-tag tag-blue">批量注册登录</span>
+        <h4>自动登录多台设备</h4>
+        <p>录制一次登录流程保存为宏 &mdash; 连接新设备时一键回放，自动跳过 BIOS/U-Boot 进入系统 Shell。</p>
+      </div>
+      <div class="scenario">
+        <span class="scenario-tag tag-purple">日志异常监控</span>
+        <h4>AI 7&times;24 监控设备</h4>
+        <p>设置 conn.watch 匹配 &ldquo;ERROR&rdquo;、&ldquo;CRASH&rdquo;、&ldquo;WDT reset&rdquo; 等关键词，设备一旦输出异常即时获取 AI 分析。</p>
+      </div>
+      <div class="scenario">
+        <span class="scenario-tag tag-orange">SSH 远程管理</span>
+        <h4>一个会话管所有设备</h4>
+        <p>通过 SSH 连接 Linux 设备，支持 SFTP 文件管理。对 AI 说 &ldquo;检查所有连接的磁盘使用率&rdquo; 即可获得完整报告。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-inner">
+    <div class="section-eyebrow">多协议支持</div>
+    <h2>串口、SSH、Telnet &mdash; 一网打尽</h2>
+    <p class="lead" style="margin-bottom:32px;">QSerial 统一了嵌入式开发中最常用的三种连接协议，你不再需要在多个工具之间切换。</p>
+    <div class="protocol-badges">
+      <span class="pbadge pb-serial"><span class="pb-dot"></span> 串口 (UART)</span>
+      <span class="pbadge pb-ssh"><span class="pb-dot"></span> SSH</span>
+      <span class="pbadge pb-telnet"><span class="pb-dot"></span> Telnet</span>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <div class="section-inner">
+    <div class="section-eyebrow">21 种设备自动探测</div>
+    <h2>即插即用，告别手动配置</h2>
+    <p class="lead">接入设备后发送探测命令，QSerial 自动识别设备类型并推荐最佳波特率和命令集。</p>
+    <div class="device-grid">
+      <div class="device-card">
+        <span class="dev-icon">&#128268;</span>
+        <div class="dev-name">微控制器</div>
+        <div class="dev-types">ESP32 &middot; ESP8266 &middot; STM32<br>Arduino &middot; FreeRTOS<br>Zephyr &middot; NuttX</div>
+      </div>
+      <div class="device-card">
+        <span class="dev-icon">&#128187;</span>
+        <div class="dev-name">单板计算机</div>
+        <div class="dev-types">Raspberry Pi &middot; NXP i.MX<br>TI AM335x &middot; U-Boot<br>Buildroot &middot; Yocto</div>
+      </div>
+      <div class="device-card">
+        <span class="dev-icon">&#127760;</span>
+        <div class="dev-name">网络设备</div>
+        <div class="dev-types">Cisco IOS &middot; Juniper JunOS<br>MikroTik RouterOS &middot; EdgeOS<br>OpenWrt &middot; BusyBox</div>
+      </div>
     </div>
   </div>
 </section>
@@ -272,7 +497,7 @@ footer a:hover{ color:var(--accent); }
       <div class="benefit">
         <span class="benefit-icon">&#128268;</span>
         <h3>即插即用</h3>
-        <p>自动识别串口设备，一键连接。21 种设备自动探测，告别繁琐的手动配置。</p>
+        <p>自动识别串口设备，一键连接。21 种设备自动探测与 30+ 波特率支持，告别繁琐的手动配置。</p>
       </div>
       <div class="benefit">
         <span class="benefit-icon">&#9000;</span>
@@ -292,7 +517,7 @@ footer a:hover{ color:var(--accent); }
   <div class="section-inner">
     <div class="highlight">
       <h3>开源 &amp; 免费</h3>
-      <p>QSerial 基于 MIT 协议开源，代码完全透明。你的设备安全由你自己掌控  没有后门，不上传数据，所有操作都在本地完成。</p>
+      <p>QSerial 基于 MIT 协议开源，代码完全透明。你的设备安全由你自己掌控 &mdash; 没有后门，不上传数据，所有操作都在本地完成。</p>
     </div>
   </div>
 </section>
@@ -306,12 +531,12 @@ footer a:hover{ color:var(--accent); }
       <div class="dl-card">
         <div class="dl-os">安装版</div>
         <div class="dl-ver">v0.2.0 &middot; 安装版 82MB</div>
-        <a href="/download/QSerial-0.2.0-x64-win.exe" class="dl-btn" download>下载 .exe</a>
+        <a href="/download/QSerial-0.2.0-x64-win.exe" class="dl-btn">下载 .exe</a>
       </div>
       <div class="dl-card">
         <div class="dl-os">便携版</div>
         <div class="dl-ver">v0.2.0 &middot; Windows x64</div>
-        <a href="/download/QSerial-0.2.0-x64-win-portable.exe" class="dl-btn" download>下载 .exe</a>
+        <a href="/download/QSerial-0.2.0-x64-win-portable.exe" class="dl-btn">下载 .exe</a>
       </div>
       <div class="dl-card">
         <div class="dl-os">开源代码</div>
