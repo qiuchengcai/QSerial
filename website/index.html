@@ -406,42 +406,21 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
   font-size:16px; color:var(--text2); margin-top:8px;
 }
 
-/* ===== Section 3: Diamond Capabilities ===== */
-.diamond-grid{
-  display:grid;
-  grid-template-columns:1fr 1.35fr 1fr;
-  gap:24px;
-  max-width:1000px; margin:0 auto;
-  align-items:start;
+/* ===== Section 3: Capability Cards (uniform 3-col) ===== */
+.cap-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:24px;
+  max-width:1020px; margin:0 auto;
 }
-.ability-card{
+.cap-card{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:34px 28px; text-align:center;
+  padding:32px 28px; text-align:center;
   transition:all .4s cubic-bezier(.16,1,.3,1);
 }
-.ability-card:hover{
-  border-color:var(--accent); box-shadow:var(--shadow-lg);
-  transform:translateY(-4px);
-}
-.ability-card.featured{
-  grid-column:2; grid-row:1 / 3;
-  padding:56px 36px;
-  background:linear-gradient(160deg, var(--accent-light) 0%, #fdf7f2 100%);
-  border:2px solid var(--accent2);
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-height:380px;
-}
-.ability-card.featured:hover{ transform:scale(1.02); }
-.ability-icon{ font-size:38px; margin-bottom:16px; display:block; transition:transform .3s; }
-.ability-card:hover .ability-icon{ transform:scale(1.1); }
-.ability-card.featured .ability-icon{ font-size:56px; margin-bottom:20px; }
-.ability-card h3{
-  font-family:var(--font-heading); font-size:18px; font-weight:600; margin-bottom:8px;
-}
-.ability-card.featured h3{ font-size:26px; margin-bottom:12px; }
-.ability-card p{ font-size:14px; color:var(--text2); line-height:1.65; max-width:280px; margin:0 auto; }
-.ability-card.featured p{ font-size:16px; }
-.ability-card.anchor-bottom{ grid-column:2; grid-row:3; }
+.cap-card:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-4px); }
+.cap-icon{ font-size:36px; margin-bottom:14px; display:block; transition:transform .3s; }
+.cap-card:hover .cap-icon{ transform:scale(1.12); }
+.cap-card h3{ font-family:var(--font-heading); font-size:17px; font-weight:600; margin-bottom:8px; }
+.cap-card p{ font-size:13px; color:var(--text2); line-height:1.65; }
 
 /* ===== Section 4: Tool Map ===== */
 .stats-banner{
@@ -460,7 +439,7 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
 }
 .tool-cat{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:30px 26px; transition:all .4s cubic-bezier(.16,1,.3,1);
+  padding:32px 28px; transition:all .4s cubic-bezier(.16,1,.3,1);
 }
 .tool-cat:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-4px); }
 .tool-cat-icon{ font-size:28px; margin-bottom:12px; display:block; transition:transform .3s; }
@@ -515,7 +494,7 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
 
 .scenario-card{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:26px 28px; transition:all .4s cubic-bezier(.16,1,.3,1);
+  padding:32px 28px; transition:all .4s cubic-bezier(.16,1,.3,1);
 }
 .scenario-card:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateX(4px); }
 .scenario-card .sc-tag{
@@ -544,7 +523,7 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
 .dl-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:24px; max-width:900px; margin:0 auto; }
 .dl-card{
   background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:44px 32px; text-align:center; transition:all .4s cubic-bezier(.16,1,.3,1);
+  padding:40px 28px; text-align:center; transition:all .4s cubic-bezier(.16,1,.3,1);
   position:relative;
 }
 .dl-card:hover{ border-color:var(--accent); box-shadow:var(--shadow-lg); transform:translateY(-4px); }
@@ -592,6 +571,14 @@ footer a:hover{ color:var(--accent); }
 .stat-num{ color:var(--accent); font-weight:700; }
 
 /* ===== Media Queries ===== */
+@media(max-width:900px){
+  .cap-grid{ grid-template-columns:repeat(2,1fr); }
+  .tool-cats{ grid-template-columns:repeat(2,1fr); }
+}
+@media(max-width:640px){
+  .cap-grid{ grid-template-columns:1fr; }
+  .tool-cats{ grid-template-columns:1fr; }
+}
 @media(max-width:768px){
   .hero{ padding:140px 24px 100px; clip-path:polygon(0 0, 100% 0, 100% 97%, 0 100%); }
   .hero h1{ font-size:clamp(36px,8vw,56px); }
@@ -600,10 +587,6 @@ footer a:hover{ color:var(--accent); }
   .section-clip-top{ padding-top:100px; }
   .section h2{ font-size:28px; }
   .compare-cards{ flex-direction:column; gap:20px; }
-  .diamond-grid{ grid-template-columns:1fr 1fr; }
-  .ability-card.featured{ grid-column:1 / -1; grid-row:auto; min-height:auto; padding:40px 28px; }
-  .ability-card.anchor-bottom{ grid-column:1 / -1; }
-  .tool-cats{ grid-template-columns:1fr 1fr; }
   .split-layout{ flex-direction:column; }
   .split-left{ flex:auto; }
   .dl-grid{ grid-template-columns:1fr; }
@@ -717,37 +700,35 @@ footer a:hover{ color:var(--accent); }
     <div class="section-eyebrow reveal">AI 时代的嵌入式开发</div>
     <h2 class="reveal reveal-delay-1">你的 AI 助手，现在可以直接操控硬件</h2>
     <p class="lead reveal reveal-delay-1">QSerial 将串口、SSH、Telnet 连接全部暴露为标准 MCP 工具，让任何 AI 客户端都能像人类一样操作你的设备。</p>
-    <div class="diamond-grid">
-      <div class="tilt-container"><div class="ability-card glow-card reveal reveal-delay-1">
-        <span class="ability-icon">&#128172;</span>
+
+    <div class="stats-banner reveal reveal-scale reveal-delay-2" style="margin-bottom:32px;">
+      <span class="stats-num" style="font-size:clamp(48px,7vw,72px);"><span class="stat-num" data-count="10">0</span>&times;</span>
+      <span class="stats-label">效率提升 — 让 AI 替你敲命令</span>
+    </div>
+
+    <div class="cap-grid">
+      <div class="tilt-container"><div class="cap-card glow-card reveal reveal-delay-2">
+        <span class="cap-icon">&#128172;</span>
         <h3>自然语言操控设备</h3>
         <p>对 AI 说出你要做的事，QSerial 自动翻译为设备命令并执行。不需要记 AT 指令，不需要查手册。</p>
       </div></div>
-      <div class="tilt-container"><div class="ability-card glow-card reveal reveal-delay-1">
-        <span class="ability-icon">&#128269;</span>
+      <div class="tilt-container"><div class="cap-card glow-card reveal reveal-delay-2">
+        <span class="cap-icon">&#128269;</span>
         <h3>AI 自动诊断</h3>
         <p>设备输出异常时，AI 自动分析日志、定位根因、给出修复建议。从被动查错到主动预防。</p>
       </div></div>
-
-      <div class="tilt-container"><div class="ability-card featured glow-card reveal reveal-scale reveal-delay-2">
-        <span class="ability-icon">&#9889;</span>
-        <h3><span class="stat-num" data-count="10">0</span> 倍效率提升</h3>
-        <p>登录、配置、测试、调试 &mdash; 原来需要手动敲几十条命令的工作，现在一句话完成。将生产力提升一个数量级。</p>
-      </div></div>
-
-      <div class="tilt-container"><div class="ability-card glow-card reveal reveal-delay-2">
-        <span class="ability-icon">&#128268;</span>
+      <div class="tilt-container"><div class="cap-card glow-card reveal reveal-delay-3">
+        <span class="cap-icon">&#128268;</span>
         <h3>即插即用</h3>
         <p>自动识别串口设备，一键连接。<span class="stat-num" data-count="21">0</span> 种设备自动探测，告别繁琐手动配置。</p>
       </div></div>
-      <div class="tilt-container"><div class="ability-card glow-card reveal reveal-delay-3">
-        <span class="ability-icon">&#9000;</span>
+      <div class="tilt-container"><div class="cap-card glow-card reveal reveal-delay-3">
+        <span class="cap-icon">&#9000;</span>
         <h3>宏录制与回放</h3>
         <p>录一次，用一万次。把你反复执行的登录和调试流程保存为宏，一键回放。</p>
       </div></div>
-
-      <div class="tilt-container"><div class="ability-card anchor-bottom glow-card reveal reveal-delay-3">
-        <span class="ability-icon">&#127758;</span>
+      <div class="tilt-container"><div class="cap-card glow-card reveal reveal-delay-4">
+        <span class="cap-icon">&#127758;</span>
         <h3>中文优先</h3>
         <p>完整中文界面与文档。由中国开发者打造，更懂国内嵌入式工程师的工作习惯。</p>
       </div></div>
