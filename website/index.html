@@ -7,7 +7,7 @@
 <meta name="description" content="QSerial 是专为嵌入式开发打造的 MCP 终端。让 AI 直接操控串口、SSH、Telnet 设备，43 个标准 MCP 工具覆盖连接管理、数据收发、设备探测、文件传输。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&family=Lora:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&family=Lora:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #fefefe;
@@ -24,6 +24,11 @@
   --gradient-end: #faf5f0;
   --font-heading: "Lora", Georgia, serif;
   --font-ui: "Lato", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+  --term-bg: #1a1d21;
+  --term-green: #6fcf97;
+  --term-d-green: #4a8a65;
+  --term-yellow: #f2c94c;
   --radius: 12px;
   --shadow: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-lg: 0 4px 24px rgba(0,0,0,0.06);
@@ -34,6 +39,15 @@ body{
   font-family:var(--font-ui); background:var(--bg); color:var(--text);
   -webkit-font-smoothing:antialiased; line-height:1.6; overflow-x:hidden;
 }
+
+/* ── 4. Scroll progress bar ── */
+#scrollProgress{
+  position:fixed; top:0; left:0; height:3px; z-index:10001;
+  background:linear-gradient(90deg, #bf9376, #e8a87c, #c87a3a, #d4a88c, #bf9376);
+  background-size:300% 100%; animation:progressFlow 2s linear infinite;
+  transition:width .1s linear;
+}
+@keyframes progressFlow{ 0%{background-position:0% 50%} 100%{background-position:100% 50%} }
 
 /* Scroll reveal base */
 .reveal{ opacity:0; transform:translateY(40px); transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1); }
@@ -64,6 +78,12 @@ body{
 #particleCanvas{
   position:absolute; top:0; left:0; width:100%; height:100%;
   pointer-events:none; z-index:0; opacity:.45;
+}
+
+/* ── 1. Circuit board canvas ── */
+#circuitCanvas{
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  pointer-events:none; z-index:0; opacity:.22;
 }
 
 /* Cursor trail canvas */
@@ -108,20 +128,48 @@ body{
   75%{transform:translate(-30px,10px)}
 }
 
-/* Typing cursor */
-.typing-cursor{ display:inline-block; width:2px; height:1em; background:var(--accent); margin-left:2px; vertical-align:text-bottom; animation:blink .8s step-end infinite; }
+/* Terminal cursor */
+.typing-cursor{ display:inline-block; width:2px; height:1em; background:var(--term-green); margin-left:2px; vertical-align:text-bottom; animation:blink .8s step-end infinite; }
 @keyframes blink{ 0%,100%{opacity:1} 50%{opacity:0} }
 
-/* Float animation */
 @keyframes float{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-
-/* Pulse ring */
 @keyframes pulse-ring{ 0%{box-shadow:0 0 0 0 rgba(191,147,118,.4)} 70%{box-shadow:0 0 0 12px rgba(191,147,118,0)} 100%{box-shadow:0 0 0 0 rgba(191,147,118,0)} }
-
-/* Gradient shift */
 @keyframes gradient-shift{ 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-
 @keyframes fadeInUp{ from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── 6. Splash screen ── */
+#splash{
+  position:fixed; inset:0; z-index:20000;
+  background:var(--term-bg); display:flex; align-items:center; justify-content:center;
+  transition:opacity .6s .3s, visibility .9s .3s; opacity:1; visibility:visible;
+}
+#splash.hide{ opacity:0; visibility:hidden; }
+.splash-inner{ text-align:center; }
+.splash-title{
+  font-family:var(--font-heading); font-size:clamp(48px,10vw,96px);
+  font-weight:700; color:var(--accent); letter-spacing:-3px;
+  animation:splashReveal .8s cubic-bezier(.16,1,.3,1) forwards;
+}
+@keyframes splashReveal{
+  0%{opacity:0;transform:scale(.5);filter:blur(20px)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}
+}
+.splash-tagline{
+  font-family:var(--font-mono); font-size:13px; color:var(--term-d-green);
+  margin-top:16px; opacity:0; animation:splashFadeIn .6s .4s forwards;
+}
+@keyframes splashFadeIn{ to{opacity:1} }
+.splash-particles{
+  position:absolute; inset:0; overflow:hidden; pointer-events:none;
+}
+.splash-dot{
+  position:absolute; border-radius:50%; background:var(--accent);
+  animation:splashDot @dur ease-out forwards;
+}
+@keyframes splashDot{
+  0%{opacity:1;transform:translate(0,0) scale(1)}
+  100%{opacity:0;transform:translate(var(--sx), var(--sy)) scale(0)}
+}
 
 nav{
   position:fixed; top:0; left:0; right:0; z-index:100;
@@ -201,31 +249,35 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
 }
 .btn-outline:hover{ border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
 
-/* AI Demo visual */
-.ai-demo{
-  max-width:800px; margin:56px auto 0; position:relative; z-index:1;
+/* ── 2. Terminal window AI demo ── */
+.terminal-window{
+  max-width:640px; margin:56px auto 0; position:relative; z-index:1;
   animation:fadeInUp .8s .5s both;
 }
-.ai-bubble{
-  background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  padding:20px 28px; box-shadow:var(--shadow-lg);
-  display:flex; flex-direction:column; gap:14px;
+.term-bar{
+  background:#2d3136; border-radius:10px 10px 0 0; padding:12px 16px;
+  display:flex; align-items:center; gap:8px; border:1px solid #3a3e44; border-bottom:none;
 }
-.ai-row{
-  display:flex; align-items:flex-start; gap:12px; font-size:14px;
+.term-dot{ width:12px; height:12px; border-radius:50%; }
+.td-red{ background:#ff5f57; }
+.td-yellow{ background:#febc2e; }
+.td-green{ background:#28c840; }
+.term-title{
+  flex:1; text-align:center; font-family:var(--font-mono); font-size:11px;
+  color:#7a7f85; letter-spacing:1px;
 }
-.ai-row:nth-child(1){ opacity:1; }
-.ai-row:nth-child(2), .ai-row:nth-child(3){ opacity:0; transition:opacity .4s; }
-.ai-row.typed{ opacity:1; }
-.ai-user{ color:var(--accent); font-weight:600; min-width:52px; text-align:right; padding-top:6px; }
-.ai-msg{
-  background:var(--accent-light); padding:10px 16px; border-radius:8px;
-  color:var(--text); max-width:500px; line-height:1.6;
+.term-body{
+  background:var(--term-bg); border:1px solid #3a3e44; border-radius:0 0 10px 10px;
+  padding:20px 24px; font-family:var(--font-mono); font-size:13px; line-height:1.8;
+  min-height:180px;
 }
-.ai-reply{
-  background:var(--surface); padding:10px 16px; border-radius:8px;
-  color:var(--text2); font-size:13px; max-width:500px; line-height:1.6;
-}
+.term-line{ display:flex; gap:2px; align-items:flex-start; }
+.term-prompt{ color:var(--term-green); white-space:nowrap; }
+.term-text{ color:#d4d7dc; }
+.term-reply-text{ color:#a0a4a8; font-size:12px; }
+.term-line:nth-child(2), .term-line:nth-child(3){ opacity:0; transition:opacity .4s; }
+.term-line.typed{ opacity:1; }
+.term-prompt.dim{ color:#4a8a65; }
 
 /* Sections */
 .section{ padding:100px 24px; position:relative; }
@@ -263,6 +315,13 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
 .compare td:first-child{ font-weight:600; color:var(--text); white-space:nowrap; }
 .compare td:last-child{ color:#3d6b4a; background:#f8fbf9; }
 .compare .check{ color:#5a8a6a; font-weight:700; }
+
+/* ── 3. 3D tilt containers ── */
+.tilt-container{ perspective:1000px; transform-style:preserve-3d; }
+.tilt-container > *{
+  transition:transform .15s ease-out;
+  will-change:transform;
+}
 
 /* Tool grid */
 .tool-cats{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:1000px; margin:0 auto; }
@@ -353,6 +412,9 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
 }
 .highlight p{ font-size:15px; color:var(--text2); line-height:1.7; max-width:600px; margin:0 auto; }
 
+/* ── 5. Magnetic button ── */
+.dl-btn.magnetic{ transition:transform .15s ease-out; }
+
 /* Download */
 .dl-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:800px; margin:0 auto; }
 .dl-card{
@@ -373,13 +435,6 @@ nav.scrolled{ border-bottom-color:var(--border); box-shadow:0 1px 12px rgba(0,0,
 .dl-btn:hover{ background:#a67c5e; transform:translateY(-1px); }
 .dl-card:nth-child(3) .dl-btn{ background:#4a6a9a; }
 .dl-card:nth-child(3) .dl-btn:hover{ background:#3a5a8a; }
-
-/* Section connector */
-.section-connector{
-  height:60px; background:linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
-  margin-top:-1px;
-}
-.section-connector.reverse{ background:linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%); }
 
 /* Stat badge */
 .stat-num{ color:var(--accent); font-weight:700; }
@@ -409,20 +464,37 @@ footer a:hover{ color:var(--accent); }
   .scenarios{ grid-template-columns:1fr; }
   .device-grid{ grid-template-columns:1fr; }
   .dl-grid{ grid-template-columns:1fr; }
-  .ai-bubble{ padding:16px; }
-  .ai-row{ font-size:12px; }
+  .term-body{ padding:16px; font-size:11px; }
+  .term-line{ font-size:11px; }
   .compare{ overflow-x:auto; }
   .compare table{ min-width:600px; }
 }
 
 @media(prefers-reduced-motion:reduce){
   .reveal{ opacity:1; transform:none; transition:none; }
-  #particleCanvas, #cursorCanvas, .click-particle, .glow-orb, .data-flow{ display:none; }
+  #particleCanvas, #cursorCanvas, #circuitCanvas, .click-particle, .glow-orb, .data-flow{ display:none; }
+  #scrollProgress{ display:none; }
+  #splash{ display:none; }
   *,*::before,*::after{ animation-duration:.01ms !important; }
 }
 </style>
 </head>
 <body>
+
+<!-- ── 6. Splash screen ── -->
+<div id="splash">
+  <div class="splash-inner">
+    <div class="splash-title">QSerial</div>
+    <div class="splash-tagline">AI 时代的嵌入式终端</div>
+  </div>
+  <div class="splash-particles" id="splashParticles"></div>
+</div>
+
+<!-- ── 4. Scroll progress bar ── -->
+<div id="scrollProgress"></div>
+
+<!-- ── 1. Circuit board canvas ── -->
+<canvas id="circuitCanvas"></canvas>
 
 <nav id="navbar">
   <div class="nav-inner">
@@ -443,19 +515,26 @@ footer a:hover{ color:var(--accent); }
     </div>
   </div>
 
-  <div class="ai-demo" id="aiDemo">
-    <div class="ai-bubble">
-      <div class="ai-row" data-type-row="0">
-        <span class="ai-user">你</span>
-        <span class="ai-msg" data-type-target="0"></span>
+  <!-- ── 2. Terminal window AI demo ── -->
+  <div class="terminal-window" id="aiDemo">
+    <div class="term-bar">
+      <span class="term-dot td-red"></span>
+      <span class="term-dot td-yellow"></span>
+      <span class="term-dot td-green"></span>
+      <span class="term-title">QSerial Terminal — COM3 @ 115200bps</span>
+    </div>
+    <div class="term-body">
+      <div class="term-line" data-type-row="0">
+        <span class="term-prompt">$ </span>
+        <span class="term-text" data-type-target="0"></span>
       </div>
-      <div class="ai-row" data-type-row="1">
-        <span class="ai-user">AI</span>
-        <span class="ai-reply" data-type-target="1"><span class="typing-cursor"></span></span>
+      <div class="term-line" data-type-row="1">
+        <span class="term-prompt dim"># </span>
+        <span class="term-reply-text" data-type-target="1"><span class="typing-cursor"></span></span>
       </div>
-      <div class="ai-row" data-type-row="2">
-        <span class="ai-user">AI</span>
-        <span class="ai-reply" data-type-target="2"><span class="typing-cursor"></span></span>
+      <div class="term-line" data-type-row="2">
+        <span class="term-prompt dim"># </span>
+        <span class="term-reply-text" data-type-target="2"><span class="typing-cursor"></span></span>
       </div>
     </div>
   </div>
@@ -504,21 +583,21 @@ footer a:hover{ color:var(--accent); }
     <h2 class="reveal reveal-delay-1">你的 AI 助手，现在可以直接操控硬件</h2>
     <p class="lead reveal reveal-delay-1">QSerial 将串口、SSH、Telnet 连接全部暴露为标准 MCP 工具，让任何 AI 客户端都能像人类一样操作你的设备。</p>
     <div class="benefits">
-      <div class="benefit glow-card reveal reveal-delay-1">
+      <div class="tilt-container"><div class="benefit glow-card reveal reveal-delay-1">
         <span class="benefit-icon">&#128172;</span>
         <h3>自然语言操控设备</h3>
         <p>对 AI 说出你要做的事，QSerial 自动翻译为设备命令并执行。不需要记 AT 指令，不需要查手册。</p>
-      </div>
-      <div class="benefit glow-card reveal reveal-delay-2">
+      </div></div>
+      <div class="tilt-container"><div class="benefit glow-card reveal reveal-delay-2">
         <span class="benefit-icon">&#128269;</span>
         <h3>AI 自动诊断</h3>
         <p>设备输出异常时，AI 自动分析日志、定位根因、给出修复建议。从被动查错到主动预防。</p>
-      </div>
-      <div class="benefit glow-card reveal reveal-delay-3">
+      </div></div>
+      <div class="tilt-container"><div class="benefit glow-card reveal reveal-delay-3">
         <span class="benefit-icon">&#9889;</span>
         <h3>10 倍效率提升</h3>
         <p>登录、配置、测试、调试 &mdash; 原来需要手动敲几十条命令的工作，现在一句话完成。</p>
-      </div>
+      </div></div>
     </div>
   </div>
 </section>
@@ -529,42 +608,42 @@ footer a:hover{ color:var(--accent); }
     <h2 class="reveal reveal-delay-1">不只是终端，是 AI 的硬件接口</h2>
     <p class="lead reveal reveal-delay-1">每个 MCP 工具都是设备的一个标准能力。AI 客户端可以像调用函数一样操控你的硬件。</p>
     <div class="tool-cats">
-      <div class="tool-cat glow-card reveal reveal-delay-1">
+      <div class="tilt-container"><div class="tool-cat glow-card reveal reveal-delay-1">
         <span class="tool-cat-icon">&#128268;</span>
         <h4>连接管理</h4>
         <div class="count">9 个工具</div>
         <div class="tools">conn.list &middot; conn.create<br>conn.reconnect &middot; conn.update<br>conn.disconnect &middot; conn.share<br>session.list &middot; session.save<br>session.delete</div>
-      </div>
-      <div class="tool-cat glow-card reveal reveal-delay-1">
+      </div></div>
+      <div class="tilt-container"><div class="tool-cat glow-card reveal reveal-delay-1">
         <span class="tool-cat-icon">&#8680;</span>
         <h4>数据收发</h4>
         <div class="count">7 个工具</div>
         <div class="tools">conn.data.read &middot; conn.data.write<br>conn.data.write_hex<br>conn.data.send &middot; conn.data.expect<br>conn.data.clear &middot; conn.data.history</div>
-      </div>
-      <div class="tool-cat glow-card reveal reveal-delay-2">
+      </div></div>
+      <div class="tilt-container"><div class="tool-cat glow-card reveal reveal-delay-2">
         <span class="tool-cat-icon">&#128300;</span>
         <h4>设备探测与分析</h4>
         <div class="count">5 个工具</div>
         <div class="tools">conn.analyze.probe<br>conn.analyze.state<br>conn.analyze.report<br>conn.script.login<br>conn.script.run</div>
-      </div>
-      <div class="tool-cat glow-card reveal reveal-delay-2">
+      </div></div>
+      <div class="tilt-container"><div class="tool-cat glow-card reveal reveal-delay-2">
         <span class="tool-cat-icon">&#128190;</span>
         <h4>文件与协议</h4>
         <div class="count">10 个工具</div>
         <div class="tools">conn.file.send (XMODEM/YMODEM)<br>sftp.connect &middot; sftp.list<br>sftp.upload &middot; sftp.download<br>sftp.mkdir &middot; sftp.stat &middot; sftp.rm</div>
-      </div>
-      <div class="tool-cat glow-card reveal reveal-delay-3">
+      </div></div>
+      <div class="tilt-container"><div class="tool-cat glow-card reveal reveal-delay-3">
         <span class="tool-cat-icon">&#9889;</span>
         <h4>硬件控制</h4>
         <div class="count">2 个工具</div>
         <div class="tools">conn.hw.dtr_rts<br>conn.hw.break<br><br><span style="color:var(--text3);">DTR/RTS 信号线控制<br>Break 信号发送<br>适用 ESP32 / Arduino / STM32</span></div>
-      </div>
-      <div class="tool-cat glow-card reveal reveal-delay-3">
+      </div></div>
+      <div class="tilt-container"><div class="tool-cat glow-card reveal reveal-delay-3">
         <span class="tool-cat-icon">&#9208;</span>
         <h4>录制与监控</h4>
         <div class="count">10 个工具</div>
         <div class="tools">conn.record.start &middot; stop &middot; list<br>conn.record.replay<br>conn.watch.start &middot; stop &middot; results<br>app.macro.list &middot; app.macro.run<br>app.screenshot</div>
-      </div>
+      </div></div>
     </div>
   </div>
 </section>
@@ -575,26 +654,26 @@ footer a:hover{ color:var(--accent); }
     <h2 class="reveal reveal-delay-1">从 OTA 升级到工厂产测，AI 全程参与</h2>
     <p class="lead reveal reveal-delay-1">以下是 QSerial 在真实嵌入式开发流程中的应用场景。</p>
     <div class="scenarios">
-      <div class="scenario glow-card reveal reveal-left reveal-delay-1">
+      <div class="tilt-container"><div class="scenario glow-card reveal reveal-left reveal-delay-1">
         <span class="scenario-tag tag-green">ESP32 OTA 升级</span>
         <h4>一句话完成固件推送</h4>
         <p>对它说 &ldquo;把 build/esp32-firmware.bin 通过串口烧录到设备&rdquo;，QSerial 自动完成 DTR/RTS 复位、XMODEM 传输、校验确认。</p>
-      </div>
-      <div class="scenario glow-card reveal reveal-right reveal-delay-2">
+      </div></div>
+      <div class="tilt-container"><div class="scenario glow-card reveal reveal-right reveal-delay-2">
         <span class="scenario-tag tag-blue">批量注册登录</span>
         <h4>自动登录多台设备</h4>
         <p>录制一次登录流程保存为宏 &mdash; 连接新设备时一键回放，自动跳过 BIOS/U-Boot 进入系统 Shell。</p>
-      </div>
-      <div class="scenario glow-card reveal reveal-left reveal-delay-3">
+      </div></div>
+      <div class="tilt-container"><div class="scenario glow-card reveal reveal-left reveal-delay-3">
         <span class="scenario-tag tag-purple">日志异常监控</span>
         <h4>AI 7&times;24 监控设备</h4>
         <p>设置 conn.watch 匹配 &ldquo;ERROR&rdquo;、&ldquo;CRASH&rdquo;、&ldquo;WDT reset&rdquo; 等关键词，设备一旦输出异常即时获取 AI 分析。</p>
-      </div>
-      <div class="scenario glow-card reveal reveal-right reveal-delay-4">
+      </div></div>
+      <div class="tilt-container"><div class="scenario glow-card reveal reveal-right reveal-delay-4">
         <span class="scenario-tag tag-orange">SSH 远程管理</span>
         <h4>一个会话管所有设备</h4>
         <p>通过 SSH 连接 Linux 设备，支持 SFTP 文件管理。对 AI 说 &ldquo;检查所有连接的磁盘使用率&rdquo; 即可获得完整报告。</p>
-      </div>
+      </div></div>
     </div>
   </div>
 </section>
@@ -618,21 +697,21 @@ footer a:hover{ color:var(--accent); }
     <h2 class="reveal reveal-delay-1">即插即用，告别手动配置</h2>
     <p class="lead reveal reveal-delay-1">接入设备后发送探测命令，QSerial 自动识别设备类型并推荐最佳波特率和命令集。</p>
     <div class="device-grid">
-      <div class="device-card glow-card reveal reveal-delay-1">
+      <div class="tilt-container"><div class="device-card glow-card reveal reveal-delay-1">
         <span class="dev-icon">&#128268;</span>
         <div class="dev-name">微控制器</div>
         <div class="dev-types">ESP32 &middot; ESP8266 &middot; STM32<br>Arduino &middot; FreeRTOS<br>Zephyr &middot; NuttX</div>
-      </div>
-      <div class="device-card glow-card reveal reveal-delay-2">
+      </div></div>
+      <div class="tilt-container"><div class="device-card glow-card reveal reveal-delay-2">
         <span class="dev-icon">&#128187;</span>
         <div class="dev-name">单板计算机</div>
         <div class="dev-types">Raspberry Pi &middot; NXP i.MX<br>TI AM335x &middot; U-Boot<br>Buildroot &middot; Yocto</div>
-      </div>
-      <div class="device-card glow-card reveal reveal-delay-3">
+      </div></div>
+      <div class="tilt-container"><div class="device-card glow-card reveal reveal-delay-3">
         <span class="dev-icon">&#127760;</span>
         <div class="dev-name">网络设备</div>
         <div class="dev-types">Cisco IOS &middot; Juniper JunOS<br>MikroTik RouterOS &middot; EdgeOS<br>OpenWrt &middot; BusyBox</div>
-      </div>
+      </div></div>
     </div>
   </div>
 </section>
@@ -643,21 +722,21 @@ footer a:hover{ color:var(--accent); }
     <h2 class="reveal reveal-delay-1">不只是 AI，经典功能同样出色</h2>
     <p class="lead reveal reveal-delay-1">即使没有 AI，QSerial 也是你用过最好的嵌入式终端。</p>
     <div class="benefits">
-      <div class="benefit glow-card reveal reveal-delay-1">
+      <div class="tilt-container"><div class="benefit glow-card reveal reveal-delay-1">
         <span class="benefit-icon">&#128268;</span>
         <h3>即插即用</h3>
         <p>自动识别串口设备，一键连接。21 种设备自动探测与 30+ 波特率支持，告别繁琐的手动配置。</p>
-      </div>
-      <div class="benefit glow-card reveal reveal-delay-2">
+      </div></div>
+      <div class="tilt-container"><div class="benefit glow-card reveal reveal-delay-2">
         <span class="benefit-icon">&#9000;</span>
         <h3>宏录制与回放</h3>
         <p>录一次，用一万次。把你反复执行的登录和调试流程保存为宏，一键回放。</p>
-      </div>
-      <div class="benefit glow-card reveal reveal-delay-3">
+      </div></div>
+      <div class="tilt-container"><div class="benefit glow-card reveal reveal-delay-3">
         <span class="benefit-icon">&#127758;</span>
         <h3>中文优先</h3>
         <p>完整中文界面与文档。由中国开发者打造，更懂国内嵌入式工程师的工作习惯。</p>
-      </div>
+      </div></div>
     </div>
   </div>
 </section>
@@ -680,12 +759,12 @@ footer a:hover{ color:var(--accent); }
       <div class="dl-card reveal reveal-delay-1">
         <div class="dl-os">安装版</div>
         <div class="dl-ver">v0.2.0 &middot; 安装版 82MB</div>
-        <a href="/download/QSerial-0.2.0-x64-win.exe" class="dl-btn">下载 .exe</a>
+        <a href="/download/QSerial-0.2.0-x64-win.exe" class="dl-btn magnetic" data-magnetic>下载 .exe</a>
       </div>
       <div class="dl-card reveal reveal-delay-2">
         <div class="dl-os">便携版</div>
         <div class="dl-ver">v0.2.0 &middot; Windows x64</div>
-        <a href="/download/QSerial-0.2.0-x64-win-portable.exe" class="dl-btn">下载 .exe</a>
+        <a href="/download/QSerial-0.2.0-x64-win-portable.exe" class="dl-btn magnetic" data-magnetic>下载 .exe</a>
       </div>
       <div class="dl-card reveal reveal-delay-3">
         <div class="dl-os">开源代码</div>
@@ -709,11 +788,10 @@ footer a:hover{ color:var(--accent); }
 (function(){
 
 const hero = document.getElementById('hero');
-const aiDemo = document.getElementById('aiDemo');
 const navbar = document.getElementById('navbar');
 const backTop = document.getElementById('backTop');
 
-/* ── Particle canvas ── */
+/* ── Hero particle canvas ── */
 (function(){
   const canvas = document.getElementById('particleCanvas');
   if (!canvas) return;
@@ -743,24 +821,18 @@ const backTop = document.getElementById('backTop');
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       p.x += p.vx; p.y += p.vy;
-      if (p.x < 0) p.x = cw;
-      if (p.x > cw) p.x = 0;
-      if (p.y < 0) p.y = ch;
-      if (p.y > ch) p.y = 0;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      if (p.x < 0) p.x = cw; if (p.x > cw) p.x = 0;
+      if (p.y < 0) p.y = ch; if (p.y > ch) p.y = 0;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(191,147,118,' + (0.25 + p.r * 0.1) + ')';
       ctx.fill();
       for (let j = i + 1; j < particles.length; j++) {
         const q = particles[j];
         const dx = p.x - q.x, dy = p.y - q.y, dist = Math.sqrt(dx*dx + dy*dy);
         if (dist < 130) {
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(q.x, q.y);
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
           ctx.strokeStyle = 'rgba(191,147,118,' + (0.12 * (1 - dist / 130)) + ')';
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
+          ctx.lineWidth = 0.5; ctx.stroke();
         }
       }
     }
@@ -781,40 +853,22 @@ const backTop = document.getElementById('backTop');
   let w, h;
   const trails = [];
   const MAX_TRAIL = 30;
-  let mx = -100, my = -100;
-  let lastFrame = 0;
-
-  function resize(){
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  document.addEventListener('mousemove', function(e){
-    mx = e.clientX; my = e.clientY;
-  });
-
+  let mx = -100, my = -100, lastFrame = 0;
+  function resize(){ w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  document.addEventListener('mousemove', function(e){ mx = e.clientX; my = e.clientY; });
   function draw(ts){
-    var dt = Math.min(ts - lastFrame, 50) / 16;
-    lastFrame = ts;
+    var dt = Math.min(ts - lastFrame, 50) / 16; lastFrame = ts;
     ctx.clearRect(0, 0, w, h);
-
     if (mx > 0 && my > 0) {
       trails.push({ x: mx, y: my, life: 1, r: 2 + Math.random() * 1.5, vx: (Math.random() - .5) * .8, vy: (Math.random() - .5) * .8 - .5 });
       if (trails.length > MAX_TRAIL) trails.splice(0, trails.length - MAX_TRAIL);
     }
-
     for (var i = trails.length - 1; i >= 0; i--) {
-      var t = trails[i];
-      t.life -= 0.03 / dt;
-      t.x += t.vx * dt;
-      t.y += t.vy * dt;
+      var t = trails[i]; t.life -= 0.03 / dt; t.x += t.vx * dt; t.y += t.vy * dt;
       if (t.life <= 0) { trails.splice(i, 1); continue; }
-      ctx.beginPath();
-      ctx.arc(t.x, t.y, t.r * t.life, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(191,147,118,' + (t.life * 0.4) + ')';
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(t.x, t.y, t.r * t.life, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(191,147,118,' + (t.life * 0.4) + ')'; ctx.fill();
     }
     requestAnimationFrame(draw);
   }
@@ -827,18 +881,11 @@ const backTop = document.getElementById('backTop');
   document.addEventListener('click', function(e){
     var count = 12;
     for (var i = 0; i < count; i++) {
-      var p = document.createElement('span');
-      p.className = 'click-particle';
-      var angle = (i / count) * Math.PI * 2;
-      var dist = 30 + Math.random() * 40;
-      var vx = Math.cos(angle) * dist;
-      var vy = Math.sin(angle) * dist;
+      var p = document.createElement('span'); p.className = 'click-particle';
+      var angle = (i / count) * Math.PI * 2, dist = 30 + Math.random() * 40;
+      var vx = Math.cos(angle) * dist, vy = Math.sin(angle) * dist;
       var size = 3 + Math.random() * 4;
-      p.style.cssText =
-        'left:' + e.clientX + 'px;top:' + e.clientY + 'px;' +
-        'width:' + size + 'px;height:' + size + 'px;' +
-        'background:' + colors[Math.floor(Math.random() * colors.length)] + ';' +
-        '--vx:' + vx + 'px;--vy:' + vy + 'px';
+      p.style.cssText = 'left:' + e.clientX + 'px;top:' + e.clientY + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random()*colors.length)] + ';--vx:' + vx + 'px;--vy:' + vy + 'px';
       document.body.appendChild(p);
       p.addEventListener('animationend', function(){ p.remove(); });
     }
@@ -847,28 +894,19 @@ const backTop = document.getElementById('backTop');
 
 /* ── Section glow orbs ── */
 (function(){
-  var sections = document.querySelectorAll('.section');
-  sections.forEach(function(sec){
-    var orb = document.createElement('div');
-    orb.className = 'glow-orb';
+  document.querySelectorAll('.section').forEach(function(sec){
+    var orb = document.createElement('div'); orb.className = 'glow-orb';
     var size = 150 + Math.random() * 200;
-    orb.style.cssText =
-      'width:' + size + 'px;height:' + size + 'px;' +
-      'top:' + (10 + Math.random() * 60) + '%;' +
-      'left:' + (10 + Math.random() * 60) + '%;' +
-      'background:radial-gradient(circle, rgba(191,147,118,0.3) 0%, transparent 70%);' +
-      'animation-delay:' + (Math.random() * 5) + 's;' +
-      'animation-duration:' + (6 + Math.random() * 4) + 's';
+    orb.style.cssText = 'width:' + size + 'px;height:' + size + 'px;top:' + (10+Math.random()*60) + '%;left:' + (10+Math.random()*60) + '%;background:radial-gradient(circle, rgba(191,147,118,0.3) 0%, transparent 70%);animation-delay:' + (Math.random()*5) + 's;animation-duration:' + (6+Math.random()*4) + 's';
     sec.appendChild(orb);
   });
 })();
 
-/* ── Data flow lines in tool section ── */
+/* ── Data flow lines ── */
 (function(){
   var toolSec = document.querySelector('.tool-cats');
   if (toolSec && toolSec.parentElement) {
-    var flow = document.createElement('div');
-    flow.className = 'data-flow';
+    var flow = document.createElement('div'); flow.className = 'data-flow';
     flow.style.cssText = 'top:50%;left:0;width:100%;';
     toolSec.parentElement.style.position = 'relative';
     toolSec.parentElement.appendChild(flow);
@@ -879,68 +917,154 @@ const backTop = document.getElementById('backTop');
   }
 })();
 
-/* ── AI chat typing ── */
+/* ── 1. Circuit board canvas ── */
 (function(){
-  const userMsg = '帮我检查一下 ESP32 的 WiFi 连接状态';
-  const aiMsg1 = '好的。已通过 QSerial 连接 COM3，自动探测到 ESP32 设备 (115200bps)，发送 AT+CWJAP? 查询中...';
-  const aiMsg2 = 'WiFi 已连接：MyNetwork，信号强度 -42dBm，IP 192.168.1.105';
-  const messages = [userMsg.slice(0), aiMsg1.slice(0), aiMsg2.slice(0)];
+  var canvas = document.getElementById('circuitCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var w, h;
+  var chips = [];
+  var nodes = [];
+  var time = 0;
 
-  const el0 = document.querySelector('[data-type-target="0"]');
-  const el1 = document.querySelector('[data-type-target="1"]');
-  const el2 = document.querySelector('[data-type-target="2"]');
-  const row1 = document.querySelector('[data-type-row="1"]');
-  const row2 = document.querySelector('[data-type-row="2"]');
-  const targets = [el0, el1, el2];
-  const rows = [null, row1, row2];
-  const cursors = [null, el1.querySelector('.typing-cursor'), el2.querySelector('.typing-cursor')];
+  function resize(){
+    w = canvas.width = window.innerWidth; h = canvas.height = document.documentElement.scrollHeight;
+    generateLayout();
+  }
+
+  function generateLayout(){
+    chips = []; nodes = [];
+    var cols = 6, rows = 8;
+    var cellW = w / cols, cellH = h / rows;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        if (Math.random() < 0.35) {
+          chips.push({
+            x: c * cellW + cellW * 0.5 + (Math.random() - 0.5) * cellW * 0.6,
+            y: r * cellH + cellH * 0.5 + (Math.random() - 0.5) * cellH * 0.6,
+            tw: 2 + Math.random() * 3
+          });
+        }
+      }
+    }
+    for (var i = 0; i < chips.length * 3; i++) {
+      var a = chips[Math.floor(Math.random() * chips.length)];
+      var b = chips[Math.floor(Math.random() * chips.length)];
+      if (a !== b) {
+        var dx = a.x - b.x, dy = a.y - b.y, d = Math.sqrt(dx*dx+dy*dy);
+        if (d < w * 0.35) nodes.push({ a: a, b: b });
+      }
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0, 0, w, h);
+    time += 0.015;
+    var sy = window.scrollY;
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var ay = n.a.y - sy, by = n.b.y - sy;
+      if (Math.max(ay, by) < -100 || Math.min(ay, by) > window.innerHeight + 100) continue;
+      var midX = (n.a.x + n.b.x) / 2;
+      var midY = (n.a.y + n.b.y) / 2;
+      var progress = (Math.sin(time * 3 + i * 0.7) + 1) / 2;
+      ctx.beginPath();
+      ctx.moveTo(n.a.x, ay);
+      ctx.lineTo(n.b.x, by);
+      ctx.strokeStyle = 'rgba(191,147,118,' + (0.07 + progress * 0.12) + ')';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      if (progress > 0.5) {
+        var px = n.a.x + (n.b.x - n.a.x) * progress;
+        var py = ay + (by - ay) * progress;
+        ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(212,168,140,' + (0.5 + progress * 0.3) + ')';
+        ctx.fill();
+      }
+    }
+    for (var i = 0; i < chips.length; i++) {
+      var c = chips[i];
+      var cy = c.y - sy;
+      if (cy < -50 || cy > window.innerHeight + 50) continue;
+      ctx.beginPath();
+      ctx.arc(c.x, cy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(191,147,118,0.25)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(191,147,118,0.15)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+      var sx = c.x - c.tw * 2.5, ex = c.x + c.tw * 2.5;
+      var yPos = cy;
+      for (var j = 0; j < c.tw; j++) {
+        var lx = sx + j * 5;
+        ctx.beginPath(); ctx.moveTo(lx, yPos - 3); ctx.lineTo(lx, yPos + 3);
+        ctx.strokeStyle = 'rgba(191,147,118,0.18)';
+        ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  window.addEventListener('resize', function(){ resize(); });
+  window.addEventListener('scroll', function(){});
+  draw();
+})();
+
+/* ── 2. Terminal AI chat typing ── */
+(function(){
+  var userMsg = '帮我检查一下 ESP32 的 WiFi 连接状态';
+  var aiMsg1 = '好的。已通过 QSerial 连接 COM3，自动探测到 ESP32 设备 (115200bps)，发送 AT+CWJAP? 查询中...';
+  var aiMsg2 = 'WiFi 已连接：MyNetwork，信号强度 -42dBm，IP 192.168.1.105';
+  var messages = [userMsg, aiMsg1, aiMsg2];
+
+  var el0 = document.querySelector('[data-type-target="0"]');
+  var el1 = document.querySelector('[data-type-target="1"]');
+  var el2 = document.querySelector('[data-type-target="2"]');
+  var row1 = document.querySelector('[data-type-row="1"]');
+  var row2 = document.querySelector('[data-type-row="2"]');
+  var targets = [el0, el1, el2];
+  var rows = [null, row1, row2];
+  var cursors = [null, el1.querySelector('.typing-cursor'), el2.querySelector('.typing-cursor')];
 
   if (!el0 || !el1 || !el2) return;
 
-  let msgIdx = 0, charIdx = 0;
+  var msgIdx = 0, charIdx = 0;
   function typeNext(){
     if (msgIdx >= messages.length) return;
-    if (charIdx === 0 && msgIdx > 0 && rows[msgIdx]) {
-      rows[msgIdx].classList.add('typed');
-    }
+    if (charIdx === 0 && msgIdx > 0 && rows[msgIdx]) rows[msgIdx].classList.add('typed');
     if (charIdx < messages[msgIdx].length) {
-      targets[msgIdx].innerHTML = messages[msgIdx].slice(0, charIdx + 1);
-      if (cursors[msgIdx]) {
-        targets[msgIdx].appendChild(cursors[msgIdx]);
-      }
+      targets[msgIdx].textContent = messages[msgIdx].slice(0, charIdx + 1);
+      if (cursors[msgIdx]) targets[msgIdx].appendChild(cursors[msgIdx]);
       charIdx++;
-      setTimeout(typeNext, msgIdx === 0 ? 35 : 30);
+      setTimeout(typeNext, msgIdx === 0 ? 28 : 22);
     } else {
       if (cursors[msgIdx]) cursors[msgIdx].remove();
       msgIdx++; charIdx = 0;
-      setTimeout(typeNext, msgIdx === 1 ? 300 : msgIdx === 2 ? 400 : 0);
+      setTimeout(typeNext, msgIdx === 1 ? 350 : msgIdx === 2 ? 450 : 0);
     }
   }
   var observer = new IntersectionObserver(function(entries){
     if (entries[0].isIntersecting) { setTimeout(typeNext, 500); observer.disconnect(); }
   }, { threshold: 0.3 });
-  observer.observe(aiDemo);
+  observer.observe(document.getElementById('aiDemo'));
 })();
 
 /* ── Number count-up ── */
 (function(){
-  var observed = false;
   function animateCount(el, target){
     var current = 0, step = Math.ceil(target / 40);
     var timer = setInterval(function(){
       current += step;
       if (current >= target) { el.textContent = target; clearInterval(timer); }
-      else { el.textContent = current; }
+      else el.textContent = current;
     }, 40);
   }
   var countObserver = new IntersectionObserver(function(entries){
     entries.forEach(function(e){
       if (e.isIntersecting) {
         var el = e.target;
-        if (!el.dataset.counted) {
-          el.dataset.counted = '1';
-          animateCount(el, parseInt(el.dataset.count));
-        }
+        if (!el.dataset.counted) { el.dataset.counted = '1'; animateCount(el, parseInt(el.dataset.count)); }
       }
     });
   }, { threshold: 0.4 });
@@ -950,9 +1074,7 @@ const backTop = document.getElementById('backTop');
 /* ── Scroll reveal ── */
 (function(){
   var revealObserver = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){
-      if (e.isIntersecting) e.target.classList.add('visible');
-    });
+    entries.forEach(function(e){ if (e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
   document.querySelectorAll('.reveal').forEach(function(el){ revealObserver.observe(el); });
 })();
@@ -968,32 +1090,102 @@ const backTop = document.getElementById('backTop');
   });
 })();
 
-/* ── Hero mouse parallax ── */
+/* ── 3. 3D tilt ── */
 (function(){
-  hero.addEventListener('mousemove', function(e){
-    var x = (e.clientX / window.innerWidth - 0.5) * 16;
-    var y = (e.clientY / window.innerHeight - 0.5) * 16;
-    hero.querySelector('.hero-inner').style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+  document.querySelectorAll('.tilt-container').forEach(function(container){
+    var card = container.firstElementChild;
+    if (!card) return;
+    container.addEventListener('mousemove', function(e){
+      var rect = container.getBoundingClientRect();
+      var x = (e.clientX - rect.left) / rect.width - 0.5;
+      var y = (e.clientY - rect.top) / rect.height - 0.5;
+      card.style.transform = 'rotateY(' + (x * 8) + 'deg) rotateX(' + (-y * 8) + 'deg)';
+    });
+    container.addEventListener('mouseleave', function(){
+      card.style.transform = 'rotateY(0deg) rotateX(0deg)';
+    });
   });
-  hero.addEventListener('mouseleave', function(){
-    hero.querySelector('.hero-inner').style.transform = 'translate(0, 0)';
+})();
+
+/* ── 4. Scroll progress bar ── */
+(function(){
+  var bar = document.getElementById('scrollProgress');
+  if (!bar) return;
+  window.addEventListener('scroll', function(){
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    var pct = h > 0 ? (window.scrollY / h) * 100 : 0;
+    bar.style.width = Math.min(pct, 100) + '%';
+  });
+})();
+
+/* ── 5. Magnetic buttons ── */
+(function(){
+  document.querySelectorAll('[data-magnetic]').forEach(function(btn){
+    btn.addEventListener('mousemove', function(e){
+      var rect = btn.getBoundingClientRect();
+      var x = e.clientX - rect.left - rect.width / 2;
+      var y = e.clientY - rect.top - rect.height / 2;
+      btn.style.transform = 'translate(' + (x * 0.3) + 'px, ' + (y * 0.3) + 'px)';
+    });
+    btn.addEventListener('mouseleave', function(){
+      btn.style.transform = 'translate(0, 0)';
+    });
   });
 })();
 
 /* ── Nav scroll effect ── */
 (function(){
   window.addEventListener('scroll', function(){
-    var scrolled = window.scrollY > 40;
-    navbar.classList.toggle('scrolled', scrolled);
-    backTop.classList.toggle('visible', window.scrollY > 600);
+    navbar.classList.toggle('scrolled', window.scrollY > 20);
   });
 })();
 
 /* ── Back to top ── */
-backTop.addEventListener('click', function(){ window.scrollTo({ top: 0, behavior: 'smooth' }); });
+(function(){
+  window.addEventListener('scroll', function(){
+    backTop.classList.toggle('visible', window.scrollY > 600);
+  });
+  backTop.addEventListener('click', function(){
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+
+/* ── 6. Splash screen ── */
+(function(){
+  var splash = document.getElementById('splash');
+  if (!splash) return;
+  var particlesContainer = document.getElementById('splashParticles');
+
+  function spawnParticles(){
+    if (!particlesContainer) return;
+    var count = 30;
+    for (var i = 0; i < count; i++) {
+      var dot = document.createElement('span');
+      dot.className = 'splash-dot';
+      var angle = Math.random() * Math.PI * 2;
+      var dist = 80 + Math.random() * 160;
+      var sx = Math.cos(angle) * dist;
+      var sy = Math.sin(angle) * dist;
+      var size = 2 + Math.random() * 6;
+      var dur = 0.6 + Math.random() * 0.8;
+      var cx = 50 + (Math.random() - 0.5) * 20;
+      var cy = 50 + (Math.random() - 0.5) * 20;
+      dot.style.cssText = 'left:' + cx + '%;top:' + cy + '%;width:' + size + 'px;height:' + size + 'px;--sx:' + sx + 'px;--sy:' + sy + 'px;animation-duration:' + dur + 's';
+      particlesContainer.appendChild(dot);
+      dot.addEventListener('animationend', function(){ dot.remove(); });
+    }
+  }
+
+  window.addEventListener('load', function(){
+    setTimeout(function(){
+      spawnParticles();
+      splash.classList.add('hide');
+      setTimeout(function(){ splash.remove(); }, 900);
+    }, 1500);
+  });
+})();
 
 })();
 </script>
-
 </body>
 </html>
