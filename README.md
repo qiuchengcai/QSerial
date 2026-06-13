@@ -8,7 +8,8 @@
 ---
 
 **QSerial 是全球首个内置 MCP (Model Context Protocol) 的终端工具。**  
-支持串口、SSH、Telnet、本地终端，让 AI Agent 像人类工程师一样直接操作嵌入式设备。
+支持串口、SSH、Telnet、本地终端，让 AI Agent 像人类工程师一样直接操作嵌入式设备。  
+目前 Windows 版本可直接使用，macOS 和 Linux 版正在适配中。
 
 <!-- TODO: 替换为实际 Demo GIF -->
 <!-- ![QSerial Demo](https://qserial.echomcp.cn/demo.gif) -->
@@ -195,9 +196,11 @@ npx vitest run         # 运行 68 个单元测试
 
 | 文档 | 说明 |
 |------|------|
-| AI 使用指南 | MCP 工具参考与操作流程 |
-| 开发与优化方案 | 技术路线图 v0.2→v0.4 |
-| MCP 工具命名方案 | 命名空间重构设计 |
+| [AI 使用指南](docs/AI_USAGE.md) | MCP 工具参考与操作流程 |
+| [开发路线图](docs/ROADMAP.md) | v0.2.0 → v0.4.0 路线图 |
+| [开发指南](docs/DEVELOPMENT.md) | 项目结构、环境配置、构建命令 |
+| [UI 设计规范](docs/QSerial-Windows-UI-Design-Spec.md) | Windows 桌面应用 UI 设计说明书 |
+| [归档](docs/archive/) | 历史变更日志、设计方案 |
 
 ## License
 
