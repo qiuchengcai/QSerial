@@ -42,6 +42,7 @@ module.exports = {
     'node_modules/node-pty/**/*',
     'node_modules/@serialport/bindings-cpp/**/*',
     'node_modules/ssh2/**/*',
+    'node_modules/ffmpeg-static/**/*',
   ],
   npmRebuild: false,
 

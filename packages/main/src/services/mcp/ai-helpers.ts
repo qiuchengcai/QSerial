@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP AI Enhancement Helpers
  * Structured errors, output cleaning, history tracking, AT parsing
  */
@@ -6,10 +6,22 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
+/** Strip ANSI escape sequences from terminal output */
+export function stripAnsi(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\x1b\][^\x07]*\x07/g, '')       // OSC terminated by BEL
+    .replace(/\x1b\][^\x1b]*\x1b\\/g, '')     // OSC terminated by ST
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '') // CSI: \x1b[...final
+    .replace(/\x1b[@-Z\^_]/g, '');             // Other escape sequences
+}
+
 /** Extract shell prompt text from terminal output */
 export function extractPrompt(output: string): string | null {
   if (!output) return null;
-  const lines = output.split('\n').filter((l: string) => l.trim());
+  // Strip ANSI before matching so colored prompts are detected
+  const stripped = stripAnsi(output);
+  const lines = stripped.split('\n').filter((l: string) => l.trim());
   for (let i = lines.length - 1; i >= 0; i--) {
     const m = lines[i].match(/(\S.*?[#$>])\s*$/);
     if (m) return m[1].trimEnd();
@@ -33,8 +45,10 @@ export function stripEcho(output: string, command: string): string {
 /** Strip trailing shell prompt from output */
 export function stripPrompt(output: string, prompt: string | null): string {
   if (!output || !prompt) return output;
+  // Strip ANSI so the regex can match against clean text
+  const clean = stripAnsi(output);
   const escaped = prompt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return output.replace(new RegExp(escaped + '\\s*$', 'm'), '').trimEnd();
+  return clean.replace(new RegExp(escaped + '\\s*$', 'm'), '').trimEnd();
 }
 
 /** Format a success response as JSON */

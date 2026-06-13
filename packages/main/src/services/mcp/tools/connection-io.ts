@@ -146,9 +146,19 @@ export const connIOHandlers: Record<string, ToolHandler> = {
     appendHistory(id, 'send', cmdForDisplay + '\n');
     const t0 = Date.now();
 
-    const patterns = [{ pattern: '[#$>]\\s', isRegex: true }];
-    await ctx.waitForAnyPattern(id, patterns, Math.ceil(timeoutMs / 1000));
-    const rawOutput = ctx.consumeBuffer(id).toString('utf-8');
+    const promptPattern = { pattern: '[#$>]\\s', isRegex: true };
+
+    // Phase 1: Wait for command echo to arrive (device echoes the command back)
+    await ctx.waitForData(id, Math.min(timeoutMs, 1500));
+    const echoData = ctx.consumeBuffer(id).toString('utf-8');
+
+    // Phase 2: Wait for the REAL prompt that appears AFTER command output
+    // This avoids matching the prompt that's embedded in the echo line.
+    const result = await ctx.waitForAnyPattern(id, [promptPattern], Math.ceil(timeoutMs / 1000));
+    const cmdOutput = result.output;
+
+    // Combine echo + output, but mark echo for stripEcho to remove
+    const rawOutput = echoData + cmdOutput;
     if (rawOutput) appendHistory(id, 'recv', rawOutput);
 
     let cleanOutput = rawOutput;
