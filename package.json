@@ -41,6 +41,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "deploy": "node scripts/deploy.cjs --all",
+    "deploy:web": "node scripts/deploy.cjs --website",
+    "deploy:exe": "node scripts/deploy.cjs --release",
+    "deploy:nginx": "node scripts/deploy.cjs --nginx",
     "clean": "rimraf packages/*/dist packages/*/node_modules node_modules"
   },
   "devDependencies": {

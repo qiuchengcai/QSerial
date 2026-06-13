@@ -54,6 +54,7 @@ pnpm-lock.yaml
 
 # Promotion (not for version control)
 docs/PROMOTION_PLAN.md
+_promotion/
 
 # Misc
 nul
