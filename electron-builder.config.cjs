@@ -156,18 +156,6 @@ module.exports = {
       to: 'node_modules/tftp',
       filter: ['**/*'],
     },
-    // electron-log
-    {
-      from: 'node_modules/.pnpm/electron-log@5.4.3/node_modules/electron-log',
-      to: 'node_modules/electron-log',
-      filter: ['**/*'],
-    },
-    // uuid
-    {
-      from: 'node_modules/.pnpm/uuid@9.0.1/node_modules/uuid',
-      to: 'node_modules/uuid',
-      filter: ['**/*'],
-    },
     // @modelcontextprotocol/sdk (MCP server)
     {
       from: 'node_modules/@modelcontextprotocol/sdk',
