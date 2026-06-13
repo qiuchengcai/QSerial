@@ -35,7 +35,7 @@
 
 ## 特性
 
-- 🤖 **MCP AI 服务器**: 43 个 MCP 工具 + 6 个 Resources + 8 种 Notifications + Sampling，支持 `streamableHttp` / `SSE` 传输
+- 🤖 **MCP AI 服务器**: 43 个 MCP 工具 + 7 个 Resources + 8 种 Notifications + Sampling，支持 `streamableHttp` / `SSE` 传输
 - 🔌 **多协议支持**: 串口、SSH、Telnet、本地终端 (PTY)，支持 SSH 跳板机 (Jump Host)
 - 🎬 **宏录制与回放**: 录制终端操作序列，一键回放，AI 可通过 MCP 调用
 - 📑 **多标签管理**: 支持拖拽排序、中键关闭、右键菜单（关闭其他/左侧/右侧/全部）
@@ -45,7 +45,7 @@
 - 🌐 **FTP 服务器**: 内置 FTP 服务器，支持用户名密码认证
 - 💾 **NFS 服务器**: 内置 NFS 服务器（Windows: WinNFSd / Linux: nfs-kernel-server）
 - ⚡ **快捷按钮**: 自定义命令分组，多行命令逐条发送，行间延迟可配
-- 🎨 **主题定制**: 8 套预设主题（Dark/Light/One Dark/Dracula/Monokai/Nord/Solarized/Paper），支持自定义
+- 🎨 **主题定制**: 9 套预设主题（Dark/Light/One Dark/Dracula/Monokai/Nord/Solarized/Paper/GitHub Dark），支持自定义
 - 💾 **会话管理**: 保存连接配置，导入/导出 JSON，自动恢复
 - 🌍 **国际化**: 中文 / English 双语切换
 
@@ -176,14 +176,14 @@ pnpm package:mac       # 打包 macOS
 ### 测试
 
 ```bash
-npx vitest run         # 运行 68 个单元测试
+npx vitest run         # 运行 149 个单元测试
 ```
 
 ## 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| **框架** | Electron 35 + React 18 |
+| **框架** | Electron 28 + React 18 |
 | **语言** | TypeScript 5 |
 | **终端** | xterm.js 5.x |
 | **状态管理** | Zustand (persist) |
@@ -197,7 +197,7 @@ npx vitest run         # 运行 68 个单元测试
 | 文档 | 说明 |
 |------|------|
 | [AI 使用指南](docs/AI_USAGE.md) | MCP 工具参考与操作流程 |
-| [开发路线图](docs/ROADMAP.md) | v0.2.0 → v0.4.0 路线图 |
+| [开发路线图](docs/ROADMAP.md) | v1.0.0 发展路线图 |
 | [开发指南](docs/DEVELOPMENT.md) | 项目结构、环境配置、构建命令 |
 | [UI 设计规范](docs/QSerial-Windows-UI-Design-Spec.md) | Windows 桌面应用 UI 设计说明书 |
 | [归档](docs/archive/) | 历史变更日志、设计方案 |
