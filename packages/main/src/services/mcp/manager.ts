@@ -618,6 +618,36 @@ const MCP_TOOLS = [
       required: ['sftp_id', 'path'],
     },
   },
+  {
+    name: 'app.record.start',
+    description: 'Start screen recording of the application window. Captures frames at specified FPS and encodes to MP4 on stop.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fps: { type: 'integer', description: 'Frame rate (1-30, default 10)' },
+      },
+    },
+  },
+  {
+    name: 'app.record.stop',
+    description: 'Stop screen recording and encode to MP4. Returns file path, size, duration, and frame count.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        recording_id: { type: 'string', description: 'Recording ID from app.record.start (required)' },
+        output: { type: 'string', description: 'Output file path (default: docs/recording-<timestamp>.mp4)' },
+      },
+      required: ['recording_id'],
+    },
+  },
+  {
+    name: 'app.record.list',
+    description: 'List all active screen recordings.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
 
 // ==================== Handler 注册表 ====================

@@ -8,6 +8,8 @@ import { formatOk, formatError } from '../ai-helpers.js';
 import { ConnectionFactory } from '../../connection/factory.js';
 import type { ToolHandler } from '../types';
 
+import { startRecording, stopRecording, listRecordings } from '../../screen-recorder.js';
+
 const SCREENSHOT_DIR = path.resolve(process.cwd?.() || __dirname, '../../docs');
 
 export const appHandlers: Record<string, ToolHandler> = {
@@ -124,5 +126,40 @@ export const appHandlers: Record<string, ToolHandler> = {
       }
       return formatOk({ macro: macroName, steps_executed: results.length, commands: results });
     } catch (e: any) { return formatError('INTERNAL', e.message); }
+  },
+
+  'app.record.start': async (args, ctx) => {
+    if (!ctx.mainWindow || ctx.mainWindow.isDestroyed()) {
+      return formatError('INTERNAL', 'No active window');
+    }
+    try {
+      const fps = (args.fps as number) || 10;
+      const id = await startRecording(ctx.mainWindow, fps);
+      return formatOk({ recording_id: id, fps, message: 'Recording started. Use app.record.stop to finish.' });
+    } catch (e) { return formatError('INTERNAL', (e as Error).message); }
+  },
+
+  'app.record.stop': async (args) => {
+    const recId = args.recording_id as string;
+    if (!recId) return formatError('INVALID_PARAM', 'recording_id is required');
+    try {
+      const outputPath = args.output as string | undefined;
+      const result = await stopRecording(recId, outputPath);
+      return formatOk({
+        recording_id: result.id,
+        file: result.file,
+        size_bytes: result.size,
+        size_mb: Math.round(result.size / 1024 / 1024 * 100) / 100,
+        duration_ms: result.duration_ms,
+        duration_sec: Math.round(result.duration_ms / 100) / 10,
+        frames: result.frames,
+        fps: result.fps,
+      });
+    } catch (e) { return formatError('INTERNAL', (e as Error).message); }
+  },
+
+  'app.record.list': async () => {
+    const list = listRecordings();
+    return formatOk({ active: list.length, recordings: list });
   },
 };

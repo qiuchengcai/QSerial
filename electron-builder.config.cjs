@@ -3,7 +3,7 @@ const { version } = require('./package.json');
 module.exports = {
   appId: 'com.qserial.app',
   productName: 'QSerial',
-  copyright: `Copyright © ${new Date().getFullYear()} QSerial Team`,
+  copyright: `Copyright 漏 ${new Date().getFullYear()} QSerial Team`,
   publish: null,
 
   directories: {
@@ -20,12 +20,16 @@ module.exports = {
       to: 'node_modules/@qserial/shared',
       filter: ['dist/**/*', 'package.json'],
     },
-    // 运行时依赖映射（由 scripts/gen-deps-mapping.cjs 自动生成）
-    // 重新生成: node scripts/gen-deps-mapping.cjs
+    // 杩愯鏃朵緷璧栨槧灏勶紙鐢?scripts/gen-deps-mapping.cjs 鑷姩鐢熸垚锛?    // 閲嶆柊鐢熸垚: node scripts/gen-deps-mapping.cjs
     ...require('./electron-builder.config.deps.cjs'),
   ],
 
   extraResources: [
+    {
+      from: 'node_modules/ffmpeg-static',
+      to: 'ffmpeg-static',
+      filter: ['ffmpeg.exe', 'ffmpeg', 'ffmpeg_darwin', 'package.json'],
+    },
     {
       from: 'resources',
       to: 'resources',

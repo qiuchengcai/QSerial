@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 自动扫描运行时依赖，生成 electron-builder 的 node_modules 映射配置
  * 解决手动维护依赖路径容易遗漏/过期的问题
  *
@@ -53,11 +53,14 @@ for (const dep of entryDeps) {
 }
 
 // 排除一些运行时不需要的（文档、测试等）
-const excludePatterns = ['/test/', '/tests/', '/docs/', '/example/', '/examples/', '/.github/'];
+// 排除通过 extraResources 打包的原生二进制包
+  const excludeBinaries = ['ffmpeg-static'];
+  const excludePatterns = ['/test/', '/tests/', '/docs/', '/example/', '/examples/', '/.github/'];
 
 // 生成映射数组
 const mappings = [];
 for (const dep of [...allDeps].sort()) {
+    if (excludeBinaries.includes(dep)) continue;
   mappings.push({
     from: `node_modules/${dep}`,
     to: `node_modules/${dep}`,
