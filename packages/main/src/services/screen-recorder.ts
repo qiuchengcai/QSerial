@@ -10,10 +10,17 @@ import * as os from 'node:os';
 import { spawn } from 'node:child_process';
 
 let ffmpegPath: string;
-try {
-  ffmpegPath = require('ffmpeg-static');
-} catch {
-  ffmpegPath = 'ffmpeg';
+// Packaged: ffmpeg-static is in extraResources. Dev: in node_modules.
+const extraResPath = path.join(process.resourcesPath, "ffmpeg-static", "ffmpeg.exe");
+const bundled = process.platform === "win32" ? extraResPath : path.join(process.resourcesPath, "ffmpeg-static", "ffmpeg");
+if (fs.existsSync(bundled)) {
+  ffmpegPath = bundled;
+} else {
+  try {
+    ffmpegPath = require("ffmpeg-static");
+  } catch {
+    ffmpegPath = "ffmpeg";
+  }
 }
 
 interface ActiveRecording {
