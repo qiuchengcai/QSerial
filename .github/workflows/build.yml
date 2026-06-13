@@ -41,7 +41,7 @@ jobs:
           pnpm build:renderer
 
       - name: Package Windows
-        run: pnpm package:win
+        run: pnpm package:win:ci
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
