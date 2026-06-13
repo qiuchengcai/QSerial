@@ -95,11 +95,36 @@ body{
 /* Click burst particle */
 .click-particle{
   position:fixed; pointer-events:none; z-index:9998;
-  border-radius:50%; animation:particleBurst .9s cubic-bezier(.16,1,.3,1) forwards;
+  border-radius:50%;
+  animation:particleBurst var(--dur, .9s) cubic-bezier(.16,1,.3,1) forwards;
+}
+.click-particle.type-spiral{
+  animation:particleSpiral var(--dur, 1.2s) cubic-bezier(.25,1,.3,1) forwards;
+}
+.click-particle.type-float{
+  animation:particleFloat var(--dur, 1.6s) cubic-bezier(.1,.8,.2,1) forwards;
+}
+.click-ring{
+  position:fixed; pointer-events:none; z-index:9997;
+  border:1.5px solid rgba(191,147,118,.45); border-radius:50%;
+  animation:ringExpand var(--dur, .7s) ease-out forwards;
 }
 @keyframes particleBurst{
   0%{opacity:1;transform:translate(0,0) scale(1)}
   100%{opacity:0;transform:translate(var(--vx), var(--vy)) scale(0)}
+}
+@keyframes particleSpiral{
+  0%{opacity:1;transform:translate(0,0) rotate(0deg) scale(1)}
+  100%{opacity:0;transform:translate(var(--vx), var(--vy)) rotate(var(--rot, 180deg)) scale(0)}
+}
+@keyframes particleFloat{
+  0%{opacity:.9;transform:translate(0,0) scale(0)}
+  30%{opacity:1;transform:translate(var(--vx), var(--vy)) scale(1)}
+  100%{opacity:0;transform:translate(var(--vx), calc(var(--vy) - 60px)) scale(.6)}
+}
+@keyframes ringExpand{
+  0%{width:0;height:0;opacity:.8;transform:translate(-50%,-50%)}
+  100%{width:var(--rs, 120px);height:var(--rs, 120px);opacity:0;transform:translate(-50%,-50%)}
 }
 
 /* Data flow line */
@@ -793,46 +818,110 @@ const backTop = document.getElementById('backTop');
 
 /* ── Hero particle canvas ── */
 (function(){
-  const canvas = document.getElementById('particleCanvas');
+  var canvas = document.getElementById('particleCanvas');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  let w, h, particles = [];
-  const PARTICLE_COUNT = 50;
+  var ctx = canvas.getContext('2d');
+  var w, h, cw, ch, particles = [];
+  var PARTICLE_COUNT = 65;
+  var hmx = -999, hmy = -999;
+  var frame = 0;
+
+  function rnd(a,b){ return a + Math.random() * (b - a); }
+
   function resize(){
-    const rect = hero.getBoundingClientRect();
+    var rect = hero.getBoundingClientRect();
     w = canvas.width = rect.width * devicePixelRatio;
     h = canvas.height = rect.height * devicePixelRatio;
     canvas.style.width = rect.width + 'px';
     canvas.style.height = rect.height + 'px';
-    ctx.scale(devicePixelRatio, devicePixelRatio);
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    cw = rect.width; ch = rect.height;
   }
   resize();
   window.addEventListener('resize', resize);
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
+  hero.addEventListener('mousemove', function(e){
+    var r = hero.getBoundingClientRect();
+    hmx = e.clientX - r.left; hmy = e.clientY - r.top;
+  });
+  hero.addEventListener('mouseleave', function(){ hmx = -999; hmy = -999; });
+
+  for (var i = 0; i < PARTICLE_COUNT; i++) {
     particles.push({
-      x: Math.random() * w, y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
-      r: Math.random() * 1.5 + 0.5
+      x: rnd(0, cw || 1), y: rnd(0, ch || 1),
+      vx: 0, vy: 0,
+      r: rnd(0.6, 2.4),
+      baseSpeed: rnd(0.08, 0.35),
+      phase: rnd(0, Math.PI * 2),
+      freqX: rnd(0.003, 0.008),
+      freqY: rnd(0.003, 0.008),
+      opacity: rnd(0.15, 0.45)
     });
   }
+
   function draw(){
-    ctx.clearRect(0, 0, w, h);
-    const cw = w / devicePixelRatio, ch = h / devicePixelRatio;
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      p.x += p.vx; p.y += p.vy;
-      if (p.x < 0) p.x = cw; if (p.x > cw) p.x = 0;
-      if (p.y < 0) p.y = ch; if (p.y > ch) p.y = 0;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(191,147,118,' + (0.25 + p.r * 0.1) + ')';
+    ctx.clearRect(0, 0, cw, ch);
+    frame++;
+    var t = frame * 0.008;
+
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+
+      var nx = Math.sin(p.x * p.freqX + t * 1.3 + p.phase) * Math.cos(p.y * p.freqY * 1.7 + t * 0.9);
+      var ny = Math.cos(p.y * p.freqY + t * 1.1) * Math.sin(p.x * p.freqX * 1.4 + t);
+
+      p.vx += (nx * 0.04 - p.vx * 0.03) * p.baseSpeed;
+      p.vy += (ny * 0.04 - p.vy * 0.03) * p.baseSpeed;
+
+      if (hmx > 0 && hmy > 0) {
+        var dx = p.x - hmx, dy = p.y - hmy;
+        var dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 160 && dist > 1) {
+          var force = (1 - dist / 160) * 0.6;
+          p.vx += (dx / dist) * force * 0.08;
+          p.vy += (dy / dist) * force * 0.08;
+        }
+      }
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < -30) p.x = cw + 30; if (p.x > cw + 30) p.x = -30;
+      if (p.y < -30) p.y = ch + 30; if (p.y > ch + 30) p.y = -30;
+
+      var edgeFade = 1;
+      var margin = 60;
+      if (p.x < margin) edgeFade = Math.max(0, p.x / margin);
+      if (p.x > cw - margin) edgeFade = Math.min(edgeFade, (cw - p.x) / margin);
+      if (p.y < margin) edgeFade = Math.min(edgeFade, p.y / margin);
+      if (p.y > ch - margin) edgeFade = Math.min(edgeFade, (ch - p.y) / margin);
+      edgeFade = Math.max(0, edgeFade);
+
+      var speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+      var dynOpacity = p.opacity * (0.6 + 0.4 * Math.min(speed / 0.3, 1));
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(191,147,118,' + (dynOpacity * edgeFade) + ')';
       ctx.fill();
-      for (let j = i + 1; j < particles.length; j++) {
-        const q = particles[j];
-        const dx = p.x - q.x, dy = p.y - q.y, dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < 130) {
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
-          ctx.strokeStyle = 'rgba(191,147,118,' + (0.12 * (1 - dist / 130)) + ')';
-          ctx.lineWidth = 0.5; ctx.stroke();
+
+      for (var j = i + 1; j < particles.length; j++) {
+        var q = particles[j];
+        var dx2 = p.x - q.x, dy2 = p.y - q.y, dist2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+        if (dist2 < 140) {
+          var linkAlpha = 0.1 * (1 - dist2 / 140) * edgeFade;
+          var qEdgeFade = 1;
+          if (q.x < margin) qEdgeFade = Math.max(0, q.x / margin);
+          if (q.x > cw - margin) qEdgeFade = Math.min(qEdgeFade, (cw - q.x) / margin);
+          if (q.y < margin) qEdgeFade = Math.min(qEdgeFade, q.y / margin);
+          if (q.y > ch - margin) qEdgeFade = Math.min(qEdgeFade, (ch - q.y) / margin);
+          linkAlpha *= Math.max(0, qEdgeFade);
+
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = 'rgba(191,147,118,' + linkAlpha + ')';
+          ctx.lineWidth = 0.4 + 0.3 * (1 - dist2 / 140);
+          ctx.stroke();
         }
       }
     }
@@ -841,34 +930,59 @@ const backTop = document.getElementById('backTop');
   draw();
   window.addEventListener('resize', function(){
     resize();
-    particles.forEach(function(p){ p.x = Math.random() * w; p.y = Math.random() * h; });
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.x = rnd(0, cw); p.y = rnd(0, ch);
+      p.vx = 0; p.vy = 0;
+    }
   });
 })();
 
 /* ── Cursor trail particles ── */
 (function(){
-  const canvas = document.getElementById('cursorCanvas');
+  var canvas = document.getElementById('cursorCanvas');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  let w, h;
-  const trails = [];
-  const MAX_TRAIL = 30;
-  let mx = -100, my = -100, lastFrame = 0;
+  var ctx = canvas.getContext('2d');
+  var w, h;
+  var trails = [];
+  var MAX_TRAIL = 40;
+  var mx = -100, my = -100, pmx = -100, pmy = -100, lastFrame = 0;
   function resize(){ w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
   resize(); window.addEventListener('resize', resize);
-  document.addEventListener('mousemove', function(e){ mx = e.clientX; my = e.clientY; });
+  document.addEventListener('mousemove', function(e){ pmx = mx; pmy = my; mx = e.clientX; my = e.clientY; });
   function draw(ts){
     var dt = Math.min(ts - lastFrame, 50) / 16; lastFrame = ts;
     ctx.clearRect(0, 0, w, h);
     if (mx > 0 && my > 0) {
-      trails.push({ x: mx, y: my, life: 1, r: 2 + Math.random() * 1.5, vx: (Math.random() - .5) * .8, vy: (Math.random() - .5) * .8 - .5 });
+      var ms = Math.sqrt((mx-pmx)*(mx-pmx) + (my-pmy)*(my-pmy));
+      var spawnCount = Math.min(3, 1 + Math.floor(ms / 8));
+      for (var k = 0; k < spawnCount; k++) {
+        var angle = Math.random() * Math.PI * 2;
+        var spd = 0.3 + Math.random() * 1.2 + ms * 0.01;
+        trails.push({
+          x: mx + (Math.random() - 0.5) * 4, y: my + (Math.random() - 0.5) * 4,
+          life: 1,
+          r: 1 + Math.random() * 2.5,
+          vx: Math.cos(angle) * spd * (Math.random() - 0.3),
+          vy: Math.sin(angle) * spd * (Math.random() - 0.3) - spd * 0.2,
+          decay: 0.012 + Math.random() * 0.025,
+          hue: 0.04 + Math.random() * 0.03
+        });
+      }
       if (trails.length > MAX_TRAIL) trails.splice(0, trails.length - MAX_TRAIL);
     }
     for (var i = trails.length - 1; i >= 0; i--) {
-      var t = trails[i]; t.life -= 0.03 / dt; t.x += t.vx * dt; t.y += t.vy * dt;
+      var t = trails[i];
+      t.life -= t.decay * dt;
+      t.x += t.vx * dt;
+      t.y += t.vy * dt;
+      t.vy += 0.015 * dt;
       if (t.life <= 0) { trails.splice(i, 1); continue; }
-      ctx.beginPath(); ctx.arc(t.x, t.y, t.r * t.life, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(191,147,118,' + (t.life * 0.4) + ')'; ctx.fill();
+      var ease = t.life * t.life;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r * t.life, 0, Math.PI * 2);
+      ctx.fillStyle = 'hsla(25, 30%, ' + (60 + t.life * 15) + '%, ' + (ease * 0.45) + ')';
+      ctx.fill();
     }
     requestAnimationFrame(draw);
   }
@@ -877,15 +991,41 @@ const backTop = document.getElementById('backTop');
 
 /* ── Click burst particles ── */
 (function(){
-  var colors = ['#bf9376','#d4a88c','#e8c4a8','#a67c5e','#f5ede7'];
+  var colors = ['#bf9376','#d4a88c','#e8c4a8','#a67c5e','#f5ede7','#faf0e6'];
   document.addEventListener('click', function(e){
-    var count = 12;
-    for (var i = 0; i < count; i++) {
-      var p = document.createElement('span'); p.className = 'click-particle';
-      var angle = (i / count) * Math.PI * 2, dist = 30 + Math.random() * 40;
-      var vx = Math.cos(angle) * dist, vy = Math.sin(angle) * dist;
-      var size = 3 + Math.random() * 4;
-      p.style.cssText = 'left:' + e.clientX + 'px;top:' + e.clientY + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random()*colors.length)] + ';--vx:' + vx + 'px;--vy:' + vy + 'px';
+    var cx = e.clientX, cy = e.clientY;
+
+    var ring = document.createElement('span');
+    ring.className = 'click-ring';
+    var rs = 60 + Math.random() * 60;
+    ring.style.cssText = 'left:' + cx + 'px;top:' + cy + 'px;--rs:' + rs + 'px;--dur:' + (0.5 + Math.random() * 0.3) + 's';
+    document.body.appendChild(ring);
+    ring.addEventListener('animationend', function(){ ring.remove(); });
+
+    var totalCount = 20;
+    for (var i = 0; i < totalCount; i++) {
+      var p = document.createElement('span');
+      var angle = (i / totalCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      var dist = 25 + Math.random() * 55;
+      var vx = Math.cos(angle) * dist;
+      var vy = Math.sin(angle) * dist;
+      var size = 1.5 + Math.random() * 5;
+      var dur = 0.5 + Math.random() * 1.1;
+
+      var r = Math.random();
+      if (r < 0.3) {
+        p.className = 'click-particle type-spiral';
+        p.style.setProperty('--rot', (180 + Math.random() * 360) + 'deg');
+      } else if (r < 0.55) {
+        p.className = 'click-particle type-float';
+        vy = (Math.random() - 0.5) * 15;
+        vx = (Math.random() - 0.5) * 20;
+        dist = 0;
+      } else {
+        p.className = 'click-particle';
+      }
+
+      p.style.cssText += 'left:' + cx + 'px;top:' + cy + 'px;width:' + size + 'px;height:' + size + 'px;background:' + colors[Math.floor(Math.random()*colors.length)] + ';--vx:' + vx + 'px;--vy:' + vy + 'px;--dur:' + dur + 's';
       document.body.appendChild(p);
       p.addEventListener('animationend', function(){ p.remove(); });
     }
@@ -942,72 +1082,125 @@ const backTop = document.getElementById('backTop');
           chips.push({
             x: c * cellW + cellW * 0.5 + (Math.random() - 0.5) * cellW * 0.6,
             y: r * cellH + cellH * 0.5 + (Math.random() - 0.5) * cellH * 0.6,
-            tw: 2 + Math.random() * 3
+            tw: 2 + Math.random() * 4,
+            phase: Math.random() * Math.PI * 2
           });
         }
       }
     }
-    for (var i = 0; i < chips.length * 3; i++) {
+    for (var i = 0; i < chips.length * 2; i++) {
       var a = chips[Math.floor(Math.random() * chips.length)];
       var b = chips[Math.floor(Math.random() * chips.length)];
       if (a !== b) {
         var dx = a.x - b.x, dy = a.y - b.y, d = Math.sqrt(dx*dx+dy*dy);
-        if (d < w * 0.35) nodes.push({ a: a, b: b });
+        if (d < w * 0.35) {
+          nodes.push({
+            a: a, b: b,
+            speed: 0.8 + Math.random() * 2.2,
+            phase: Math.random() * Math.PI * 2,
+            opacity: 0.05 + Math.random() * 0.12
+          });
+        }
       }
     }
   }
 
   function draw(){
     ctx.clearRect(0, 0, w, h);
-    time += 0.015;
+    time += 0.012;
     var sy = window.scrollY;
+    var vh = window.innerHeight;
+
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i];
       var ay = n.a.y - sy, by = n.b.y - sy;
-      if (Math.max(ay, by) < -100 || Math.min(ay, by) > window.innerHeight + 100) continue;
-      var midX = (n.a.x + n.b.x) / 2;
-      var midY = (n.a.y + n.b.y) / 2;
-      var progress = (Math.sin(time * 3 + i * 0.7) + 1) / 2;
+      if (Math.max(ay, by) < -100 || Math.min(ay, by) > vh + 100) continue;
+
+      var baseAlpha = n.opacity;
+      var pulse = 1 + Math.sin(time * 0.8 + n.phase) * 0.3;
+      var alpha = baseAlpha * pulse;
+
       ctx.beginPath();
       ctx.moveTo(n.a.x, ay);
       ctx.lineTo(n.b.x, by);
-      ctx.strokeStyle = 'rgba(191,147,118,' + (0.07 + progress * 0.12) + ')';
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = 'rgba(191,147,118,' + alpha + ')';
+      ctx.lineWidth = 0.7;
       ctx.stroke();
-      if (progress > 0.5) {
-        var px = n.a.x + (n.b.x - n.a.x) * progress;
-        var py = ay + (by - ay) * progress;
-        ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(212,168,140,' + (0.5 + progress * 0.3) + ')';
-        ctx.fill();
+
+      var progress = ((time * n.speed + n.phase) % 1);
+      var px = n.a.x + (n.b.x - n.a.x) * progress;
+      var py = ay + (by - ay) * progress;
+
+      var glow = ctx.createRadialGradient(px, py, 0, px, py, 6);
+      glow.addColorStop(0, 'rgba(212,168,140,' + (0.6 * pulse) + ')');
+      glow.addColorStop(0.5, 'rgba(212,168,140,' + (0.2 * pulse) + ')');
+      glow.addColorStop(1, 'rgba(212,168,140,0)');
+      ctx.beginPath();
+      ctx.arc(px, py, 6, 0, Math.PI * 2);
+      ctx.fillStyle = glow;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(240,210,180,' + (0.7 * pulse) + ')';
+      ctx.fill();
+
+      var trailLength = 18;
+      for (var t = 1; t <= 3; t++) {
+        var tp = progress - t * 0.02;
+        if (tp >= 0) {
+          var tpx = n.a.x + (n.b.x - n.a.x) * tp;
+          var tpy = ay + (by - ay) * tp;
+          ctx.beginPath();
+          ctx.arc(tpx, tpy, 1, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(212,168,140,' + (0.15 / t) + ')';
+          ctx.fill();
+        }
       }
     }
+
     for (var i = 0; i < chips.length; i++) {
       var c = chips[i];
       var cy = c.y - sy;
-      if (cy < -50 || cy > window.innerHeight + 50) continue;
+      if (cy < -50 || cy > vh + 50) continue;
+
+      var cPulse = 1 + Math.sin(time * 1.5 + c.phase) * 0.25;
+
+      var chipGlow = ctx.createRadialGradient(c.x, cy, 0, c.x, cy, 8 * cPulse);
+      chipGlow.addColorStop(0, 'rgba(191,147,118,' + (0.15 * cPulse) + ')');
+      chipGlow.addColorStop(1, 'rgba(191,147,118,0)');
       ctx.beginPath();
-      ctx.arc(c.x, cy, 4, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(191,147,118,0.25)';
+      ctx.arc(c.x, cy, 8 * cPulse, 0, Math.PI * 2);
+      ctx.fillStyle = chipGlow;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(191,147,118,0.15)';
+
+      ctx.beginPath();
+      ctx.arc(c.x, cy, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(191,147,118,' + (0.2 * cPulse) + ')';
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(191,147,118,' + (0.12 * cPulse) + ')';
       ctx.lineWidth = 0.5;
       ctx.stroke();
+
       var sx = c.x - c.tw * 2.5, ex = c.x + c.tw * 2.5;
       var yPos = cy;
       for (var j = 0; j < c.tw; j++) {
         var lx = sx + j * 5;
-        ctx.beginPath(); ctx.moveTo(lx, yPos - 3); ctx.lineTo(lx, yPos + 3);
-        ctx.strokeStyle = 'rgba(191,147,118,0.18)';
-        ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(lx, yPos - 3);
+        ctx.lineTo(lx, yPos + 3);
+        ctx.strokeStyle = 'rgba(191,147,118,' + (0.15 * cPulse) + ')';
+        ctx.lineWidth = 1;
+        ctx.stroke();
       }
     }
+
     requestAnimationFrame(draw);
   }
 
   resize();
   window.addEventListener('resize', function(){ resize(); });
-  window.addEventListener('scroll', function(){});
   draw();
 })();
 
