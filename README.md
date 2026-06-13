@@ -1,36 +1,73 @@
 # QSerial
 
-一款现代化的跨平台终端工具，支持串口、SSH、Telnet、本地终端等多种连接方式，内置连接共享、文件传输服务（SFTP/FTP/TFTP/NFS）与 **MCP AI 服务器**，供 Claude Code、CodeBuddy 等 AI Agent 远程操作设备。
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen)](https://qserial.echomcp.cn)
+
+> 🌐 [qserial.echomcp.cn](https://qserial.echomcp.cn) | ⬇️ [下载](https://qserial.echomcp.cn) | ⭐ [Star on GitHub](https://github.com/qiuchengcai/QSerial)
+
+---
+
+**QSerial 是全球首个内置 MCP (Model Context Protocol) 的终端工具。**  
+支持串口、SSH、Telnet、本地终端，让 AI Agent 像人类工程师一样直接操作嵌入式设备。
+
+<!-- TODO: 替换为实际 Demo GIF -->
+<!-- ![QSerial Demo](https://qserial.echomcp.cn/demo.gif) -->
+
+---
+
+## 为什么选择 QSerial？
+
+| 场景 | 传统方式 | QSerial 方式 |
+|------|---------|-------------|
+| 登录设备 | 手动输入用户名密码，每次重来 | 一句话："帮我登录 ESP32" |
+| 刷固件 | 打开 TFTP 工具 → 手动传输 → 验证 | "把 firmware.bin 传过去，传完验证 MD5" |
+| 监控日志 | 盯着终端屏幕，手动搜索关键词 | "监控串口，出现 panic 立刻通知我" |
+| 多设备管理 | 开 N 个 Putty 窗口切来切去 | 一个窗口多标签，AI 帮你同时盯多个 |
+| 文件传输 | 额外开 SFTP/FTP/TFTP 工具 | 全部内置，SFTP 双栏浏览器直接操作 |
+
+## 快速开始
+
+1. 从 [官网](https://qserial.echomcp.cn) 下载安装或直接运行便携版
+2. 点击 **串口** / **SSH** / **Telnet** 创建连接
+3. 如需 AI 操控：进入 MCP 设置，复制配置到你的 AI 客户端
+4. 对 AI 说："帮我检查设备状态"
 
 ## 特性
 
-- 🔌 **多协议支持**: 本地终端 (PTY)、串口、SSH、Telnet，支持 SSH 跳板机 (Jump Host)
-- 🤖 **内置 MCP AI 服务器**: 43 个 MCP 工具 + 6 个 Resources + 8 种 Notifications + Sampling，支持 streamableHttp / SSE 传输
+- 🤖 **MCP AI 服务器**: 43 个 MCP 工具 + 6 个 Resources + 8 种 Notifications + Sampling，支持 `streamableHttp` / `SSE` 传输
+- 🔌 **多协议支持**: 串口、SSH、Telnet、本地终端 (PTY)，支持 SSH 跳板机 (Jump Host)
 - 🎬 **宏录制与回放**: 录制终端操作序列，一键回放，AI 可通过 MCP 调用
-- 📡 **连接共享**: TCP 共享任意活跃连接，支持密码认证
-- 📁 **SFTP 文件传输**: SSH 连接内置 SFTP 文件浏览器，支持上传/下载/管理远程文件
-- 📦 **TFTP 服务器**: 内置 TFTP 服务器，传输参数优化（blockSize=65464、windowSize=64）
+- 📑 **多标签管理**: 支持拖拽排序、中键关闭、右键菜单（关闭其他/左侧/右侧/全部）
+- 📁 **SFTP 文件浏览器**: 双栏布局（远程+本地），上传/下载/删除/重命名/新建文件夹
+- 📡 **连接共享**: TCP 共享任意活跃连接，支持密码认证，人类和 AI 可同时操作
+- 📦 **TFTP 服务器**: 内置 TFTP 服务器，参数针对嵌入式设备优化
 - 🌐 **FTP 服务器**: 内置 FTP 服务器，支持用户名密码认证
 - 💾 **NFS 服务器**: 内置 NFS 服务器（Windows: WinNFSd / Linux: nfs-kernel-server）
-- 📑 **多标签管理**: 支持拖拽排序、分组管理
-- ⚡ **快捷按钮**: 支持多行命令逐条发送、行间延迟配置
-- 🎨 **主题定制**: 8 套预设主题，支持自定义
-- 💾 **会话管理**: 保存连接配置，点击快速切换
-- 🌍 **国际化**: 中文/English 双语切换
+- ⚡ **快捷按钮**: 自定义命令分组，多行命令逐条发送，行间延迟可配
+- 🎨 **主题定制**: 8 套预设主题（Dark/Light/One Dark/Dracula/Monokai/Nord/Solarized/Paper），支持自定义
+- 💾 **会话管理**: 保存连接配置，导入/导出 JSON，自动恢复
+- 🌍 **国际化**: 中文 / English 双语切换
 
 ## MCP AI 服务器
 
-QSerial 启动后自动启动 MCP 服务器（默认 127.0.0.1:9800），AI Agent 可远程操作设备。
+QSerial 启动后自动在 **127.0.0.1:9800** 启动 MCP 服务器，AI Agent 可通过标准化协议远程操作设备。
 
 ### 配置方式
 
-**Codex** — config.toml:
+在 AI 客户端的 MCP 配置文件中添加：
 
-[INFO] config.toml 暂不展示
+```json
+{
+  "mcpServers": {
+    "qserial": {
+      "url": "http://127.0.0.1:9800/mcp",
+      "transport": "streamableHttp"
+    }
+  }
+}
+```
 
-**Claude Code** — .mcp.json:
-
-[INFO] JSON 暂不展示
+支持 **Claude Code**、**CodeBuddy**、**Codex** 等兼容 MCP 协议的 AI 客户端。
 
 ### MCP 工具 (43个)
 
@@ -80,7 +117,7 @@ QSerial 启动后自动启动 MCP 服务器（默认 127.0.0.1:9800），AI Agen
 | | app.macro.list | 列出已录制宏 |
 | | app.macro.run | 回放已录制宏 |
 
-### MCP Resources (6个)
+### MCP Resources
 
 | URI | 说明 |
 |-----|------|
@@ -91,24 +128,20 @@ QSerial 启动后自动启动 MCP 服务器（默认 127.0.0.1:9800），AI Agen
 | qserial://notifications/pending | 待消费通知 |
 | qserial://connections/{id} | 指定连接详情 |
 
-### MCP Notifications (8种)
-
-| 通知类型 | 触发时机 |
-|----------|----------|
-| connection/connected | 连接建立成功 |
-| connection/disconnected | 连接断开 |
-| connection/data_alert | Watch 规则匹配 |
-| session/saved | 会话保存 |
-| session/deleted | 会话删除 |
-| share/started | TCP 共享启动 |
-| share/stopped | TCP 共享停止 |
-| script/step_completed | 脚本步骤完成 |
-
 ### Sampling
 
 服务端可在关键事件（设备 panic、脚本失败、未知提示符）时主动请求 AI 决策。
 
-详细文档见 AI 使用指南 docs/AI_USAGE.md。
+详细文档见 [AI 使用指南](docs/AI_USAGE.md)。
+
+## 下载
+
+| 平台 | 下载 |
+|------|------|
+| Windows (安装版) | [QSerial-0.2.0-x64-win.exe](https://qserial.echomcp.cn) |
+| Windows (便携版) | [QSerial-0.2.0-x64-win-portable.exe](https://qserial.echomcp.cn) |
+| macOS | 即将支持 |
+| Linux (AppImage) | 即将支持 |
 
 ## 开发
 
@@ -119,35 +152,44 @@ QSerial 启动后自动启动 MCP 服务器（默认 127.0.0.1:9800），AI Agen
 
 ### 安装依赖
 
+```bash
 pnpm install
+```
 
 ### 开发模式
 
+```bash
 pnpm build:shared
 pnpm dev
+```
 
 ### 构建
 
+```bash
 pnpm build             # 构建所有包
 pnpm package:win       # 打包 Windows
 pnpm package:linux     # 打包 Linux
 pnpm package:mac       # 打包 macOS
+```
 
 ### 测试
 
+```bash
 npx vitest run         # 运行 68 个单元测试
+```
 
 ## 技术栈
 
-- **平台**: Windows / macOS / Linux
-- **框架**: Electron 35 + React 18
-- **语言**: TypeScript 5
-- **终端**: xterm.js 5.x + addon-fit + addon-search + addon-web-links
-- **状态管理**: Zustand (persist 中间件)
-- **样式**: Tailwind CSS
-- **构建**: Vite 5 + electron-builder
-- **原生模块**: node-pty, serialport, ssh2, ftp-srv
-- **MCP 协议**: JSON-RPC 2.0 (HTTP SSE + streamableHttp), 协议版本 2025-03-26
+| 层级 | 技术 |
+|------|------|
+| **框架** | Electron 35 + React 18 |
+| **语言** | TypeScript 5 |
+| **终端** | xterm.js 5.x |
+| **状态管理** | Zustand (persist) |
+| **样式** | Tailwind CSS |
+| **构建** | Vite 5 + electron-builder |
+| **原生模块** | node-pty, serialport, ssh2, ftp-srv |
+| **MCP 协议** | JSON-RPC 2.0, streamableHttp + SSE, 协议版本 2025-03-26 |
 
 ## 文档
 
@@ -156,3 +198,7 @@ npx vitest run         # 运行 68 个单元测试
 | AI 使用指南 | MCP 工具参考与操作流程 |
 | 开发与优化方案 | 技术路线图 v0.2→v0.4 |
 | MCP 工具命名方案 | 命名空间重构设计 |
+
+## License
+
+[MIT](LICENSE)
