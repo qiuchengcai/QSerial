@@ -140,7 +140,7 @@ module.exports = {
       filter: ['**/*'],
     },
     {
-      from: 'node_modules/.pnpm/safer-buffer@2.1.2/node_modules/safer-buffer',
+      from: 'node_modules/safer-buffer',
       to: 'node_modules/safer-buffer',
       filter: ['**/*'],
     },
@@ -191,6 +191,51 @@ module.exports = {
     {
       from: 'node_modules/raw-body',
       to: 'node_modules/raw-body',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/bytes',
+      to: 'node_modules/bytes',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/http-errors',
+      to: 'node_modules/http-errors',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/depd',
+      to: 'node_modules/depd',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/inherits',
+      to: 'node_modules/inherits',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/setprototypeof',
+      to: 'node_modules/setprototypeof',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/statuses',
+      to: 'node_modules/statuses',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/toidentifier',
+      to: 'node_modules/toidentifier',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/iconv-lite',
+      to: 'node_modules/iconv-lite',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/unpipe',
+      to: 'node_modules/unpipe',
       filter: ['**/*'],
     },
     {

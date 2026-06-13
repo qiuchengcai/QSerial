@@ -4,9 +4,34 @@ const fs = require('fs');
 
 const ROOT = path.resolve(__dirname, '..');
 
-const SERVER_HOST = process.env.QSERIAL_HOST || 'SERVER_IP_REDACTED';
-const SERVER_USER = process.env.QSERIAL_USER || 'root';
-const WEB_ROOT = '/opt/qserial/website';
+// Load .env file
+function loadEnv() {
+  const envPath = path.join(ROOT, '.env');
+  if (!fs.existsSync(envPath)) {
+    console.error('Error: .env file not found. Copy .env.example to .env and fill in your server info.');
+    process.exit(1);
+  }
+  const content = fs.readFileSync(envPath, 'utf8');
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf('=');
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    const val = trimmed.slice(idx + 1).trim();
+    if (!process.env[key]) process.env[key] = val;
+  }
+}
+loadEnv();
+
+const SERVER_HOST = process.env.QSERIAL_HOST;
+const SERVER_USER = process.env.QSERIAL_USER;
+const WEB_ROOT = process.env.QSERIAL_WEB_ROOT || '/opt/qserial/website';
+
+if (!SERVER_HOST || !SERVER_USER) {
+  console.error('Error: QSERIAL_HOST and QSERIAL_USER must be set in .env');
+  process.exit(1);
+}
 
 function scp(src, dest) {
   const cmd = `scp ${src} ${SERVER_USER}@${SERVER_HOST}:${dest}`;
@@ -56,8 +81,8 @@ function printUsage() {
   --all       部署全部 (默认)
 
 环境变量:
-  QSERIAL_HOST  服务器地址 (默认: SERVER_IP_REDACTED)
-  QSERIAL_USER  SSH 用户   (默认: root)
+  QSERIAL_HOST    服务器地址 (.env)
+  QSERIAL_USER    SSH 用户   (.env)
 `);
 }
 
