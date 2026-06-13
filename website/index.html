@@ -66,6 +66,48 @@ body{
   pointer-events:none; z-index:0; opacity:.45;
 }
 
+/* Cursor trail canvas */
+#cursorCanvas{
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  pointer-events:none; z-index:9999;
+}
+
+/* Click burst particle */
+.click-particle{
+  position:fixed; pointer-events:none; z-index:9998;
+  border-radius:50%; animation:particleBurst .9s cubic-bezier(.16,1,.3,1) forwards;
+}
+@keyframes particleBurst{
+  0%{opacity:1;transform:translate(0,0) scale(1)}
+  100%{opacity:0;transform:translate(var(--vx), var(--vy)) scale(0)}
+}
+
+/* Data flow line */
+.data-flow{
+  position:absolute; pointer-events:none; z-index:0;
+  height:1px; background:linear-gradient(90deg, transparent, rgba(191,147,118,.35), transparent);
+  animation:flowDash 3s linear infinite; opacity:0;
+  transition:opacity .6s;
+}
+.data-flow.visible{opacity:1;}
+@keyframes flowDash{
+  0%{background-position:-200px 0}
+  100%{background-position:200px 0}
+}
+
+/* Section glow orb */
+.glow-orb{
+  position:absolute; pointer-events:none; z-index:0;
+  border-radius:50%; filter:blur(60px); opacity:.18;
+  animation:orbFloat 7s ease-in-out infinite;
+}
+@keyframes orbFloat{
+  0%,100%{transform:translate(0,0)}
+  25%{transform:translate(30px,-20px)}
+  50%{transform:translate(-20px,-40px)}
+  75%{transform:translate(-30px,10px)}
+}
+
 /* Typing cursor */
 .typing-cursor{ display:inline-block; width:2px; height:1em; background:var(--accent); margin-left:2px; vertical-align:text-bottom; animation:blink .8s step-end infinite; }
 @keyframes blink{ 0%,100%{opacity:1} 50%{opacity:0} }
@@ -375,7 +417,7 @@ footer a:hover{ color:var(--accent); }
 
 @media(prefers-reduced-motion:reduce){
   .reveal{ opacity:1; transform:none; transition:none; }
-  #particleCanvas{ display:none; }
+  #particleCanvas, #cursorCanvas, .click-particle, .glow-orb, .data-flow{ display:none; }
   *,*::before,*::after{ animation-duration:.01ms !important; }
 }
 </style>
@@ -661,6 +703,8 @@ footer a:hover{ color:var(--accent); }
 
 <button class="back-top" id="backTop" title="回到顶部">&uarr;</button>
 
+<canvas id="cursorCanvas"></canvas>
+
 <script>
 (function(){
 
@@ -727,6 +771,112 @@ const backTop = document.getElementById('backTop');
     resize();
     particles.forEach(function(p){ p.x = Math.random() * w; p.y = Math.random() * h; });
   });
+})();
+
+/* ── Cursor trail particles ── */
+(function(){
+  const canvas = document.getElementById('cursorCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  const trails = [];
+  const MAX_TRAIL = 30;
+  let mx = -100, my = -100;
+  let lastFrame = 0;
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  document.addEventListener('mousemove', function(e){
+    mx = e.clientX; my = e.clientY;
+  });
+
+  function draw(ts){
+    var dt = Math.min(ts - lastFrame, 50) / 16;
+    lastFrame = ts;
+    ctx.clearRect(0, 0, w, h);
+
+    if (mx > 0 && my > 0) {
+      trails.push({ x: mx, y: my, life: 1, r: 2 + Math.random() * 1.5, vx: (Math.random() - .5) * .8, vy: (Math.random() - .5) * .8 - .5 });
+      if (trails.length > MAX_TRAIL) trails.splice(0, trails.length - MAX_TRAIL);
+    }
+
+    for (var i = trails.length - 1; i >= 0; i--) {
+      var t = trails[i];
+      t.life -= 0.03 / dt;
+      t.x += t.vx * dt;
+      t.y += t.vy * dt;
+      if (t.life <= 0) { trails.splice(i, 1); continue; }
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r * t.life, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(191,147,118,' + (t.life * 0.4) + ')';
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+/* ── Click burst particles ── */
+(function(){
+  var colors = ['#bf9376','#d4a88c','#e8c4a8','#a67c5e','#f5ede7'];
+  document.addEventListener('click', function(e){
+    var count = 12;
+    for (var i = 0; i < count; i++) {
+      var p = document.createElement('span');
+      p.className = 'click-particle';
+      var angle = (i / count) * Math.PI * 2;
+      var dist = 30 + Math.random() * 40;
+      var vx = Math.cos(angle) * dist;
+      var vy = Math.sin(angle) * dist;
+      var size = 3 + Math.random() * 4;
+      p.style.cssText =
+        'left:' + e.clientX + 'px;top:' + e.clientY + 'px;' +
+        'width:' + size + 'px;height:' + size + 'px;' +
+        'background:' + colors[Math.floor(Math.random() * colors.length)] + ';' +
+        '--vx:' + vx + 'px;--vy:' + vy + 'px';
+      document.body.appendChild(p);
+      p.addEventListener('animationend', function(){ p.remove(); });
+    }
+  });
+})();
+
+/* ── Section glow orbs ── */
+(function(){
+  var sections = document.querySelectorAll('.section');
+  sections.forEach(function(sec){
+    var orb = document.createElement('div');
+    orb.className = 'glow-orb';
+    var size = 150 + Math.random() * 200;
+    orb.style.cssText =
+      'width:' + size + 'px;height:' + size + 'px;' +
+      'top:' + (10 + Math.random() * 60) + '%;' +
+      'left:' + (10 + Math.random() * 60) + '%;' +
+      'background:radial-gradient(circle, rgba(191,147,118,0.3) 0%, transparent 70%);' +
+      'animation-delay:' + (Math.random() * 5) + 's;' +
+      'animation-duration:' + (6 + Math.random() * 4) + 's';
+    sec.appendChild(orb);
+  });
+})();
+
+/* ── Data flow lines in tool section ── */
+(function(){
+  var toolSec = document.querySelector('.tool-cats');
+  if (toolSec && toolSec.parentElement) {
+    var flow = document.createElement('div');
+    flow.className = 'data-flow';
+    flow.style.cssText = 'top:50%;left:0;width:100%;';
+    toolSec.parentElement.style.position = 'relative';
+    toolSec.parentElement.appendChild(flow);
+    var obs = new IntersectionObserver(function(entries){
+      if (entries[0].isIntersecting) { flow.classList.add('visible'); obs.disconnect(); }
+    }, { threshold: .2 });
+    obs.observe(toolSec);
+  }
 })();
 
 /* ── AI chat typing ── */
