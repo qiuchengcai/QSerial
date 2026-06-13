@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" id="htmlroot">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QSerial - AI 时代的嵌入式终端</title>
-<meta name="description" content="QSerial 是专为嵌入式开发打造的 MCP 终端。让 AI 直接操控串口、SSH、Telnet 设备。43 个标准 MCP 工具覆盖连接管理、数据收发、设备探测、文件传输。">
+<title data-i18n="meta.title">QSerial - AI 时代的嵌入式终端</title>
+<meta name="description" data-i18n-content="meta.desc" content="QSerial 是专为嵌入式开发打造的 MCP 终端。让 AI 直接操控串口、SSH、Telnet 设备。43 个标准 MCP 工具覆盖连接管理、数据收发、设备探测、文件传输。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&family=Lora:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -190,6 +190,12 @@ img,svg{display:block;max-width:100%}
 @media(max-width:1024px){.cards-3,.toolmap-grid,.dl-grid{grid-template-columns:repeat(2,1fr)}.scene-grid{grid-template-columns:1fr}.scene-side{position:static}.cmp-grid{grid-template-columns:1fr;max-width:560px}.cmp-arrow{transform:rotate(90deg);margin:-8px auto}}
 @media(max-width:768px){.nav-links{display:none}.nav-burger{display:flex}.cards-3,.toolmap-grid,.dl-grid,.cmp-grid{grid-template-columns:1fr}.section{padding:72px 20px}.hero{padding:120px 20px 72px}.hero-actions{flex-direction:column;align-items:stretch}.hero-actions .btn{width:100%}.scene-card{flex-direction:column;gap:12px}.nav-cta .btn-primary{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}.reveal{opacity:1!important;transform:none!important}}
+
+.lang-toggle{padding:8px 14px!important;font-size:13px!important;font-weight:600!important;min-width:44px;letter-spacing:0.5px}
+@media(max-width:860px){
+  .lang-toggle{position:absolute;top:18px;right:64px;padding:6px 10px!important;font-size:12px!important}
+  .nav-burger{display:flex}
+}
 </style>
 </head>
 <body><nav class="nav" id="nav">
@@ -198,64 +204,65 @@ img,svg{display:block;max-width:100%}
     QSerial
   </a>
   <div class="nav-links">
-    <a href="#capabilities">核心能力</a>
-    <a href="#tools">工具地图</a>
-    <a href="#scenarios">应用场景</a>
-    <a href="#download">下载</a>
+    <a href="#capabilities" data-i18n="nav.capabilities">核心能力</a>
+    <a href="#tools" data-i18n="nav.tools">工具地图</a>
+    <a href="#scenarios" data-i18n="nav.scenarios">应用场景</a>
+    <a href="#download" data-i18n="nav.download">下载</a>
   </div>
   <div class="nav-cta">
-    <a href="https://github.com/echomcp/qserial" target="_blank" rel="noopener" class="btn btn-ghost" style="padding:10px 18px;font-size:14px"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub</a>
-    <a href="#download" class="btn btn-primary">免费下载</a>
+    <button id="langToggle" class="btn btn-ghost lang-toggle" type="button" aria-label="Switch language">EN</button>
+    <a href="https://github.com/qiuchengcai/QSerial" target="_blank" rel="noopener" class="btn btn-ghost" style="padding:10px 18px;font-size:14px"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub</a>
+    <a href="#download" class="btn btn-primary" data-i18n="nav.freeDownload">免费下载</a>
   </div>
-  <button class="nav-burger" id="burger" aria-label="菜单"><span></span><span></span><span></span></button>
+  <button class="nav-burger" id="burger" aria-label="菜单" data-i18n-attr="aria-label:nav.menuAria"><span></span><span></span><span></span></button>
 </nav>
 
 <header class="hero">
   <div class="hero-inner">
-    <div class="hero-badge"><span class="dot"></span>MCP 嵌入式终端 · v1.0.0</div>
+    <div class="hero-badge"><span class="dot"></span><span data-i18n="hero.badge">MCP 嵌入式终端</span> · v1.0.0</div>
     <h1 class="hero-title" id="heroTitle">
-      <span class="line"><span class="word">让你的</span> <span class="word">AI</span> <span class="word">助手，</span></span>
-      <span class="line"><span class="word grad">直接操控</span> <span class="word grad">硬件设备。</span></span>
+      <span class="line"><span class="word" data-i18n="hero.w1">让你的</span> <span class="word" data-i18n="hero.w2">AI</span> <span class="word" data-i18n="hero.w3">助手，</span></span>
+      <span class="line"><span class="word grad" data-i18n="hero.w4">直接操控</span> <span class="word grad" data-i18n="hero.w5">硬件设备。</span></span>
     </h1>
-    <p class="hero-sub" id="heroSub">将串口、SSH、Telnet 连接暴露为 AI 工具。用自然语言告诉 AI 想做什么，QSerial 在你的设备上执行——就像给 AI 装上了双手。</p>
+    <p class="hero-sub" id="heroSub" data-i18n="hero.sub">将串口、SSH、Telnet 连接暴露为 AI 工具。用自然语言告诉 AI 想做什么，QSerial 在你的设备上执行——就像给 AI 装上了双手。</p>
     <div class="hero-actions" id="heroActions">
-      <a href="#download" class="btn btn-primary">免费下载 QSerial<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
-      <a href="https://github.com/echomcp/qserial" target="_blank" rel="noopener" class="btn btn-ghost"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub →</a>
+      <a href="#download" class="btn btn-primary"><span data-i18n="hero.download">免费下载 QSerial</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
+      <a href="https://github.com/qiuchengcai/QSerial" target="_blank" rel="noopener" class="btn btn-ghost"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub →</a>
     </div>
     <div class="term" id="term">
       <div class="term-bar"><span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span><span class="term-title">qserial — bash</span></div>
       <div class="term-body">
-        <div class="term-line"><span class="term-prompt">$</span><span class="term-text">连接 COM3，读取设备版本信息</span></div>
-        <div class="term-line"><span class="term-prompt dim">#</span><span class="term-reply">[AI] 已连接 COM3 @ 115200bps</span></div>
-        <div class="term-line"><span class="term-prompt dim">#</span><span class="term-reply">[AI] 设备回复: ESP32 v4.2.1, Flash 4MB, Free Heap 280KB</span></div>
-        <div class="term-line"><span class="term-prompt">$</span><span class="term-text">把固件烧录进去并重启<span class="term-cursor"></span></span></div>
+        <div class="term-line"><span class="term-prompt">$</span><span class="term-text" data-i18n="hero.term1">连接 COM3，读取设备版本信息</span></div>
+        <div class="term-line"><span class="term-prompt dim">#</span><span class="term-reply" data-i18n="hero.term2">[AI] 已连接 COM3 @ 115200bps</span></div>
+        <div class="term-line"><span class="term-prompt dim">#</span><span class="term-reply" data-i18n="hero.term3">[AI] 设备回复: ESP32 v4.2.1, Flash 4MB, Free Heap 280KB</span></div>
+        <div class="term-line"><span class="term-prompt">$</span><span class="term-text" data-i18n="hero.term4">把固件烧录进去并重启<span class="term-cursor"></span></span></div>
       </div>
     </div>
   </div>
 </header><section class="section bg-warm" id="comparison">
   <div class="container">
-    <div class="section-head reveal"><span class="eyebrow">Visual Comparison</span><h2 class="section-title">从手动敲命令，到自然语言指挥</h2><p class="section-sub">同一件事，两种工作流的差距。</p></div>
+    <div class="section-head reveal"><span class="eyebrow">Visual Comparison</span><h2 class="section-title" data-i18n="cmp.title">从手动敲命令，到自然语言指挥</h2><p class="section-sub" data-i18n="cmp.sub">同一件事，两种工作流的差距。</p></div>
     <div class="cmp-grid">
       <div class="cmp-card old reveal reveal-left">
-        <span class="cmp-tag">传统方式</span>
-        <h3>繁琐的手动流程</h3>
+        <span class="cmp-tag" data-i18n="cmp.old.tag">传统方式</span>
+        <h3 data-i18n="cmp.old.title">繁琐的手动流程</h3>
         <ol class="step-list">
-          <li><span class="step-num">1</span><span>打开串口工具，手动选择波特率、数据位</span></li>
-          <li><span class="step-num">2</span><span>翻手册查 AT 指令，逐条输入测试</span></li>
-          <li><span class="step-num">3</span><span>复制输出到日志，肉眼比对版本号</span></li>
-          <li><span class="step-num">4</span><span>出错后从头排查，反复重启设备</span></li>
-          <li><span class="step-num">5</span><span>每台设备重复一遍以上流程</span></li>
+          <li><span class="step-num">1</span><span data-i18n="cmp.old.s1">打开串口工具，手动选择波特率、数据位</span></li>
+          <li><span class="step-num">2</span><span data-i18n="cmp.old.s2">翻手册查 AT 指令，逐条输入测试</span></li>
+          <li><span class="step-num">3</span><span data-i18n="cmp.old.s3">复制输出到日志，肉眼比对版本号</span></li>
+          <li><span class="step-num">4</span><span data-i18n="cmp.old.s4">出错后从头排查，反复重启设备</span></li>
+          <li><span class="step-num">5</span><span data-i18n="cmp.old.s5">每台设备重复一遍以上流程</span></li>
         </ol>
       </div>
       <div class="cmp-arrow pulse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
       <div class="cmp-card new reveal reveal-right reveal-d1">
-        <span class="cmp-tag">QSerial 方式</span>
-        <h3>一句话，AI 全部搞定</h3>
+        <span class="cmp-tag" data-i18n="cmp.new.tag">QSerial 方式</span>
+        <h3 data-i18n="cmp.new.title">一句话，AI 全部搞定</h3>
         <ol class="step-list">
-          <li><span class="step-num">1</span><span>对 AI 说："连接 COM3，读取版本"</span></li>
-          <li><span class="step-num">2</span><span>AI 自动选择参数、建立连接</span></li>
-          <li><span class="step-num">3</span><span>AI 解析输出，返回结构化结果</span></li>
-          <li><span class="step-num">4</span><span>异常时主动给出修复建议</span></li>
+          <li><span class="step-num">1</span><span data-i18n="cmp.new.s1">对 AI 说："连接 COM3，读取版本"</span></li>
+          <li><span class="step-num">2</span><span data-i18n="cmp.new.s2">AI 自动选择参数、建立连接</span></li>
+          <li><span class="step-num">3</span><span data-i18n="cmp.new.s3">AI 解析输出，返回结构化结果</span></li>
+          <li><span class="step-num">4</span><span data-i18n="cmp.new.s4">异常时主动给出修复建议</span></li>
         </ol>
       </div>
     </div>
@@ -264,50 +271,50 @@ img,svg{display:block;max-width:100%}
 
 <section class="section bg-white" id="capabilities">
   <div class="container">
-    <div class="section-head reveal"><span class="eyebrow">Core Capabilities</span><h2 class="section-title">你的 AI 助手，现在可以直接操控硬件</h2><p class="section-sub">QSerial 将所有设备连接暴露为标准 MCP 工具</p></div>
-    <div class="data-banner reveal reveal-scale"><span class="num"><span class="count" data-to="10">0</span><span class="x">×</span></span><span>效率提升 — 让 AI 替你敲命令</span></div>
+    <div class="section-head reveal"><span class="eyebrow">Core Capabilities</span><h2 class="section-title" data-i18n="cap.title">你的 AI 助手，现在可以直接操控硬件</h2><p class="section-sub" data-i18n="cap.sub">QSerial 将所有设备连接暴露为标准 MCP 工具</p></div>
+    <div class="data-banner reveal reveal-scale"><span class="num"><span class="count" data-to="10">0</span><span class="x">×</span></span><span data-i18n="cap.banner">效率提升 — 让 AI 替你敲命令</span></div>
     <div class="cards-3">
       <div class="card reveal reveal-d1">
         <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
-        <h3>自然语言操控设备</h3>
-        <p>对 AI 说出你要做的事，QSerial 自动翻译为设备命令并执行。不需要记 AT 指令，不需要查手册。</p>
+        <h3 data-i18n="cap.c1.t">自然语言操控设备</h3>
+        <p data-i18n="cap.c1.d">对 AI 说出你要做的事，QSerial 自动翻译为设备命令并执行。不需要记 AT 指令，不需要查手册。</p>
       </div>
       <div class="card reveal reveal-d2">
         <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
-        <h3>AI 自动诊断</h3>
-        <p>设备输出异常时，AI 自动分析日志、定位根因、给出修复建议。从被动查错到主动预防。</p>
+        <h3 data-i18n="cap.c2.t">AI 自动诊断</h3>
+        <p data-i18n="cap.c2.d">设备输出异常时，AI 自动分析日志、定位根因、给出修复建议。从被动查错到主动预防。</p>
       </div>
       <div class="card reveal reveal-d3">
         <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6h6V2"/><path d="M7 8h10a3 3 0 0 1 3 3v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a3 3 0 0 1 3-3z"/><line x1="12" y1="13" x2="12" y2="19"/></svg></div>
-        <h3>即插即用</h3>
-        <p>自动识别串口设备，<span class="hl"><span class="count" data-to="21">0</span> 种设备</span>自动探测，告别繁琐手动配置。</p>
+        <h3 data-i18n="cap.c3.t">即插即用</h3>
+        <p data-i18n="cap.c3.d" data-i18n-html="1">自动识别串口设备，<span class="hl"><span class="count" data-to="21">0</span> 种设备</span>自动探测，告别繁琐手动配置。</p>
       </div>
     </div>
   </div>
 </section><section class="section bg-gradient-warm" id="tools">
   <div class="container">
-    <div class="section-head reveal"><span class="eyebrow">Tool Map</span><div class="toolmap-num"><span class="n count" data-to="43">0</span> 个 MCP 工具</div><p class="toolmap-sub">不只是终端，是 AI 的硬件接口</p></div>
+    <div class="section-head reveal"><span class="eyebrow">Tool Map</span><div class="toolmap-num"><span class="n count" data-to="43">0</span><span data-i18n="tools.count"> 个 MCP 工具</span></div><p class="toolmap-sub" data-i18n="tools.sub">不只是终端，是 AI 的硬件接口</p></div>
     <div class="toolmap-grid" id="toolGrid"></div>
   </div>
 </section>
 
 <section class="section bg-white" id="scenarios">
   <div class="container">
-    <div class="section-head reveal"><span class="eyebrow">Full Scenario</span><h2 class="section-title">从 OTA 升级到远程管理，一网打尽</h2><p class="section-sub">覆盖嵌入式开发全链路的真实场景</p></div>
+    <div class="section-head reveal"><span class="eyebrow">Full Scenario</span><h2 class="section-title" data-i18n="scene.title">从 OTA 升级到远程管理，一网打尽</h2><p class="section-sub" data-i18n="scene.sub">覆盖嵌入式开发全链路的真实场景</p></div>
     <div class="scene-grid">
       <div class="scene-cards" id="sceneCards"></div>
       <aside class="scene-side reveal reveal-right">
         <div class="proto-tags">
-          <span class="proto-tag"><span class="pdot"></span>串口 UART</span>
+          <span class="proto-tag"><span class="pdot"></span><span data-i18n="scene.proto.serial">串口 UART</span></span>
           <span class="proto-tag"><span class="pdot"></span>SSH</span>
           <span class="proto-tag"><span class="pdot"></span>Telnet</span>
         </div>
         <div class="dev-card">
-          <h4>微控制器</h4>
+          <h4 data-i18n="scene.dev1">微控制器</h4>
           <ul><li>ESP32</li><li>STM32</li><li>Arduino</li><li>FreeRTOS</li></ul>
-          <h4>单板计算机</h4>
+          <h4 data-i18n="scene.dev2">单板计算机</h4>
           <ul><li>Raspberry Pi</li><li>NXP i.MX</li><li>U-Boot</li></ul>
-          <h4>网络设备</h4>
+          <h4 data-i18n="scene.dev3">网络设备</h4>
           <ul><li>Cisco IOS</li><li>OpenWrt</li><li>BusyBox</li></ul>
         </div>
       </aside>
@@ -318,47 +325,219 @@ img,svg{display:block;max-width:100%}
 <section class="section dl-section bg-gradient-warm" id="download">
   <div class="container">
     <div class="dl-banner reveal reveal-scale">
-      <h2>开源 · 免费 · 安全</h2>
-      <p>QSerial 基于 MIT 协议开源，代码完全透明。你的设备安全由你自己掌控——没有后门，不上传数据，所有操作都在本地完成。</p>
+      <h2 data-i18n="dl.title">开源 · 免费 · 安全</h2>
+      <p data-i18n="dl.sub">QSerial 基于 MIT 协议开源，代码完全透明。你的设备安全由你自己掌控——没有后门，不上传数据，所有操作都在本地完成。</p>
     </div>
     <div class="dl-grid">
       <div class="dl-card reveal reveal-d1">
-        <span class="ribbon">推荐</span>
+        <span class="ribbon" data-i18n="dl.installer.ribbon">推荐</span>
         <div class="dl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-        <h3>安装版 v1.0.0</h3><div class="dl-meta">Windows · 78 MB</div><div class="dl-note">一键安装，自动配置环境，推荐大多数用户。</div>
-        <a href="https://github.com/echomcp/qserial/releases" target="_blank" rel="noopener" class="btn btn-primary">下载 .exe</a>
+        <h3 data-i18n="dl.installer.title">安装版</h3><div class="dl-meta">Windows · 78 MB</div><div class="dl-note" data-i18n="dl.installer.note">一键安装，自动配置环境，推荐大多数用户。</div>
+        <a href="/download/installer/QSerial-1.0.0-x64-win.exe" download class="btn btn-primary" data-i18n="dl.btn.exe">下载 .exe</a>
       </div>
       <div class="dl-card reveal reveal-d2">
         <div class="dl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
-        <h3>便携版 v1.0.0</h3><div class="dl-meta">Windows · 109 MB</div><div class="dl-note">免安装，解压即用，适合 U 盘随身携带。</div>
-        <a href="https://github.com/echomcp/qserial/releases" target="_blank" rel="noopener" class="btn btn-ghost">下载 .zip</a>
+        <h3 data-i18n="dl.portable.title">便携版</h3><div class="dl-meta">Windows · 109 MB</div><div class="dl-note" data-i18n="dl.portable.note">免安装，解压即用，适合 U 盘随身携带。</div>
+        <a href="/download/portable/QSerial-1.0.0-x64-win-portable.zip" download class="btn btn-ghost" data-i18n="dl.btn.zip">下载 .zip</a>
       </div>
       <div class="dl-card reveal reveal-d3">
         <div class="dl-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
-        <h3>开源代码</h3><div class="dl-meta">MIT License · GitHub</div><div class="dl-note">代码完全透明，欢迎贡献、审计、二次开发。</div>
-        <a href="https://github.com/echomcp/qserial" target="_blank" rel="noopener" class="btn btn-ghost"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub</a>
+        <h3 data-i18n="dl.src.title">开源代码</h3><div class="dl-meta">MIT License · GitHub</div><div class="dl-note" data-i18n="dl.src.note">代码完全透明，欢迎贡献、审计、二次开发。</div>
+        <a href="https://github.com/qiuchengcai/QSerial" target="_blank" rel="noopener" class="btn btn-ghost"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub</a>
       </div>
     </div>
-    <p class="dl-foot reveal">支持 Windows 10 及以上系统 · 免费下载，无需注册</p>
+    <p class="dl-foot reveal" data-i18n="dl.foot">支持 Windows 10 及以上系统 · 免费下载，无需注册</p>
   </div>
 </section><footer class="footer">
-  <span>QSerial — AI 时代的嵌入式终端 · MIT License</span>
-  <a href="https://github.com/echomcp/qserial" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub</a>
+  <span data-i18n="footer.tag">QSerial — AI 时代的嵌入式终端</span> · MIT License
+  <a href="https://github.com/qiuchengcai/QSerial" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.9 18.6.5 12 .5z"/></svg>GitHub</a>
 </footer>
 
-<button class="backtop" id="backtop" aria-label="回到顶部"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+<button class="backtop" id="backtop" aria-label="回到顶部" data-i18n-attr="aria-label:footer.backAria"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
 
 <script>
 (function(){
   'use strict';
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ===== i18n (zh / en) ===== */
+  var LANG = (function(){
+    try { return localStorage.getItem('qserial-lang') || 'zh'; } catch(e) { return 'zh'; }
+  })();
+  var D = {
+    zh: {
+      'meta.title':'QSerial - AI 时代的嵌入式终端',
+      'meta.desc':'QSerial 是专为嵌入式开发打造的 MCP 终端。让 AI 直接操控串口、SSH、Telnet 设备。43 个标准 MCP 工具覆盖连接管理、数据收发、设备探测、文件传输。',
+      'nav.capabilities':'核心能力','nav.tools':'工具地图','nav.scenarios':'应用场景','nav.download':'下载',
+      'nav.freeDownload':'免费下载','nav.menuAria':'菜单','nav.langToggle':'EN',
+      'hero.badge':'MCP 嵌入式终端',
+      'hero.w1':'让你的','hero.w2':'AI','hero.w3':'助手，','hero.w4':'直接操控','hero.w5':'硬件设备。',
+      'hero.sub':'将串口、SSH、Telnet 连接暴露为 AI 工具。用自然语言告诉 AI 想做什么，QSerial 在你的设备上执行——就像给 AI 装上了双手。',
+      'hero.download':'免费下载 QSerial',
+      'hero.term1':'连接 COM3，读取设备版本信息',
+      'hero.term2':'[AI] 已连接 COM3 @ 115200bps',
+      'hero.term3':'[AI] 设备回复: ESP32 v4.2.1, Flash 4MB, Free Heap 280KB',
+      'hero.term4':'把固件烧录进去并重启',
+      'cmp.title':'从手动敲命令，到自然语言指挥','cmp.sub':'同一件事，两种工作流的差距。',
+      'cmp.old.tag':'传统方式','cmp.old.title':'繁琐的手动流程',
+      'cmp.old.s1':'打开串口工具，手动选择波特率、数据位',
+      'cmp.old.s2':'翻手册查 AT 指令，逐条输入测试',
+      'cmp.old.s3':'复制输出到日志，肉眼比对版本号',
+      'cmp.old.s4':'出错后从头排查，反复重启设备',
+      'cmp.old.s5':'每台设备重复一遍以上流程',
+      'cmp.new.tag':'QSerial 方式','cmp.new.title':'一句话，AI 全部搞定',
+      'cmp.new.s1':'对 AI 说："连接 COM3，读取版本"',
+      'cmp.new.s2':'AI 自动选择参数、建立连接',
+      'cmp.new.s3':'AI 解析输出，返回结构化结果',
+      'cmp.new.s4':'异常时主动给出修复建议',
+      'cap.title':'你的 AI 助手，现在可以直接操控硬件',
+      'cap.sub':'QSerial 将所有设备连接暴露为标准 MCP 工具',
+      'cap.banner':'效率提升 — 让 AI 替你敲命令',
+      'cap.c1.t':'自然语言操控设备',
+      'cap.c1.d':'对 AI 说出你要做的事，QSerial 自动翻译为设备命令并执行。不需要记 AT 指令，不需要查手册。',
+      'cap.c2.t':'AI 自动诊断',
+      'cap.c2.d':'设备输出异常时，AI 自动分析日志、定位根因、给出修复建议。从被动查错到主动预防。',
+      'cap.c3.t':'即插即用',
+      'cap.c3.d':'自动识别串口设备，<span class="hl"><span class="count" data-to="21">0</span> 种设备</span>自动探测，告别繁琐手动配置。',
+      'tools.count':' 个 MCP 工具','tools.unit':' 个工具',
+      'tools.sub':'不只是终端，是 AI 的硬件接口',
+      'tools.cat.conn':'连接管理','tools.cat.data':'数据收发','tools.cat.probe':'设备探测',
+      'tools.cat.file':'文件协议','tools.cat.hw':'硬件控制','tools.cat.rec':'录制监控',
+      'scene.title':'从 OTA 升级到远程管理，一网打尽',
+      'scene.sub':'覆盖嵌入式开发全链路的真实场景',
+      'scene.proto.serial':'串口 UART',
+      'scene.dev1':'微控制器','scene.dev2':'单板计算机','scene.dev3':'网络设备',
+      'scene.s1.t':'ESP32 OTA 升级','scene.s1.tag':'一句话完成固件推送',
+      'scene.s1.d':'对它说"把 build/esp32-firmware.bin 通过串口烧录到设备"，QSerial 自动完成 DTR/RTS 复位、XMODEM 传输、校验确认。',
+      'scene.s2.t':'批量注册登录','scene.s2.tag':'自动登录多台设备',
+      'scene.s2.d':'录制一次登录流程保存为宏——连接新设备时一键回放，自动跳过 BIOS/U-Boot 进入系统 Shell。',
+      'scene.s3.t':'日志异常监控','scene.s3.tag':'AI 7×24 监控设备',
+      'scene.s3.d':'设置 conn.watch 匹配"ERROR"、"CRASH"、"WDT reset" 等关键词，设备一旦输出异常即时获取 AI 分析。',
+      'scene.s4.t':'SSH 远程管理','scene.s4.tag':'一个会话管所有设备',
+      'scene.s4.d':'通过 SSH 连接 Linux 设备，支持 SFTP 文件管理。对 AI 说"检查所有连接的磁盘使用率"即可获得完整报告。',
+      'dl.title':'开源 · 免费 · 安全',
+      'dl.sub':'QSerial 基于 MIT 协议开源，代码完全透明。你的设备安全由你自己掌控——没有后门，不上传数据，所有操作都在本地完成。',
+      'dl.installer.ribbon':'推荐','dl.installer.title':'安装版',
+      'dl.installer.note':'一键安装，自动配置环境，推荐大多数用户。',
+      'dl.btn.exe':'下载 .exe',
+      'dl.portable.title':'便携版',
+      'dl.portable.note':'免安装，解压即用，适合 U 盘随身携带。',
+      'dl.btn.zip':'下载 .zip',
+      'dl.src.title':'开源代码',
+      'dl.src.note':'代码完全透明，欢迎贡献、审计、二次开发。',
+      'dl.foot':'支持 Windows 10 及以上系统 · 免费下载，无需注册',
+      'footer.tag':'QSerial — AI 时代的嵌入式终端','footer.backAria':'回到顶部'
+    },
+    en: {
+      'meta.title':'QSerial — The Embedded Terminal for the AI Era',
+      'meta.desc':'QSerial is an MCP terminal built for embedded development. Let AI directly control serial, SSH and Telnet devices. 43 standard MCP tools cover connection management, data I/O, device probing and file transfer.',
+      'nav.capabilities':'Capabilities','nav.tools':'Tool Map','nav.scenarios':'Scenarios','nav.download':'Download',
+      'nav.freeDownload':'Free Download','nav.menuAria':'Menu','nav.langToggle':'中文',
+      'hero.badge':'MCP Embedded Terminal',
+      'hero.w1':'Let your','hero.w2':'AI','hero.w3':'assistant','hero.w4':'directly control','hero.w5':'hardware.',
+      'hero.sub':'Expose serial, SSH and Telnet connections as AI tools. Tell AI in natural language what you want — QSerial executes it on your devices, like giving AI a pair of hands.',
+      'hero.download':'Download QSerial Free',
+      'hero.term1':'Connect COM3 and read the device version',
+      'hero.term2':'[AI] Connected COM3 @ 115200bps',
+      'hero.term3':'[AI] Device reply: ESP32 v4.2.1, Flash 4MB, Free Heap 280KB',
+      'hero.term4':'Flash the firmware and reboot',
+      'cmp.title':'From manual commands to natural-language control',
+      'cmp.sub':'The same task, two very different workflows.',
+      'cmp.old.tag':'The old way','cmp.old.title':'Tedious manual workflow',
+      'cmp.old.s1':'Open a serial tool, manually pick baud rate and data bits',
+      'cmp.old.s2':'Flip through the manual for AT commands, type them one by one',
+      'cmp.old.s3':'Copy output into a log, compare version numbers by eye',
+      'cmp.old.s4':'On errors, debug from scratch, reboot the device repeatedly',
+      'cmp.old.s5':'Repeat the whole flow for every single device',
+      'cmp.new.tag':'The QSerial way','cmp.new.title':'One sentence, AI handles it all',
+      'cmp.new.s1':'Tell AI: "Connect COM3 and read the version"',
+      'cmp.new.s2':'AI picks the parameters and establishes the connection',
+      'cmp.new.s3':'AI parses the output and returns structured results',
+      'cmp.new.s4':'On anomalies, AI proactively suggests fixes',
+      'cap.title':'Your AI assistant can now directly control hardware',
+      'cap.sub':'QSerial exposes every device connection as a standard MCP tool',
+      'cap.banner':'Productivity boost — let AI type the commands for you',
+      'cap.c1.t':'Control devices in natural language',
+      'cap.c1.d':'Tell AI what you want done. QSerial translates it into device commands and runs them — no need to memorize AT commands or dig through manuals.',
+      'cap.c2.t':'AI auto-diagnosis',
+      'cap.c2.d':'When a device outputs anomalies, AI automatically analyzes logs, pinpoints root causes and suggests fixes. From reactive debugging to proactive prevention.',
+      'cap.c3.t':'Plug and play',
+      'cap.c3.d':'Auto-detects serial devices, probes <span class="hl"><span class="count" data-to="21">0</span> device types</span> automatically — say goodbye to tedious manual setup.',
+      'tools.count':' MCP tools','tools.unit':' tools',
+      'tools.sub':'Not just a terminal — the hardware interface for AI',
+      'tools.cat.conn':'Connection','tools.cat.data':'Data I/O','tools.cat.probe':'Device Probe',
+      'tools.cat.file':'File Protocol','tools.cat.hw':'Hardware Control','tools.cat.rec':'Record & Watch',
+      'scene.title':'From OTA upgrades to remote management — all in one place',
+      'scene.sub':'Real-world scenarios across the entire embedded development chain',
+      'scene.proto.serial':'Serial UART',
+      'scene.dev1':'Microcontrollers','scene.dev2':'Single-board Computers','scene.dev3':'Network Devices',
+      'scene.s1.t':'ESP32 OTA Upgrade','scene.s1.tag':'Push firmware in one sentence',
+      'scene.s1.d':'Say "flash build/esp32-firmware.bin to the device over serial" — QSerial handles DTR/RTS reset, XMODEM transfer and checksum verification automatically.',
+      'scene.s2.t':'Batch Login Macro','scene.s2.tag':'Auto-login to multiple devices',
+      'scene.s2.d':'Record a login flow once and save it as a macro — replay it on new devices to skip BIOS/U-Boot and land straight in the system shell.',
+      'scene.s3.t':'Log Anomaly Watch','scene.s3.tag':'AI monitors devices 24/7',
+      'scene.s3.d':'Set conn.watch to match keywords like "ERROR", "CRASH", "WDT reset" — the moment a device outputs an anomaly, AI analysis kicks in.',
+      'scene.s4.t':'SSH Remote Management','scene.s4.tag':'One session for all devices',
+      'scene.s4.d':'Connect to Linux devices over SSH with SFTP file management. Tell AI "check disk usage on all connected devices" and get a full report.',
+      'dl.title':'Open Source · Free · Secure',
+      'dl.sub':'QSerial is open-sourced under the MIT license with fully transparent code. Your device security stays in your hands — no backdoors, no data uploads, everything runs locally.',
+      'dl.installer.ribbon':'Recommended','dl.installer.title':'Installer',
+      'dl.installer.note':'One-click install with automatic environment setup — recommended for most users.',
+      'dl.btn.exe':'Download .exe',
+      'dl.portable.title':'Portable',
+      'dl.portable.note':'No installation needed — unzip and run, perfect for carrying on a USB stick.',
+      'dl.btn.zip':'Download .zip',
+      'dl.src.title':'Source Code',
+      'dl.src.note':'Fully transparent code — contributions, audits and forks all welcome.',
+      'dl.foot':'Supports Windows 10 and above · Free download, no registration',
+      'footer.tag':'QSerial — The Embedded Terminal for the AI Era','footer.backAria':'Back to top'
+    }
+  };
+  function T(key){
+    var t = (D[LANG] && D[LANG][key]) || (D.zh[key]);
+    return t != null ? t : key;
+  }
+  function applyLang(){
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var key = el.getAttribute('data-i18n');
+      if (el.getAttribute('data-i18n-html') === '1') { el.innerHTML = T(key); }
+      else { el.textContent = T(key); }
+    });
+    document.querySelectorAll('[data-i18n-content]').forEach(function(el){
+      el.setAttribute('content', T(el.getAttribute('data-i18n-content')));
+    });
+    document.querySelectorAll('[data-i18n-attr]').forEach(function(el){
+      // format: "attrName:key"
+      el.getAttribute('data-i18n-attr').split(',').forEach(function(pair){
+        var p = pair.split(':');
+        el.setAttribute(p[0].trim(), T(p[1].trim()));
+      });
+    });
+    var htmlEl = document.getElementById('htmlroot');
+    if (htmlEl) htmlEl.setAttribute('lang', LANG === 'zh' ? 'zh-CN' : 'en');
+    var toggle = document.getElementById('langToggle');
+    if (toggle) toggle.textContent = T('nav.langToggle');
+    // re-render dynamic content (toolmap / scenes)
+    if (typeof renderTools === 'function') renderTools();
+    if (typeof renderScenes === 'function') renderScenes();
+    // re-trigger reveal so newly rendered nodes animate in
+    if (typeof setupReveal === 'function') setupReveal();
+    // re-run counters (innerHTML reset cleared them)
+    if (typeof setupCount === 'function') setupCount();
+  }
+  function toggleLang(){
+    LANG = (LANG === 'zh') ? 'en' : 'zh';
+    try { localStorage.setItem('qserial-lang', LANG); } catch(e) {}
+    applyLang();
+  }
+
   var tools = [
-    {icon:'plug', name:'连接管理', count:9, items:['conn.list','conn.create','conn.reconnect','session.save','session.load']},
-    {icon:'swap', name:'数据收发', count:7, items:['conn.data.read','conn.data.write','conn.data.send','conn.data.hex']},
-    {icon:'scan', name:'设备探测', count:5, items:['conn.analyze.probe','conn.script.run','conn.analyze.chip']},
-    {icon:'file', name:'文件协议', count:10, items:['conn.file.send (XMODEM/YMODEM)','sftp.upload','sftp.download','conn.file.recv']},
-    {icon:'cpu', name:'硬件控制', count:2, items:['conn.hw.dtr_rts','conn.hw.break']},
-    {icon:'rec', name:'录制监控', count:8, items:['conn.record.start','conn.watch.start','conn.record.stop','conn.watch.match']}
+    {icon:'plug', nameKey:'tools.cat.conn', count:9, items:['conn.list','conn.create','conn.reconnect','session.save','session.load']},
+    {icon:'swap', nameKey:'tools.cat.data', count:7, items:['conn.data.read','conn.data.write','conn.data.send','conn.data.hex']},
+    {icon:'scan', nameKey:'tools.cat.probe', count:5, items:['conn.analyze.probe','conn.script.run','conn.analyze.chip']},
+    {icon:'file', nameKey:'tools.cat.file', count:10, items:['conn.file.send (XMODEM/YMODEM)','sftp.upload','sftp.download','conn.file.recv']},
+    {icon:'cpu', nameKey:'tools.cat.hw', count:2, items:['conn.hw.dtr_rts','conn.hw.break']},
+    {icon:'rec', nameKey:'tools.cat.rec', count:8, items:['conn.record.start','conn.watch.start','conn.record.stop','conn.watch.match']}
   ];
   var icons = {
     plug:'<path d="M9 2v6"/><path d="M15 2v6"/><path d="M7 8h10a3 3 0 0 1 3 3v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a3 3 0 0 1 3-3z"/>',
@@ -368,28 +547,34 @@ img,svg{display:block;max-width:100%}
     cpu:'<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="4"/><line x1="15" y1="2" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="22"/><line x1="15" y1="20" x2="15" y2="22"/><line x1="20" y1="9" x2="22" y2="9"/><line x1="20" y1="14" x2="22" y2="14"/><line x1="2" y1="9" x2="4" y2="9"/><line x1="2" y1="14" x2="4" y2="14"/>',
     rec:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor"/>'
   };
+  function renderTools(){
   var tg = document.getElementById('toolGrid');
   if(tg){
     var html = '';
     tools.forEach(function(t,i){
-      html += '<div class="toolmap-card reveal reveal-d'+((i%3)+1)+'"><div class="toolmap-head"><div class="toolmap-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[t.icon]+'</svg></div><div><div class="toolmap-name">'+t.name+'</div><div class="toolmap-count">'+t.count+' 个工具</div></div></div><div class="toolmap-list">'+t.items.map(function(it){return '<code>'+it+'</code>';}).join('')+'</div></div>';
+      html += '<div class="toolmap-card reveal reveal-d'+((i%3)+1)+'"><div class="toolmap-head"><div class="toolmap-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+icons[t.icon]+'</svg></div><div><div class="toolmap-name">'+T(t.nameKey)+'</div><div class="toolmap-count">'+t.count+T('tools.unit')+'</div></div></div><div class="toolmap-list">'+t.items.map(function(it){return '<code>'+it+'</code>';}).join('')+'</div></div>';
     });
     tg.innerHTML = html;
   }
+  }
+  renderTools();
   var scenes = [
-    {c:'#6fcf97', icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>', title:'ESP32 OTA 升级', tag:'一句话完成固件推送', desc:'对它说"把 build/esp32-firmware.bin 通过串口烧录到设备"，QSerial 自动完成 DTR/RTS 复位、XMODEM 传输、校验确认。'},
-    {c:'#5b8def', icon:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', title:'批量注册登录', tag:'自动登录多台设备', desc:'录制一次登录流程保存为宏——连接新设备时一键回放，自动跳过 BIOS/U-Boot 进入系统 Shell。'},
-    {c:'#9b7ed8', icon:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', title:'日志异常监控', tag:'AI 7×24 监控设备', desc:'设置 conn.watch 匹配"ERROR"、"CRASH"、"WDT reset" 等关键词，设备一旦输出异常即时获取 AI 分析。'},
-    {c:'#e89545', icon:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>', title:'SSH 远程管理', tag:'一个会话管所有设备', desc:'通过 SSH 连接 Linux 设备，支持 SFTP 文件管理。对 AI 说"检查所有连接的磁盘使用率"即可获得完整报告。'}
+    {c:'#6fcf97', icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>', titleKey:'scene.s1.t', tagKey:'scene.s1.tag', descKey:'scene.s1.d'},
+    {c:'#5b8def', icon:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', titleKey:'scene.s2.t', tagKey:'scene.s2.tag', descKey:'scene.s2.d'},
+    {c:'#9b7ed8', icon:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', titleKey:'scene.s3.t', tagKey:'scene.s3.tag', descKey:'scene.s3.d'},
+    {c:'#e89545', icon:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>', titleKey:'scene.s4.t', tagKey:'scene.s4.tag', descKey:'scene.s4.d'}
   ];
+  function renderScenes(){
   var sg = document.getElementById('sceneCards');
   if(sg){
     var sh = '';
     scenes.forEach(function(s,i){
-      sh += '<div class="scene-card reveal reveal-left reveal-d'+(i+1)+'" style="--c:'+s.c+'"><div class="scene-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+s.icon+'</svg></div><div class="scene-body"><h3>'+s.title+'</h3><div class="tagline">'+s.tag+'</div><p>'+s.desc+'</p></div></div>';
+      sh += '<div class="scene-card reveal reveal-left reveal-d'+(i+1)+'" style="--c:'+s.c+'"><div class="scene-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+s.icon+'</svg></div><div class="scene-body"><h3>'+T(s.titleKey)+'</h3><div class="tagline">'+T(s.tagKey)+'</div><p>'+T(s.descKey)+'</p></div></div>';
     });
     sg.innerHTML = sh;
   }
+  }
+  renderScenes();
   function setupReveal(){
     var els = document.querySelectorAll('.reveal');
     if(reduceMotion || !('IntersectionObserver' in window)){els.forEach(function(el){el.classList.add('revealed');});return;}
@@ -441,7 +626,7 @@ img,svg{display:block;max-width:100%}
       else{links.style.display='flex';links.style.position='absolute';links.style.top='64px';links.style.left='0';links.style.right='0';links.style.flexDirection='column';links.style.background='#fff';links.style.padding='20px clamp(20px,5vw,64px)';links.style.boxShadow='0 8px 24px rgba(0,0,0,0.08)';links.style.gap='16px';}
     });
   }
-  document.addEventListener('DOMContentLoaded', function(){setupReveal();heroEntrance();setupCount();onScroll();});
+  document.addEventListener('DOMContentLoaded', function(){applyLang();setupReveal();heroEntrance();setupCount();onScroll();var lt=document.getElementById('langToggle');if(lt){lt.addEventListener('click',toggleLang);}});
 })();
 </script>
 </body>
