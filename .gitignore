@@ -72,3 +72,8 @@ resources/ftp-node-modules/
 
 # Environment variables (contains server credentials)
 .env
+
+# Auto-generated dependency mapping (build artifact)
+electron-builder.config.deps.cjs
+*.bak
+website/*.bak.*
