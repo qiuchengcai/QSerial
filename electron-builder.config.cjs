@@ -168,6 +168,48 @@ module.exports = {
       to: 'node_modules/uuid',
       filter: ['**/*'],
     },
+    // @modelcontextprotocol/sdk (MCP server)
+    {
+      from: 'node_modules/@modelcontextprotocol/sdk',
+      to: 'node_modules/@modelcontextprotocol/sdk',
+      filter: ['**/*'],
+    },
+    // @modelcontextprotocol/sdk 的依赖
+    {
+      from: 'node_modules/zod',
+      to: 'node_modules/zod',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/zod-to-json-schema',
+      to: 'node_modules/zod-to-json-schema',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/eventsource',
+      to: 'node_modules/eventsource',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/eventsource-parser',
+      to: 'node_modules/eventsource-parser',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/content-type',
+      to: 'node_modules/content-type',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/raw-body',
+      to: 'node_modules/raw-body',
+      filter: ['**/*'],
+    },
+    {
+      from: 'node_modules/cross-spawn',
+      to: 'node_modules/cross-spawn',
+      filter: ['**/*'],
+    },
     // ftp-srv 通过 extraResources 打包（依赖链较深，使用打平安装方式）
   ],
 

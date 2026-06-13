@@ -2193,13 +2193,13 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
 
   mcpAuthPassword = authPassword || '';
   mcpCorsOrigins = corsOrigins || [];
+  mcpListenAddress = listenAddress || '127.0.0.1';
   // Auto-generate password for remote access
   if (!mcpAuthPassword && mcpListenAddress !== '127.0.0.1' && mcpListenAddress !== 'localhost') {
     mcpAuthPassword = crypto.randomBytes(16).toString('hex');
     console.log('[MCP] Auto-generated password:', mcpAuthPassword);
     console.log('[MCP] Use: Authorization: Bearer ' + mcpAuthPassword);
   }
-  mcpListenAddress = listenAddress || '127.0.0.1';
   ConnectionFactory.onDestroy((conn) => removeBuffer(conn.id));
   loadPlugins();
 
