@@ -10,7 +10,6 @@ import { StatusBar } from './StatusBar';
 import { QuickButtonBar } from '../terminal/QuickButtonBar';
 import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useThemeStore } from '../../stores/theme';
-import { useTerminalStore } from '../../stores/terminal';
 import { useTftpStore } from '../../stores/tftp';
 import { SettingsDialog } from '../dialogs/SettingsDialog';
 import { ErrorToast, useGlobalError } from '../common/ErrorToast';
@@ -24,9 +23,6 @@ export const Layout: React.FC = () => {
   const quickButtonsState = useQuickButtonsStore();
   const isVertical = quickButtonsState?.direction === 'vertical';
   const { errorMessage, dismiss } = useGlobalError();
-
-  const terminalState = useTerminalStore();
-  const tabs = terminalState?.tabs || [];
 
 
   useGlobalShortcuts();

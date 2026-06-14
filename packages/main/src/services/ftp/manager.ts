@@ -88,6 +88,7 @@ function loadFtpSrv(): void {
     if (typeof FtpSrv !== 'function') {
       throw new Error(`模块导出类型异常: ${typeof mod}, keys: ${Object.keys(mod).join(',')}`);
     }
+  // eslint-disable-next-line no-useless-catch
   } catch (err) {
     console.error('[FTP] Failed to load ftp-srv:', err);
     throw new Error(`加载 ftp-srv 失败: ${(err as Error).message}`);

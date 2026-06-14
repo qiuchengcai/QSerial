@@ -134,7 +134,8 @@
     "baudRate": "波特率",
     "bytesSent": "已发送",
     "bytesReceived": "已接收",
-    "duration": "持续时间"
+    "duration": "持续时间",
+    "emptyHint": "点击左侧'终端'开始"
   },
   "statusBar": {
     "connected": "已连接",

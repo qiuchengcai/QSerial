@@ -92,22 +92,6 @@ export interface TelnetConnectionOptions extends BaseConnectionOptions {
 }
 
 /**
- * 串口服务端选项（TCP共享串口）
- * @deprecated 使用 ConnectionServerOptions 替代
- */
-export interface SerialServerOptions extends BaseConnectionOptions {
-  type: ConnectionType.SERIAL_SERVER;
-  serialPath: string; // 串口路径
-  baudRate: number;
-  dataBits: 5 | 6 | 7 | 8;
-  stopBits: 1 | 1.5 | 2;
-  parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
-  localPort: number; // 本地TCP监听端口
-  listenAddress?: string; // 本地TCP监听地址，默认 '0.0.0.0'
-  accessPassword?: string; // 访问密码，为空则无需认证
-}
-
-/**
  * 连接共享服务端选项（TCP共享任意连接）
  */
 export interface ConnectionServerOptions extends BaseConnectionOptions {
@@ -136,7 +120,6 @@ export type ConnectionOptions =
   | SerialConnectionOptions
   | SshConnectionOptions
   | TelnetConnectionOptions
-  | SerialServerOptions
   | ConnectionServerOptions;
 
 /**

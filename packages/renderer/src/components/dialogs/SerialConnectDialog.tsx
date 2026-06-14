@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ConnectionType, type SerialPortInfo } from '@qserial/shared';
+import type { SerialPortInfo } from '@qserial/shared';
 import type { SavedSession } from '@/stores/sessions';
 
 interface SerialConnectDialogProps {

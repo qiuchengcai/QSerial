@@ -169,7 +169,7 @@ async function runStep(
     if (step.expect) {
       const timeout = step.timeout_ms || 5000;
       const startWait = Date.now();
-      let output = existingOutput;
+      const output = existingOutput;
 
       while (Date.now() - startWait < timeout) {
         await sleep(100);

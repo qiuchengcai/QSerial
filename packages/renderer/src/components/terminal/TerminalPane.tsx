@@ -78,7 +78,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       fitAddonRef.current.fit();
       const { cols, rows } = xtermRef.current;
       window.qserial.connection.resize(connectionId, cols, rows).catch(() => {});
-      updateSessionSize(sessionId, cols, rows);
+       updateSessionSize(sessionId, cols, rows);
     } catch {
       // 忽略 resize 错误
     }
@@ -135,6 +135,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
       };
 
       const makeLine = (content: string) => {
+        // eslint-disable-next-line no-control-regex
         const visibleLen = getDisplayWidth(content.replace(/\x1b\[[0-9;]*m/g, ''));
         const padding = ' '.repeat(39 - visibleLen);
         return `  \x1b[1;36m|\x1b[0m ${content}${padding}\x1b[1;36m|\x1b[0m`;
@@ -932,3 +933,5 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
     </div>
   );
 });
+
+TerminalPane.displayName = 'TerminalPane';

@@ -5,7 +5,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSftpStore } from '@/stores/sftp';
 import { useTerminalStore } from '@/stores/terminal';
-import type { SftpFileInfo } from '@qserial/shared';
+
 
 // ============ SVG 图标组件 ============
 
@@ -296,7 +296,6 @@ export const SftpPanel: React.FC = () => {
   const terminalState = useTerminalStore();
   const terminalSessions = terminalState?.sessions || {};
   const tabs = terminalState?.tabs || [];
-  const activeTabId = terminalState?.activeTabId;
 
   const [isResizing, setIsResizing] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');

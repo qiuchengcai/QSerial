@@ -5,7 +5,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { McpServerStatus } from '@qserial/shared';
-import type { ConnectionType } from '@qserial/shared';
 
 interface McpConfig {
   port: number;
@@ -150,7 +149,7 @@ export function initMcpListeners(): void {
   window.qserial.mcp.onConnectionCreated(async (event) => {
     const { useTerminalStore } = await import('@/stores/terminal');
     const store = useTerminalStore.getState();
-    const tabId = store.createTab(event.name);
+    store.createTab(event.name);
     const ConnectionType = (await import('@qserial/shared')).ConnectionType;
     store.createSession(
       event.connectionId,

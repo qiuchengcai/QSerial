@@ -112,7 +112,7 @@ const NOTIFICATIONS_INFO = [
 interface McpDialogProps { isOpen: boolean; onClose: () => void; }
 
 export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
-  const { t } = useTranslation();
+  useTranslation();
   const {
     config,
     running,

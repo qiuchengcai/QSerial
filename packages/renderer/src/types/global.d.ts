@@ -2,7 +2,7 @@
  * 全局类型声明
  */
 
-import type { SerialPortInfo, SerialServerStatus, ConnectionServerStatus, McpServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent, NfsServerStatus, NfsMountHint, FtpServerStatus, FtpClientInfo, FtpClientEvent } from '@qserial/shared';
+import type { SerialPortInfo, ConnectionServerStatus, McpServerStatus, TftpTransferEvent, SftpFileInfo, SftpFileStat, SftpProgressEvent, NfsServerStatus, NfsMountHint, FtpServerStatus, FtpClientInfo, FtpClientEvent } from '@qserial/shared';
 
 interface QSerialAPI {
   connection: {
@@ -75,22 +75,6 @@ interface QSerialAPI {
     stop: (sessionId: string) => Promise<void>;
     write: (sessionId: string, data: string) => Promise<void>;
     pickFile: (defaultName?: string) => Promise<string | null>;
-  };
-
-  serialServer: {
-    start: (options: {
-      id: string;
-      serialPath: string;
-      baudRate: number;
-      dataBits: 5 | 6 | 7 | 8;
-      stopBits: 1 | 1.5 | 2;
-      parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
-      localPort: number;
-      listenAddress?: string;
-      accessPassword?: string;
-    }) => Promise<void>;
-    stop: (id: string) => Promise<void>;
-    getStatus: (id: string) => Promise<SerialServerStatus>;
   };
 
   // 连接共享服务（通用版）

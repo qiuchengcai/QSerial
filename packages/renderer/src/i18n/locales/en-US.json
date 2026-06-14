@@ -134,7 +134,8 @@
     "baudRate": "Baud Rate",
     "bytesSent": "Sent",
     "bytesReceived": "Received",
-    "duration": "Duration"
+    "duration": "Duration",
+    "emptyHint": "Click 'Terminal' on the left to start"
   },
   "statusBar": {
     "connected": "Connected",

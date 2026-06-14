@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTerminalStore } from '@/stores/terminal';
 import { ConnectionState } from '@qserial/shared';
 import { ContextMenu } from '../common/ContextMenu';
@@ -18,6 +19,7 @@ interface TabContextMenu {
 }
 
 export const TitleBar: React.FC = () => {
+  const { t } = useTranslation();
   const terminalState = useTerminalStore();
   const tabs = terminalState?.tabs || [];
   const activeTabId = terminalState?.activeTabId;
@@ -108,7 +110,7 @@ export const TitleBar: React.FC = () => {
         className="h-[30px] flex items-center gap-px px-1 overflow-x-auto overflow-y-hidden app-no-drag"
       >
         {tabs.length === 0 ? (
-          <span className="text-[11px] text-text-tertiary/40 ml-2">点击左侧"终端"开始</span>
+          <span className="text-[11px] text-text-tertiary/40 ml-2">{t('terminal.emptyHint')}</span>
         ) : (
           tabs.map((tab) => {
             const isActive = tab.id === activeTabId;

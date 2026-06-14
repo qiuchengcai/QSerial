@@ -199,7 +199,7 @@ export const Sidebar: React.FC = () => {
     if (cfg.type === 'pty' && cfg.ptyConfig) {
       const c = cfg.ptyConfig;
       setConnectingType('pty');
-      let sessionId: string | undefined; try {
+      try {
         const connectionId = crypto.randomUUID();
         await window.qserial.connection.create({ id: connectionId, name: cfg.name, type: ConnectionType.PTY, shell: c.shell, cwd: c.cwd, cols: 80, rows: 24, autoReconnect: terminalConfig.autoReconnect, reconnectInterval: terminalConfig.reconnectInterval, reconnectAttempts: terminalConfig.reconnectAttempts });
         await connectWithCleanup(connectionId, cfg.name, ConnectionType.PTY, undefined, undefined, cfg.id);

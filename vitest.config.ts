@@ -1,4 +1,4 @@
-﻿import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 
 export default defineConfig({
@@ -18,8 +18,16 @@ export default defineConfig({
         'packages/shared/src/**/*.ts',
       ],
       exclude: [
-        'packages/main/src/mcp/manager.ts',
+        'packages/main/src/services/mcp/manager.ts',
       ],
+      thresholds: {
+        'packages/shared/src': {
+          statements: 85,
+          branches: 80,
+          functions: 85,
+          lines: 85,
+        },
+      },
     },
   },
 });

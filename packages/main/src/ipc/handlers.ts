@@ -61,7 +61,6 @@ export function setupIpcHandlers(): void {
   setupNfsHandlers();
   setupFtpHandlers();
   setupLogHandlers();
-  setupSerialServerHandlers();
   setupConnectionServerHandlers();
   setupNetworkHandlers();
   setupFileHandlers();
@@ -85,42 +84,37 @@ function setupMainWindowRefs(): void {
  */
 function setupConnectionHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.CONNECTION_CREATE, async (_, { options }) => {
-    try {
-      const connection = await ConnectionFactory.create(options);
+    const connection = await ConnectionFactory.create(options);
 
-      connection.onData((data) => {
-        const base64Data = bufferToBase64(data);
-        safeSend(IPC_CHANNELS.CONNECTION_DATA, {
-          id: connection.id,
-          data: base64Data,
-        });
+    connection.onData((data) => {
+      const base64Data = bufferToBase64(data);
+      safeSend(IPC_CHANNELS.CONNECTION_DATA, {
+        id: connection.id,
+        data: base64Data,
       });
+    });
 
-      connection.onStateChange((state) => {
-        safeSend(IPC_CHANNELS.CONNECTION_STATE, {
-          id: connection.id,
-          state,
-        });
+    connection.onStateChange((state) => {
+      safeSend(IPC_CHANNELS.CONNECTION_STATE, {
+        id: connection.id,
+        state,
       });
+    });
 
-      connection.onError((error) => {
-        safeSend(IPC_CHANNELS.CONNECTION_ERROR, {
-          id: connection.id,
-          error: error.message,
-        });
+    connection.onError((error) => {
+      safeSend(IPC_CHANNELS.CONNECTION_ERROR, {
+        id: connection.id,
+        error: error.message,
       });
+    });
 
-      return { id: connection.id };
-    } catch (error) {
-      throw error;
-    }
+    return { id: connection.id };
   });
 
   ipcMain.handle(IPC_CHANNELS.CONNECTION_OPEN, async (_, { id }) => {
     const connection = ConnectionFactory.get(id);
     if (!connection) throw new Error(`Connection ${id} not found`);
-    try {
-      const { ConnectionType } = await import('@qserial/shared');
+    const { ConnectionType } = await import('@qserial/shared');
       if (connection.type === ConnectionType.SERIAL) {
         const serialOpts = connection.options as { path?: string };
         const serialPath = serialOpts.path?.toLowerCase();
@@ -153,9 +147,6 @@ function setupConnectionHandlers(): void {
       }
 
       await connection.open();
-    } catch (error) {
-      throw error;
-    }
   });
 
   ipcMain.handle(IPC_CHANNELS.CONNECTION_CLOSE, async (_, { id }) => {
@@ -341,21 +332,17 @@ function setupLogHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.LOG_START, async (_, { sessionId, filePath }) => {
-    try {
-      const existingStream = logStreams.get(sessionId);
-      if (existingStream) { existingStream.end(); }
+    const existingStream = logStreams.get(sessionId);
+    if (existingStream) { existingStream.end(); }
 
-      const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); }
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) { fs.mkdirSync(dir, { recursive: true }); }
 
-      const stream = fs.createWriteStream(filePath, { flags: 'a', encoding: 'utf-8' });
-      logStreams.set(sessionId, stream);
+    const stream = fs.createWriteStream(filePath, { flags: 'a', encoding: 'utf-8' });
+    logStreams.set(sessionId, stream);
 
-      const timestamp = new Date().toLocaleString();
-      stream.write(`\n========== 日志开始 [${timestamp}] ==========\n`);
-    } catch (error) {
-      throw error;
-    }
+    const timestamp = new Date().toLocaleString();
+    stream.write(`\n========== 日志开始 [${timestamp}] ==========\n`);
   });
 
   ipcMain.handle(IPC_CHANNELS.LOG_STOP, async (_, { sessionId }) => {
@@ -385,69 +372,6 @@ function setupLogHandlers(): void {
       } catch { /* ignore */ }
     }
     logStreams.clear();
-  });
-}
-
-/**
- * 串口共享服务相关处理器
- */
-function setupSerialServerHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.SERIAL_SERVER_START, async (_, options) => {
-    console.warn('[DEPRECATED] serialServer:start is deprecated. Use connectionServer:start instead.');
-    const { ConnectionType } = await import('@qserial/shared');
-    const { id, serialPath, baudRate, dataBits, stopBits, parity, localPort, listenAddress, accessPassword } = options;
-
-    const existingServer = ConnectionFactory.get(id);
-    if (existingServer) { await ConnectionFactory.destroy(id); }
-
-    const allConnections = ConnectionFactory.getAll();
-    const existingConnection = allConnections.find((c) => {
-      const opts = c.options as { path?: string; serialPath?: string };
-      const matchPath = opts.path?.toLowerCase() === serialPath.toLowerCase();
-      const matchSerialPath = opts.serialPath?.toLowerCase() === serialPath.toLowerCase();
-      return c.type === ConnectionType.SERIAL && (matchPath || matchSerialPath);
-    });
-
-    const connection = await ConnectionFactory.create({
-      id,
-      type: ConnectionType.SERIAL_SERVER,
-      name: `串口共享-${serialPath}`,
-      serialPath,
-      baudRate,
-      dataBits,
-      stopBits,
-      parity,
-      localPort,
-      listenAddress,
-      accessPassword,
-      autoReconnect: false,
-    });
-
-    await (connection as unknown as { open: (shared?: IConnection) => Promise<void> }).open(existingConnection);
-
-    connection.onData((data) => {
-      safeSend(IPC_CHANNELS.CONNECTION_DATA, { id: connection.id, data: bufferToBase64(data) });
-    });
-
-    connection.onStateChange((state) => {
-      safeSend(IPC_CHANNELS.CONNECTION_STATE, { id: connection.id, state });
-    });
-
-    connection.onError((error) => {
-      safeSend(IPC_CHANNELS.CONNECTION_ERROR, { id: connection.id, error: error.message });
-    });
-
-    return { id: connection.id };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.SERIAL_SERVER_STOP, async (_, { id }) => {
-    await ConnectionFactory.destroy(id);
-  });
-
-  ipcMain.handle(IPC_CHANNELS.SERIAL_SERVER_STATUS, async (_, { id }) => {
-    const connection = ConnectionFactory.get(id);
-    if (!connection) return { running: false, serialPath: '', localPort: 0, clientCount: 0 };
-    return (connection as unknown as { getStatus: () => unknown }).getStatus();
   });
 }
 

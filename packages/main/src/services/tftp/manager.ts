@@ -73,8 +73,8 @@ export function startTftpServer(port: number, rootDir: string): void {
     stopTftpServer();
   }
 
+  // eslint-disable-next-line no-useless-catch
   try {
-    // 创建服务器，不提供 requestListener，使用默认的
     server = tftp.createServer({
       host: '0.0.0.0',
       port: port,

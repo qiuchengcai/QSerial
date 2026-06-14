@@ -10,10 +10,14 @@ type AnyRecord = Record<string, any>;
 export function stripAnsi(text: string): string {
   if (!text) return text;
   return text
+    // eslint-disable-next-line no-control-regex
     .replace(/\x1b\][^\x07]*\x07/g, '')       // OSC terminated by BEL
+    // eslint-disable-next-line no-control-regex
     .replace(/\x1b\][^\x1b]*\x1b\\/g, '')     // OSC terminated by ST
+    // eslint-disable-next-line no-control-regex
     .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '') // CSI: \x1b[...final
-    .replace(/\x1b[@-Z\^_]/g, '');             // Other escape sequences
+    // eslint-disable-next-line no-control-regex
+    .replace(/\x1b[@-Z^_]/g, '');             // Other escape sequences
 }
 
 /** Extract shell prompt text from terminal output */

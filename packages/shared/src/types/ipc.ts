@@ -75,9 +75,6 @@ export const IPC_CHANNELS = {
   LOG_PICK_FILE: 'log:pickFile',
 
   // 连接共享服务
-  SERIAL_SERVER_START: 'serialServer:start',
-  SERIAL_SERVER_STOP: 'serialServer:stop',
-  SERIAL_SERVER_STATUS: 'serialServer:status',
   CONNECTION_SERVER_START: 'connectionServer:start',
   CONNECTION_SERVER_STOP: 'connectionServer:stop',
   CONNECTION_SERVER_STATUS: 'connectionServer:status',
@@ -153,19 +150,6 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.LOG_STOP]: { sessionId: string };
   [IPC_CHANNELS.LOG_WRITE]: { sessionId: string; data: string };
   [IPC_CHANNELS.LOG_PICK_FILE]: { defaultName?: string };
-  [IPC_CHANNELS.SERIAL_SERVER_START]: {
-    id: string;
-    serialPath: string;
-    baudRate: number;
-    dataBits: 5 | 6 | 7 | 8;
-    stopBits: 1 | 1.5 | 2;
-    parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
-    localPort: number;
-    listenAddress?: string;
-    accessPassword?: string;
-  };
-  [IPC_CHANNELS.SERIAL_SERVER_STOP]: { id: string };
-  [IPC_CHANNELS.SERIAL_SERVER_STATUS]: { id: string };
   [IPC_CHANNELS.CONNECTION_SERVER_START]: {
     id: string;
     sourceType: 'existing' | 'new';
@@ -242,9 +226,6 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.LOG_STOP]: void;
   [IPC_CHANNELS.LOG_WRITE]: void;
   [IPC_CHANNELS.LOG_PICK_FILE]: string | null;
-  [IPC_CHANNELS.SERIAL_SERVER_START]: void;
-  [IPC_CHANNELS.SERIAL_SERVER_STOP]: void;
-  [IPC_CHANNELS.SERIAL_SERVER_STATUS]: SerialServerStatus;
   [IPC_CHANNELS.CONNECTION_SERVER_START]: void;
   [IPC_CHANNELS.CONNECTION_SERVER_STOP]: void;
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: ConnectionServerStatus;
@@ -411,20 +392,6 @@ export interface FtpClientEvent {
   port?: number;
   userName?: string;
   action: 'connected' | 'disconnected';
-}
-
-/**
- * 串口服务端状态
- * @deprecated 使用 ConnectionServerStatus 替代
- */
-export interface SerialServerStatus {
-  running: boolean;
-  serialPath: string;
-  localPort: number;
-  listenAddress: string;
-  clientCount: number;
-  clients: string[];
-  hasPassword: boolean;
 }
 
 /**

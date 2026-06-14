@@ -146,27 +146,6 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.LOG_PICK_FILE, { defaultName }),
   },
 
-  // 串口共享服务
-  serialServer: {
-    start: (options: {
-      id: string;
-      serialPath: string;
-      baudRate: number;
-      dataBits: 5 | 6 | 7 | 8;
-      stopBits: 1 | 1.5 | 2;
-      parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
-      localPort: number;
-      listenAddress?: string;
-      accessPassword?: string;
-    }) => {
-      return ipcRenderer.invoke(IPC_CHANNELS.SERIAL_SERVER_START, options);
-    },
-    stop: (id: string) =>
-      ipcRenderer.invoke(IPC_CHANNELS.SERIAL_SERVER_STOP, { id }),
-    getStatus: (id: string) =>
-      ipcRenderer.invoke(IPC_CHANNELS.SERIAL_SERVER_STATUS, { id }),
-  },
-
   // 连接共享服务（通用版，支持任意连接类型）
   connectionServer: {
     start: (options: {

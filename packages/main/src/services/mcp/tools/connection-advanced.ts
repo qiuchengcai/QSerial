@@ -456,6 +456,7 @@ export const connAdvancedHandlers: Record<string, ToolHandler> = {
     const rec2 = ctx.recordings.get(replayId);
     if (!rec2) return formatError('NOT_FOUND', 'no active recording');
     const text = rec2.frames.map(f => f.data).join('');
+    // eslint-disable-next-line no-control-regex
     const compact = text.replace(/\x1b\[\d+;\d+R/g, '').replace(/\x1b\]0;[^\x07]*\x07/g, '');
     return formatOk({ recording_id: rec2.id, frames: rec2.frames.length, duration_ms: Date.now() - rec2.startedAt, speed, output: compact.slice(0, 50000) });
   },

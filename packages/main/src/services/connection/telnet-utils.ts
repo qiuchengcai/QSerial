@@ -1,6 +1,6 @@
 /**
  * TELNET 协议常量与工具函数
- * 由 serialServer 和 connectionServer 共享
+ * 由 connectionServer 使用
  */
 
 import * as net from 'node:net';
