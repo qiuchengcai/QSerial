@@ -230,8 +230,9 @@ export const appHandlers: Record<string, ToolHandler> = {
     }
     try {
       const fps = (args.fps as number) || 10;
-      const id = await startRecording(ctx.mainWindow, fps);
-      return formatOk({ recording_id: id, fps, message: 'Recording started. Use app.record.stop to finish.' });
+      const format = (args.format === 'webm' ? 'webm' : 'mp4') as 'mp4' | 'webm';
+      const id = await startRecording(ctx.mainWindow, fps, format);
+      return formatOk({ recording_id: id, fps, format, message: 'Recording started. Use app.record.stop to finish.' });
     } catch (e) { return formatError('INTERNAL', (e as Error).message); }
   },
 
@@ -244,6 +245,7 @@ export const appHandlers: Record<string, ToolHandler> = {
       return formatOk({
         recording_id: result.id,
         file: result.file,
+        format: result.format,
         size_bytes: result.size,
         size_mb: Math.round(result.size / 1024 / 1024 * 100) / 100,
         duration_ms: result.duration_ms,

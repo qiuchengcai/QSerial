@@ -36,6 +36,7 @@ interface ActiveRecording {
   id: string;
   window: BrowserWindow;
   fps: number;
+  format: 'mp4' | 'webm';
   frameDir: string;
   frameCount: number;
   interval: ReturnType<typeof setInterval> | null;
@@ -53,6 +54,7 @@ function createTempDir(): string {
 export async function startRecording(
   window: BrowserWindow,
   fps: number = 10,
+  format: 'mp4' | 'webm' = 'mp4',
 ): Promise<string> {
   const id = `rec_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const frameDir = createTempDir();
@@ -61,6 +63,7 @@ export async function startRecording(
     id,
     window,
     fps: Math.min(Math.max(fps, 1), 30),
+    format,
     frameDir,
     frameCount: 0,
     interval: null,
@@ -84,11 +87,13 @@ export async function startRecording(
 export async function stopRecording(
   id: string,
   outputPath?: string,
-): Promise<{ id: string; duration_ms: number; frames: number; fps: number; file: string; size: number }> {
+): Promise<{ id: string; duration_ms: number; frames: number; fps: number; format: string; file: string; size: number }> {
   const recording = activeRecordings.get(id);
   if (!recording) {
     throw new Error(`Recording not found: ${id}`);
   }
+
+  const format = recording.format || 'mp4';
 
   if (recording.interval) {
     clearInterval(recording.interval);
@@ -106,10 +111,11 @@ export async function stopRecording(
     throw new Error('No frames captured');
   }
 
+  const defaultExt = format === 'webm' ? '.webm' : '.mp4';
   const outFile = outputPath || path.resolve(
     process.cwd?.() || __dirname,
     '../../docs',
-    `recording-${Date.now()}.mp4`,
+    `recording-${Date.now()}${defaultExt}`,
   );
   const outDir = path.dirname(outFile);
   fs.mkdirSync(outDir, { recursive: true });
@@ -118,14 +124,26 @@ export async function stopRecording(
   const ffmpegBin = await getFfmpegPath();
 
   return new Promise((resolve, reject) => {
-    const args = [
+    const args: string[] = [
       '-y', '-framerate', String(recording.fps),
       '-i', framePattern,
-      '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
-      '-preset', 'fast', '-crf', '23',
-      '-movflags', '+faststart',
-      outFile,
     ];
+
+    if (format === 'webm') {
+      args.push(
+        '-c:v', 'libvpx', '-pix_fmt', 'yuv420p',
+        '-b:v', '1M', '-deadline', 'realtime',
+        '-crf', '10',
+      );
+    } else {
+      args.push(
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+        '-preset', 'fast', '-crf', '23',
+        '-movflags', '+faststart',
+      );
+    }
+
+    args.push(outFile);
 
     const ffmpeg = spawn(ffmpegBin, args, { windowsHide: true });
     let stderr = '';
@@ -139,7 +157,7 @@ export async function stopRecording(
         return;
       }
       const stat = fs.statSync(outFile);
-      resolve({ id: recording.id, duration_ms, frames: recording.frameCount, fps: recording.fps, file: outFile, size: stat.size });
+      resolve({ id: recording.id, duration_ms, frames: recording.frameCount, fps: recording.fps, format, file: outFile, size: stat.size });
     });
 
     ffmpeg.on('error', (err: Error) => {
