@@ -7,7 +7,25 @@ import { createSftp, destroySftp, listDirectory, downloadFile, uploadFile, mkdir
 import type { ToolHandler } from '../types';
 
 export const sftpHandlers: Record<string, ToolHandler> = {
-  'sftp.connect': async (args) => {
+  'sftp.standalone_connect': async (args) => {
+    const host = args.host as string;
+    const port = (args.port as number) || 22;
+    const username = args.username as string;
+    if (!host || !username) return formatError('MISSING_PARAM', 'missing host or username');
+    const { createStandaloneSftp } = await import('../../sftp/manager.js');
+    try {
+      const sftpId = await createStandaloneSftp({
+        host,
+        port,
+        username,
+        password: args.password as string | undefined,
+        privateKey: args.private_key as string | undefined,
+      });
+      return formatOk({ sftp_id: sftpId, host, port, username });
+    } catch (e: any) { return formatError('SFTP_ERROR', e.message); }
+  },
+
+    'sftp.connect': async (args) => {
     const sftpConnId = ((args.id || args.connectionId) as string);
     if (!sftpConnId) return formatError('MISSING_PARAM', 'missing id');
     try {

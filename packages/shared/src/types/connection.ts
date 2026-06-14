@@ -10,6 +10,7 @@ export enum ConnectionType {
   SERIAL = 'serial',
   SSH = 'ssh',
   TELNET = 'telnet',
+  SFTP = 'sftp',
   SERIAL_SERVER = 'serial_server', // @deprecated 使用 CONNECTION_SERVER
   CONNECTION_SERVER = 'connection_server', // 连接共享服务端（TCP共享任意连接）
 }
@@ -82,6 +83,24 @@ export interface SshConnectionOptions extends BaseConnectionOptions {
 }
 
 /**
+ * SFTP ??????? SFTP ??????? SSH ?????
+ */
+export interface SftpConnectionOptions extends BaseConnectionOptions {
+  type: ConnectionType.SFTP;
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+  keepaliveInterval?: number;
+  /** ???? SSH ??????? true */
+  verifyHostKey?: boolean;
+  /** SSH jump host (bastion) */
+  jumpHost?: { host: string; port?: number; username: string; password?: string; privateKey?: string };
+}
+
+/**
  * Telnet 连接选项
  */
 export interface TelnetConnectionOptions extends BaseConnectionOptions {
@@ -119,6 +138,7 @@ export type ConnectionOptions =
   | PtyConnectionOptions
   | SerialConnectionOptions
   | SshConnectionOptions
+  | SftpConnectionOptions
   | TelnetConnectionOptions
   | ConnectionServerOptions;
 

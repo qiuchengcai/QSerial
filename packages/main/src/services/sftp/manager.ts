@@ -6,6 +6,7 @@
 import { Client } from 'ssh2';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { BrowserWindow, ipcMain } from 'electron';
 import { IPC_CHANNELS, SftpFileInfo, SftpFileStat, SftpProgressEvent } from '@qserial/shared';
 import { ConnectionFactory } from '../connection/factory.js';
@@ -33,6 +34,9 @@ interface SftpInstance {
 
 // SFTP 实例存储
 const sftpInstances = new Map<string, SftpInstance>();
+
+// ?? SFTP ??????? SSH ???
+const standaloneClients = new Map<string, Client>();
 
 // 主窗口引用（用于发送进度事件）
 let mainWindow: BrowserWindow | null = null;
@@ -128,6 +132,13 @@ export async function destroySftp(sftpId: string): Promise<void> {
   const sftp = instance.sftp as { end?: () => void };
   if (sftp.end) {
     sftp.end();
+  }
+
+  // ???? SFTP ???
+  const standaloneClient = standaloneClients.get(sftpId);
+  if (standaloneClient) {
+    try { standaloneClient.end(); } catch { /* ignore */ }
+    standaloneClients.delete(sftpId);
   }
 
   sftpInstances.delete(sftpId);
@@ -473,8 +484,25 @@ export async function realpath(sftpId: string, remotePath: string): Promise<stri
  * 设置 SFTP IPC 处理器
  */
 export function setupSftpHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.SFTP_CREATE, async (_, { connectionId }) => {
-    const sftpId = await withTimeout(createSftp(connectionId), 'createSftp');
+  ipcMain.handle(IPC_CHANNELS.SFTP_CREATE, async (_, params) => {
+    let sftpId: string;
+    // ?? SFTP ????? host/port/username ???
+    if (params.host && params.username) {
+      sftpId = await withTimeout(
+        createStandaloneSftp({
+          host: params.host,
+          port: params.port || 22,
+          username: params.username,
+          password: params.password,
+          privateKey: params.privateKey,
+        }),
+        'createStandaloneSftp'
+      );
+    } else if (params.connectionId) {
+      sftpId = await withTimeout(createSftp(params.connectionId), 'createSftp');
+    } else {
+      throw new Error('????????? connectionId ? host+username');
+    }
     return { sftpId };
   });
 

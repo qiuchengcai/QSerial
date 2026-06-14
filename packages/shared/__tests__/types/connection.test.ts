@@ -7,9 +7,9 @@ import { describe, it, expect } from 'vitest';
 import { ConnectionType, ConnectionState } from '../../src/types/connection.js';
 
 describe('ConnectionType', () => {
-  it('should have 6 connection types', () => {
+  it('should have 7 connection types', () => {
     const values = Object.values(ConnectionType);
-    expect(values).toHaveLength(6);
+    expect(values).toHaveLength(7);
   });
 
   it('should map correctly', () => {

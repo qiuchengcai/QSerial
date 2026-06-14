@@ -173,7 +173,7 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.GET_LOCAL_IP]: void;
   [IPC_CHANNELS.READ_FILE]: { path: string };
   [IPC_CHANNELS.DIALOG_PICK_DIR]: { title: string };
-  [IPC_CHANNELS.SFTP_CREATE]: { connectionId: string };
+  [IPC_CHANNELS.SFTP_CREATE]: { connectionId: string } | { host: string; port?: number; username: string; password?: string; privateKey?: string };
   [IPC_CHANNELS.SFTP_DESTROY]: { sftpId: string };
   [IPC_CHANNELS.SFTP_LIST]: { sftpId: string; path: string };
   [IPC_CHANNELS.SFTP_DOWNLOAD]: { sftpId: string; remotePath: string; localPath: string };
