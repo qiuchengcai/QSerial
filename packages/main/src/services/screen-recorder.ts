@@ -9,18 +9,27 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawn } from 'node:child_process';
 
-let ffmpegPath: string;
-// Packaged: ffmpeg-static is in extraResources. Dev: in node_modules.
-const extraResPath = path.join(process.resourcesPath, "ffmpeg-static", "ffmpeg.exe");
-const bundled = process.platform === "win32" ? extraResPath : path.join(process.resourcesPath, "ffmpeg-static", "ffmpeg");
-if (fs.existsSync(bundled)) {
-  ffmpegPath = bundled;
-} else {
-  try {
-    ffmpegPath = require("ffmpeg-static");
-  } catch {
-    ffmpegPath = "ffmpeg";
+let ffmpegPath = '';
+
+async function getFfmpegPath(): Promise<string> {
+  if (ffmpegPath) return ffmpegPath;
+
+  const extraResPath = path.join(process.resourcesPath, 'ffmpeg-static', 'ffmpeg.exe');
+  const bundled = process.platform === 'win32'
+    ? extraResPath
+    : path.join(process.resourcesPath, 'ffmpeg-static', 'ffmpeg');
+  if (fs.existsSync(bundled)) {
+    ffmpegPath = bundled;
+    return ffmpegPath;
   }
+
+  try {
+    const m: any = await import('ffmpeg-static');
+    ffmpegPath = String(m.default || m);
+  } catch {
+    ffmpegPath = 'ffmpeg';
+  }
+  return ffmpegPath;
 }
 
 interface ActiveRecording {
@@ -59,17 +68,13 @@ export async function startRecording(
   };
 
   recording.interval = setInterval(async () => {
-    if (window.isDestroyed()) {
-      return;
-    }
+    if (window.isDestroyed()) return;
     try {
       const image = await window.webContents.capturePage();
       const framePath = path.join(frameDir, `frame_${String(recording.frameCount).padStart(6, '0')}.png`);
       fs.writeFileSync(framePath, image.toPNG());
       recording.frameCount++;
-    } catch {
-      // 窗口可能被最小化或不可访问
-    }
+    } catch { /* window might be minimized */ }
   }, Math.round(1000 / recording.fps));
 
   activeRecordings.set(id, recording);
@@ -91,19 +96,16 @@ export async function stopRecording(
   }
 
   activeRecordings.delete(id);
-
   const duration_ms = Date.now() - recording.startedAt;
 
-  // 等待最后一帧写入
+  // Wait for last frame to write
   await new Promise((r) => setTimeout(r, 200));
 
   if (recording.frameCount === 0) {
-    // 没有帧，清理临时目录
     fs.rmSync(recording.frameDir, { recursive: true, force: true });
     throw new Error('No frames captured');
   }
 
-  // 默认输出到 docs 目录
   const outFile = outputPath || path.resolve(
     process.cwd?.() || __dirname,
     '../../docs',
@@ -112,47 +114,32 @@ export async function stopRecording(
   const outDir = path.dirname(outFile);
   fs.mkdirSync(outDir, { recursive: true });
 
-  // 使用 ffmpeg 编码
   const framePattern = path.join(recording.frameDir, 'frame_%06d.png');
+  const ffmpegBin = await getFfmpegPath();
 
   return new Promise((resolve, reject) => {
     const args = [
-      '-y',
-      '-framerate', String(recording.fps),
+      '-y', '-framerate', String(recording.fps),
       '-i', framePattern,
-      '-c:v', 'libx264',
-      '-pix_fmt', 'yuv420p',
-      '-preset', 'fast',
-      '-crf', '23',
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+      '-preset', 'fast', '-crf', '23',
       '-movflags', '+faststart',
       outFile,
     ];
 
-    const ffmpeg = spawn(ffmpegPath, args, { windowsHide: true });
-
+    const ffmpeg = spawn(ffmpegBin, args, { windowsHide: true });
     let stderr = '';
-    ffmpeg.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
 
-    ffmpeg.on('close', (code: number) => {
-      // 清理临时帧目录
+    ffmpeg.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    ffmpeg.on('close', (code: number | null) => {
       fs.rmSync(recording.frameDir, { recursive: true, force: true });
-
       if (code !== 0) {
         reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-500)}`));
         return;
       }
-
       const stat = fs.statSync(outFile);
-      resolve({
-        id: recording.id,
-        duration_ms,
-        frames: recording.frameCount,
-        fps: recording.fps,
-        file: outFile,
-        size: stat.size,
-      });
+      resolve({ id: recording.id, duration_ms, frames: recording.frameCount, fps: recording.fps, file: outFile, size: stat.size });
     });
 
     ffmpeg.on('error', (err: Error) => {
@@ -164,19 +151,14 @@ export async function stopRecording(
 
 export function listRecordings(): Array<{ id: string; startedAt: number; elapsed_ms: number; fps: number; frames: number }> {
   return Array.from(activeRecordings.values()).map((r) => ({
-    id: r.id,
-    startedAt: r.startedAt,
-    elapsed_ms: Date.now() - r.startedAt,
-    fps: r.fps,
-    frames: r.frameCount,
+    id: r.id, startedAt: r.startedAt, elapsed_ms: Date.now() - r.startedAt, fps: r.fps, frames: r.frameCount,
   }));
 }
 
 export function stopAllRecordings(): void {
-  for (const id of activeRecordings.keys()) {
-    const recording = activeRecordings.get(id)!;
-    if (recording.interval) clearInterval(recording.interval);
-    fs.rmSync(recording.frameDir, { recursive: true, force: true });
+  for (const [id, r] of activeRecordings) {
+    if (r.interval) clearInterval(r.interval);
+    fs.rmSync(r.frameDir, { recursive: true, force: true });
     activeRecordings.delete(id);
   }
 }
