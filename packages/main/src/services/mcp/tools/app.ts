@@ -118,13 +118,109 @@ export const appHandlers: Record<string, ToolHandler> = {
       if (!macro) return formatError('NOT_FOUND', 'Macro not found: ' + macroName);
       const conn = connId ? ConnectionFactory.get(connId) : null;
       if (!conn) return formatError('NOT_FOUND', 'Connection not found');
+
+      // ?????
+      const vars: Record<string, string> = { ...(macro.variables || {}) };
       const results: string[] = [];
-      for (const step of macro.steps) {
-        if (step.delay > 0) await new Promise(r => setTimeout(r, step.delay));
-        await conn.write(step.data);
-        results.push(step.data.replace(/\r?\n/g, '\\n'));
-      }
-      return formatOk({ macro: macroName, steps_executed: results.length, commands: results });
+
+      // ????
+      const substituteVars = (text: string) => text.replace(/\{\{(.+?)\}\}/g, (_, key) => vars[key.trim()] || '');
+
+      // ?????????????
+      const expectPattern = (pattern: string, timeout: number): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const buf: string[] = [];
+          const timer = setTimeout(() => {
+            unsub();
+            reject(new Error('Expect timeout: ' + pattern));
+          }, timeout);
+          const unsub = conn.onData((data: Buffer) => {
+            buf.push(data.toString('utf-8'));
+            const text = buf.join('');
+            if (text.includes(pattern)) {
+              clearTimeout(timer);
+              unsub();
+              resolve(text);
+            }
+          });
+        });
+      };
+
+      // ??????
+      const execSteps = async (steps: any[], parentVars?: Record<string, string>): Promise<void> => {
+        const scopeVars = parentVars || vars;
+        for (const raw of steps) {
+          // ??????? {data, delay} ??
+          const step = raw.type ? raw : { type: 'send' as const, data: raw.data, delay: raw.delay };
+
+          switch (step.type) {
+            case 'send': {
+              const text = substituteVars(step.data);
+              conn.write(text);
+              results.push(text.replace(/\r?\n/g, '\\n'));
+              if (step.delay > 0) await new Promise(r => setTimeout(r, step.delay));
+              break;
+            }
+            case 'wait':
+              await new Promise(r => setTimeout(r, step.ms));
+              results.push('(wait ' + step.ms + 'ms)');
+              break;
+            case 'expect': {
+              const pattern = substituteVars(step.pattern);
+              const timeout = step.timeout || 5000;
+              try {
+                await expectPattern(pattern, timeout);
+                results.push('(expected: ' + pattern + ')');
+              } catch (e) {
+                return formatError('SCRIPT_ABORTED', 'Expect failed: ' + (e as Error).message);
+              }
+              break;
+            }
+            case 'loop':
+              for (let i = 0; i < step.count; i++) {
+                const loopVars = { ...scopeVars, _i: String(i) };
+                await execSteps(step.steps, loopVars);
+              }
+              break;
+            case 'if': {
+              // ??????: "key op value" e.g. "retry < 3" or "count > 0" or "ok == true"
+              const cond = step.condition.trim();
+              const match = cond.match(/^(\w+)\s*(==|!=|<|>|<=|>=)\s*(.+)$/);
+              let result = false;
+              if (match) {
+                const [, key, op, rawVal] = match;
+                const left = parseInt(scopeVars[key.trim()], 10) || 0;
+                const right = parseInt(rawVal.trim(), 10) || 0;
+                switch (op) {
+                  case '==': result = left === right; break;
+                  case '!=': result = left !== right; break;
+                  case '<': result = left < right; break;
+                  case '>': result = left > right; break;
+                  case '<=': result = left <= right; break;
+                  case '>=': result = left >= right; break;
+                }
+              }
+              if (result) {
+                await execSteps(step.steps, scopeVars);
+              } else if (step.elseSteps) {
+                await execSteps(step.elseSteps, scopeVars);
+              }
+              break;
+            }
+            case 'set':
+              scopeVars[step.variable] = substituteVars(step.value);
+              break;
+          }
+        }
+      };
+
+      await execSteps(macro.steps);
+      return formatOk({
+        macro: macroName,
+        steps_executed: results.length,
+        variables: vars,
+        commands: results
+      });
     } catch (e: any) { return formatError('INTERNAL', e.message); }
   },
 
