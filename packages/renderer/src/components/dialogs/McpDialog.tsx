@@ -109,6 +109,40 @@ const NOTIFICATIONS_INFO = [
   "share/started, stopped",
 ];
 
+interface ClientTemplate {
+  id: string;
+  name: string;
+  description: string;
+  configFile: string;
+  type: "streamable-http" | "sse";
+  configKey: string;
+  extraField?: string;
+}
+
+const CLIENT_TEMPLATES: ClientTemplate[] = [
+  { id: "claude-code", name: "Claude Code", description: "Anthropic CLI", configFile: ".mcp.json 或 ~/.claude.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "claude-desktop", name: "Claude Desktop", description: "Anthropic 桌面版", configFile: "claude_desktop_config.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "trae", name: "TRAE", description: "字节跳动 AI IDE", configFile: "IDE 设置面板", type: "streamable-http", configKey: "mcpServers" },
+  { id: "copilot", name: "GitHub Copilot", description: "VS Code / JetBrains", configFile: ".vscode/mcp.json", type: "streamable-http", configKey: "servers" },
+  { id: "cursor", name: "Cursor", description: "AI-first IDE", configFile: ".cursor/mcp.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "windsurf", name: "Windsurf", description: "Agentic IDE", configFile: ".windsurf/mcp.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "continue", name: "Continue", description: "开源 AI 助手", configFile: "continue-config.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "codebuddy", name: "CodeBuddy", description: "腾讯 AI 编程", configFile: "IDE 设置面板", type: "sse", configKey: "mcpServers" },
+  { id: "generic", name: "通用", description: "标准 MCP 规范", configFile: "遵照 MCP 协议", type: "streamable-http", configKey: "mcpServers" },
+];
+
+function generateClientConfig(client: ClientTemplate, ip: string, port: number, authPassword: string): string {
+  const baseUrl = `http://${ip}:${port}`;
+  const headersBlock = authPassword ? `,\n      "headers": {\n        "Authorization": "Bearer ${authPassword}"\n      }` : "";
+
+  if (client.type === "sse") {
+    const tokenSuffix = authPassword ? `?token=${authPassword}` : "";
+    return `{"${client.configKey}":{"qserial":{"type":"sse","url":"${baseUrl}/sse${tokenSuffix}"}}}`;
+  }
+
+  return `{"${client.configKey}":{"qserial":{"type":"streamable-http","url":"${baseUrl}/mcp"${headersBlock}}}}`;
+}
+
 interface McpDialogProps { isOpen: boolean; onClose: () => void; }
 
 export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
@@ -120,6 +154,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
     stopping,
     error,
     connections,
+    activeToken,
     updateConfig,
     startServer,
     stopServer,
@@ -130,13 +165,15 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
   const [localPort, setLocalPort] = useState(config.port || 9800);
   const [localListenAddress, setLocalListenAddress] = useState(config.listenAddress);
   const [localAuthPassword, setLocalAuthPassword] = useState(config.authPassword);
-  const [selectedClient, setSelectedClient] = useState<"claude" | "codebuddy">("claude");
+  const [localCorsOrigins, setLocalCorsOrigins] = useState(config.corsOrigins || '');
+  const [selectedClient, setSelectedClient] = useState("claude-code");
   const [localIp, setLocalIp] = useState("127.0.0.1");
 
   useEffect(() => {
     setLocalPort(config.port || 9800);
     setLocalListenAddress(config.listenAddress);
     setLocalAuthPassword(config.authPassword);
+    setLocalCorsOrigins(config.corsOrigins || '');
   }, [config]);
 
   useEffect(() => {
@@ -179,8 +216,13 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
     updateConfig({ authPassword: value });
   };
 
+  const handleCorsOriginsChange = (value: string) => {
+    setLocalCorsOrigins(value);
+    updateConfig({ corsOrigins: value });
+  };
+
   const handleStart = async () => {
-    updateConfig({ port: localPort, listenAddress: localListenAddress, authPassword: localAuthPassword });
+    updateConfig({ port: localPort, listenAddress: localListenAddress, authPassword: localAuthPassword, corsOrigins: localCorsOrigins });
     await startServer();
   };
 
@@ -261,6 +303,20 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
                 className="dialog-input"
               />
             </div>
+            {/* CORS 域名 */}
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">
+                CORS 允许域名 <span className="text-text-secondary/50 font-normal">(可选，逗号分隔)</span>
+              </label>
+              <input
+                type="text"
+                value={localCorsOrigins}
+                onChange={(e) => handleCorsOriginsChange(e.target.value)}
+                disabled={running}
+                placeholder="留空则允许所有来源"
+                className="dialog-input"
+              />
+            </div>
             {/* 状态 + 操作 */}
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-2.5">
@@ -269,7 +325,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
                 />
                 <span className="text-sm font-medium">
                   {running
-                    ? `运行中 — ${config.listenAddress}:${config.port}${config.listenAddress === "0.0.0.0" ? " (可远程)" : " (仅本机)"}${config.authPassword ? " · 已认证" : ""}`
+                    ? `运行中 — ${config.listenAddress}:${config.port}${config.listenAddress === "0.0.0.0" ? " (可远程)" : " (仅本机)"}${activeToken ? " · 已认证" : ""}`
                     : starting ? "启动中..." : stopping ? "停止中..." : "已停止"}
                 </span>
               </div>
@@ -294,6 +350,24 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
                 )}
               </div>
             </div>
+            {/* Token 提示 */}
+            {running && activeToken && !config.authPassword && (
+              <div className="flex items-center gap-2 text-xs bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 mt-2">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" className="flex-shrink-0 text-yellow-500">
+                  <path d="M7 0a7 7 0 100 14A7 7 0 007 0zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.75 4v3.5a.75.75 0 01-1.5 0V4a.75.75 0 011.5 0z"/>
+                </svg>
+                <span className="text-yellow-700 dark:text-yellow-300">
+                  监听地址非本机，已自动生成 Token（请在 MCP 客户端配置时使用）
+                </span>
+                <code className="text-[11px] font-mono bg-yellow-500/20 px-1.5 py-0.5 rounded">{activeToken}</code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(activeToken).catch(() => {})}
+                  className="text-xs text-primary hover:text-primary/80 flex-shrink-0"
+                >
+                  复制
+                </button>
+              </div>
+            )}
             {/* 错误信息 */}
             {error && (
               <div className="flex items-center gap-2 text-xs text-error bg-error/10 border-l-2 border-error px-3 py-2 rounded-r">
@@ -347,31 +421,37 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
             <div className="space-y-3">
               <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">MCP 配置</h4>
               <div className="border border-border/50 rounded-lg overflow-hidden">
-                <div className="flex bg-background/50 border-b border-border/50">
-                  {(["claude", "codebuddy"] as const).map((client) => (
+                <div className="flex bg-background/50 border-b border-border/50 overflow-x-auto">
+                  {CLIENT_TEMPLATES.map((client) => (
                     <button
-                      key={client}
-                      onClick={() => setSelectedClient(client)}
-                      className={`flex-1 text-xs py-2 px-3 transition-colors ${
-                        selectedClient === client
+                      key={client.id}
+                      onClick={() => setSelectedClient(client.id)}
+                      className={`flex-shrink-0 text-xs py-2 px-2.5 transition-colors ${
+                        selectedClient === client.id
                           ? "bg-surface text-primary font-medium border-b-2 border-primary -mb-[1px]"
                           : "text-text-secondary hover:text-text hover:bg-hover/50"
                       }`}
+                      title={client.description}
                     >
-                      {client === "claude" ? "Claude Code" : "CodeBuddy"}
+                      {client.name}
                     </button>
                   ))}
                 </div>
                 <div className="p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-secondary">.mcp.json</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary">
+                        {CLIENT_TEMPLATES.find(c => c.id === selectedClient)?.configFile || '.mcp.json'}
+                      </span>
+                      <span className="text-[10px] text-text-secondary/40">
+                        {CLIENT_TEMPLATES.find(c => c.id === selectedClient)?.description || ''}
+                      </span>
+                    </div>
                     <button
                       onClick={() => {
-                        const tokenSuffix = config.authPassword ? `?token=${config.authPassword}` : "";
-                        const headersBlock = config.authPassword ? `,\n      "headers": {\n        "Authorization": "Bearer ${config.authPassword}"\n      }` : "";
-                        const cfg = selectedClient === "claude"
-                          ? `{"mcpServers":{"qserial":{"type":"streamable-http","url":"http://${localIp}:${config.port}/mcp"${headersBlock}}}}`
-                          : `{"mcpServers":{"qserial":{"type":"sse","url":"http://${localIp}:${config.port}/sse${tokenSuffix}"}}}`;
+                        const client = CLIENT_TEMPLATES.find(c => c.id === selectedClient) || CLIENT_TEMPLATES[0];
+                        const token = config.authPassword || activeToken || '';
+                        const cfg = generateClientConfig(client, localIp, config.port, token);
                         navigator.clipboard.writeText(cfg).catch(() => {});
                       }}
                       className="text-xs text-primary hover:text-primary/80 transition-colors"
@@ -380,10 +460,11 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
                     </button>
                   </div>
                   <pre className="text-[11px] font-mono text-text bg-background/60 rounded p-3 overflow-x-auto whitespace-pre-wrap">
-                    {selectedClient === "claude"
-                      ? `{"mcpServers":{"qserial":{"type":"streamable-http","url":"http://${localIp}:${config.port}/mcp"${config.authPassword ? `,\n      "headers":{"Authorization":"Bearer ${config.authPassword}"}` : ""}}}}`
-                      : `{"mcpServers":{"qserial":{"type":"sse","url":"http://${localIp}:${config.port}/sse${config.authPassword ? `?token=${config.authPassword}` : ""}"}}}`
-                    }
+                    {(() => {
+                      const client = CLIENT_TEMPLATES.find(c => c.id === selectedClient) || CLIENT_TEMPLATES[0];
+                      const token = config.authPassword || activeToken || '';
+                      return generateClientConfig(client, localIp, config.port, token);
+                    })()}
                   </pre>
                 </div>
               </div>

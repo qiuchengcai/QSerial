@@ -167,8 +167,8 @@ const api = {
 
 	  // MCP 服务器
 	  mcp: {
-	    start: (port: number, listenAddress?: string, authPassword?: string, autoStart?: boolean) =>
-	      ipcRenderer.invoke(IPC_CHANNELS.MCP_START, { port, listenAddress, authPassword, autoStart }),
+	    start: (port: number, listenAddress?: string, authPassword?: string, autoStart?: boolean, corsOrigins?: string[]) =>
+	      ipcRenderer.invoke(IPC_CHANNELS.MCP_START, { port, listenAddress, authPassword, autoStart, corsOrigins }),
 	    stop: (autoStart?: boolean) => ipcRenderer.invoke(IPC_CHANNELS.MCP_STOP, { autoStart }),
 	    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_GET_STATUS),
 	    onStatusChange: (callback: (event: { running: boolean; port: number }) => void) => {

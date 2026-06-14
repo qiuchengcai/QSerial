@@ -49,6 +49,7 @@ export interface McpServerStatus {
   port: number;
   listenAddress: string;
   needsAuth: boolean;
+  token?: string;
   connections: {
     id: string;
     type: string;
@@ -687,8 +688,16 @@ export function setMcpMainWindow(window: BrowserWindow | null): void {
 
 function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
   if (!ctx.mcpAuthPassword) return true;
-  const auth = req.headers.authorization;
-  if (!auth) {
+
+  const authHeader = req.headers.authorization;
+  const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (authHeader || '');
+
+  const qs = (req.url || '').includes('?') ? (req.url || '').split('?')[1] : '';
+  const queryToken = new URLSearchParams(qs).get('token') || '';
+
+  const token = headerToken || queryToken;
+
+  if (!token) {
     res.writeHead(401, {
       'Content-Type': 'application/json',
       'WWW-Authenticate': 'Bearer realm="QSerial MCP"',
@@ -696,7 +705,6 @@ function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean
     res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32001, message: '未授权：需要 Bearer token 认证' } }));
     return false;
   }
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
   if (token !== ctx.mcpAuthPassword) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32002, message: '认证失败：token 不匹配' } }));
@@ -819,16 +827,7 @@ export async function startMcpServer(port: number, listenAddress?: string, authP
 
     // SSE endpoint
     if (req.method === 'GET' && urlPath === '/sse') {
-      const qs = (req.url || '').includes('?') ? (req.url || '').split('?')[1] : '';
-      if (ctx.mcpAuthPassword) {
-        const sseParams = new URLSearchParams(qs);
-        const sseToken = sseParams.get('token');
-        if (sseToken !== ctx.mcpAuthPassword) {
-          res.writeHead(403, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'auth failed' }));
-          return;
-        }
-      }
+      if (!checkAuth(req, res)) return;
       sseClients.add(res);
       const sseTransport = new SSEServerTransport('/messages', res);
       req.on('close', () => { sseClients.delete(res); sseTransport.close().catch(() => {}); });
@@ -905,6 +904,7 @@ export function getMcpStatus(): McpServerStatus {
     port: mcpPort,
     listenAddress: mcpListenAddress,
     needsAuth: !!ctx.mcpAuthPassword,
+    token: ctx.mcpAuthPassword || undefined,
     connections: ConnectionFactory.getAll().map((c) => ({
       id: c.id,
       type: c.type,

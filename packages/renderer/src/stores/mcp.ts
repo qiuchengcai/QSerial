@@ -10,6 +10,7 @@ interface McpConfig {
   port: number;
   listenAddress: string;
   authPassword: string;
+  corsOrigins: string;
   autoStart: boolean;
 }
 
@@ -27,6 +28,7 @@ interface McpState {
   stopping: boolean;
   error?: string;
   connections: McpConnection[];
+  activeToken?: string;
 }
 
 interface McpActions {
@@ -42,6 +44,7 @@ const DEFAULT_CONFIG: McpConfig = {
   port: 9800,
   listenAddress: '127.0.0.1',
   authPassword: '',
+  corsOrigins: '',
   autoStart: false,
 };
 
@@ -54,6 +57,7 @@ export const useMcpStore = create<McpState & McpActions>()(
       stopping: false,
       error: undefined,
       connections: [],
+      activeToken: undefined,
 
       updateConfig: (config) => {
         set((state) => ({
@@ -74,7 +78,8 @@ export const useMcpStore = create<McpState & McpActions>()(
         if (starting) return;
         set({ starting: true, stopping: false, error: undefined });
         try {
-          await window.qserial.mcp.start(config.port, config.listenAddress, config.authPassword || undefined, true);
+          const corsArr = config.corsOrigins ? config.corsOrigins.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+          await window.qserial.mcp.start(config.port, config.listenAddress, config.authPassword || undefined, true, corsArr);
           set({ running: true, starting: false, error: undefined });
         } catch (error) {
           set({ error: (error as Error).message, running: false, starting: false });
@@ -85,7 +90,7 @@ export const useMcpStore = create<McpState & McpActions>()(
         set({ starting: false, stopping: true });
         try {
           await window.qserial.mcp.stop(false);
-          set({ running: false, stopping: false, error: undefined, connections: [] });
+          set({ running: false, stopping: false, error: undefined, connections: [], activeToken: undefined });
         } catch (error) {
           set({ error: (error as Error).message, stopping: false });
         }
@@ -105,6 +110,7 @@ export const useMcpStore = create<McpState & McpActions>()(
                 listenAddress: status.listenAddress ?? state.config.listenAddress,
               },
               connections: status.connections,
+              activeToken: status.token || undefined,
             }));
           } else {
             if (currentRunning) {

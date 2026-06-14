@@ -167,7 +167,7 @@ export interface IpcRequestMap {
   };
   [IPC_CHANNELS.CONNECTION_SERVER_STOP]: { id: string };
   [IPC_CHANNELS.CONNECTION_SERVER_STATUS]: { id: string };
-  [IPC_CHANNELS.MCP_START]: { port: number; listenAddress?: string; authPassword?: string; autoStart?: boolean };
+  [IPC_CHANNELS.MCP_START]: { port: number; listenAddress?: string; authPassword?: string; autoStart?: boolean; corsOrigins?: string[] };
   [IPC_CHANNELS.MCP_STOP]: { autoStart?: boolean };
   [IPC_CHANNELS.MCP_GET_STATUS]: void;
   [IPC_CHANNELS.GET_LOCAL_IP]: void;
@@ -415,6 +415,8 @@ export interface McpServerStatus {
   running: boolean;
   port: number;
   listenAddress?: string;
+  needsAuth: boolean;
+  token?: string;
   connections: {
     id: string;
     type: string;

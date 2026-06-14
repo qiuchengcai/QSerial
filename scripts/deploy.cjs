@@ -34,7 +34,7 @@ if (!SERVER_HOST || !SERVER_USER) {
 }
 
 function scp(src, dest) {
-  const cmd = `scp ${src} ${SERVER_USER}@${SERVER_HOST}:${dest}`;
+  const cmd = `scp -C ${src} ${SERVER_USER}@${SERVER_HOST}:${dest}`;
   console.log(`  → ${src}  =>  ${SERVER_USER}@${SERVER_HOST}:${dest}`);
   execSync(cmd, { stdio: 'inherit', cwd: ROOT });
 }
@@ -47,15 +47,23 @@ function targetWebsite() {
 
 function targetRelease() {
   const releaseDir = path.join(ROOT, 'release');
-  const exes = fs.readdirSync(releaseDir).filter(f => f.endsWith('.exe'));
-  if (exes.length === 0) {
-    console.log('⚠️  release/ 目录下没有 .exe 文件，跳过安装包部署\n');
+
+  // 确保服务端子目录存在
+  const mkdir = `ssh ${SERVER_USER}@${SERVER_HOST} "mkdir -p ${WEB_ROOT}/download/installer ${WEB_ROOT}/download/portable"`;
+  console.log('  → 创建子目录...');
+  execSync(mkdir, { stdio: 'inherit' });
+
+  const installerExe = path.join(releaseDir, 'QSerial-1.0.0-x64-win.exe');
+  const portableExe = path.join(releaseDir, 'QSerial-1.0.0-x64-win-portable.exe');
+
+  if (!fs.existsSync(installerExe) || !fs.existsSync(portableExe)) {
+    console.log('⚠️  release/ 目录缺少安装包，请先 pnpm run package:win:ci\n');
     return;
   }
+
   console.log('\n📦 部署安装包...');
-  for (const exe of exes) {
-    scp(path.join(releaseDir, exe), `${WEB_ROOT}/download/${exe}`);
-  }
+  scp(installerExe, `${WEB_ROOT}/download/installer/QSerial-1.0.0-x64-win.exe`);
+  scp(portableExe, `${WEB_ROOT}/download/portable/QSerial-1.0.0-x64-win-portable.exe`);
   console.log('✅ 安装包部署完成\n');
 }
 

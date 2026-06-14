@@ -463,14 +463,15 @@ function setupConnectionServerHandlers(): void {
  * MCP 服务器处理器
  */
 function setupMcpHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port, listenAddress, authPassword, autoStart }) => {
+  ipcMain.handle(IPC_CHANNELS.MCP_START, async (_, { port, listenAddress, authPassword, autoStart, corsOrigins }) => {
     const { startMcpServer } = await import('../services/mcp/manager.js');
-    await startMcpServer(port, listenAddress, authPassword);
+    await startMcpServer(port, listenAddress, authPassword, corsOrigins);
     if (autoStart) {
       ConfigManager.set('mcp', {
         enabled: true, port,
         listenAddress: listenAddress || '0.0.0.0',
         authPassword: authPassword || '',
+        corsOrigins: corsOrigins || [],
       });
     }
   });
