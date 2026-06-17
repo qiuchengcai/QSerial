@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+﻿import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { request } from 'http';
@@ -12,7 +12,7 @@ function waitForPort(port, timeout = 30000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const check = () => {
-      const req = request({ hostname: '127.0.0.1', port, method: 'HEAD', timeout: 500 }, () => {
+      const req = request({ hostname: 'localhost', port, method: 'HEAD', timeout: 500 }, () => {
         req.destroy();
         resolve();
       });
@@ -30,7 +30,7 @@ function waitForPort(port, timeout = 30000) {
   });
 }
 
-// 构建共享包
+// 鏋勫缓鍏变韩鍖?
 console.log('Building shared package...');
 const buildShared = spawn('pnpm', ['build:shared'], {
   cwd: path.join(__dirname, '..'),
@@ -44,7 +44,7 @@ buildShared.on('close', (code) => {
     process.exit(1);
   }
 
-  // 构建主进程
+  // 鏋勫缓涓昏繘绋?
   console.log('Building main process...');
   const buildMain = spawn('pnpm', ['build:main'], {
     cwd: path.join(__dirname, '..'),
@@ -59,17 +59,17 @@ buildShared.on('close', (code) => {
     }
 
     if (isDev) {
-      // 开发模式：启动 Vite 和 Electron
+      // 寮€鍙戞ā寮忥細鍚姩 Vite 鍜?Electron
       console.log('Starting development servers...');
 
-      // 启动渲染进程开发服务器
+      // 鍚姩娓叉煋杩涚▼寮€鍙戞湇鍔″櫒
       const vite = spawn('pnpm', ['dev:renderer'], {
         cwd: path.join(__dirname, '..'),
         stdio: 'inherit',
         shell: true,
       });
 
-      // 等待 Vite 启动后启动 Electron
+      // 绛夊緟 Vite 鍚姩鍚庡惎鍔?Electron
       waitForPort(VITE_PORT).then(() => {
         console.log(`Vite ready on port ${VITE_PORT}, starting Electron...`);
         const electron = spawn('electron', ['packages/main/dist/index.js'], {
@@ -89,7 +89,7 @@ buildShared.on('close', (code) => {
         process.exit(1);
       });
     } else {
-      // 生产模式：构建渲染进程
+      // 鐢熶骇妯″紡锛氭瀯寤烘覆鏌撹繘绋?
       console.log('Building renderer...');
       const buildRenderer = spawn('pnpm', ['build:renderer'], {
         cwd: path.join(__dirname, '..'),
