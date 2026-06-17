@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTerminalStore } from '@/stores/terminal';
 import { useQuickButtonsStore, type QuickButton, type ButtonGroup, type ButtonBarDirection, PRESET_COLORS } from '@/stores/quickButtons';
 import { useTerminalMacroStore } from '@/stores/terminalMacro';
