@@ -120,15 +120,14 @@ interface ClientTemplate {
 }
 
 const CLIENT_TEMPLATES: ClientTemplate[] = [
+  { id: "codebuddy", name: "CodeBuddy", description: "腾讯 AI 编程", configFile: "IDE 设置面板", type: "sse", configKey: "mcpServers" },
   { id: "claude-code", name: "Claude Code", description: "Anthropic CLI", configFile: ".mcp.json 或 ~/.claude.json", type: "streamable-http", configKey: "mcpServers" },
   { id: "claude-desktop", name: "Claude Desktop", description: "Anthropic 桌面版", configFile: "claude_desktop_config.json", type: "streamable-http", configKey: "mcpServers" },
-  { id: "trae", name: "TRAE", description: "字节跳动 AI IDE", configFile: "IDE 设置面板", type: "streamable-http", configKey: "mcpServers" },
-  { id: "copilot", name: "GitHub Copilot", description: "VS Code / JetBrains", configFile: ".vscode/mcp.json", type: "streamable-http", configKey: "servers" },
-  { id: "cursor", name: "Cursor", description: "AI-first IDE", configFile: ".cursor/mcp.json", type: "streamable-http", configKey: "mcpServers" },
-  { id: "windsurf", name: "Windsurf", description: "Agentic IDE", configFile: ".windsurf/mcp.json", type: "streamable-http", configKey: "mcpServers" },
-  { id: "continue", name: "Continue", description: "开源 AI 助手", configFile: "continue-config.json", type: "streamable-http", configKey: "mcpServers" },
-  { id: "codebuddy", name: "CodeBuddy", description: "腾讯 AI 编程", configFile: "IDE 设置面板", type: "sse", configKey: "mcpServers" },
-  { id: "generic", name: "通用", description: "标准 MCP 规范", configFile: "遵照 MCP 协议", type: "streamable-http", configKey: "mcpServers" },
+  { id: "codex", name: "Codex", description: "OpenAI Codex CLI", configFile: ".codex/mcp.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "gemini", name: "Gemini", description: "Google Gemini CLI", configFile: ".gemini/mcp.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "opencode", name: "OpenCode", description: "OpenCode CLI", configFile: ".opencode/mcp.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "openclaw", name: "OpenClaw", description: "OpenClaw CLI", configFile: ".openclaw/mcp.json", type: "streamable-http", configKey: "mcpServers" },
+  { id: "hermes", name: "Hermes", description: "Hermes CLI", configFile: ".hermes/mcp.json", type: "streamable-http", configKey: "mcpServers" },
 ];
 
 function generateClientConfig(client: ClientTemplate, ip: string, port: number, authPassword: string, pretty: boolean = false): string {
@@ -171,7 +170,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({ isOpen, onClose }) => {
   const [localListenAddress, setLocalListenAddress] = useState(config.listenAddress);
   const [localAuthPassword, setLocalAuthPassword] = useState(config.authPassword);
   const [localCorsOrigins, setLocalCorsOrigins] = useState(config.corsOrigins || '');
-  const [selectedClient, setSelectedClient] = useState("claude-code");
+  const [selectedClient, setSelectedClient] = useState("codebuddy");
   const [localIp, setLocalIp] = useState("127.0.0.1");
 
   useEffect(() => {
