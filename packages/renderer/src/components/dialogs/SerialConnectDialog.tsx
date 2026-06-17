@@ -17,13 +17,13 @@ export interface SerialConnectOptions {
   path: string;
   baudRate: number;
   dataBits: 5 | 6 | 7 | 8;
-  stopBits: 1 | 2;
+  stopBits: 1 | 1.5 | 2;
   parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
 }
 
 const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 const DATA_BITS = [5, 6, 7, 8] as const;
-const STOP_BITS = [1, 2] as const;
+const STOP_BITS = [1, 1.5, 2] as const;
 const PARITY_OPTIONS = [
   { value: 'none', label: '无' },
   { value: 'even', label: '偶校验' },
@@ -43,7 +43,7 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
   const [selectedPort, setSelectedPort] = useState<string>('');
   const [baudRate, setBaudRate] = useState<number>(115200);
   const [dataBits, setDataBits] = useState<5 | 6 | 7 | 8>(8);
-  const [stopBits, setStopBits] = useState<1 | 2>(1);
+  const [stopBits, setStopBits] = useState<1 | 1.5 | 2>(1);
   const [parity, setParity] = useState<'none' | 'even' | 'odd' | 'mark' | 'space'>('none');
   const [saveConfig, setSaveConfig] = useState(false);
   const [configName, setConfigName] = useState('');
@@ -59,9 +59,9 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
   useEffect(() => {
     if (editSession?.serialConfig) {
       setSelectedPort(editSession.serialConfig.path);
-      setBaudRate(editSession.serialConfig.baudRate);
-      setDataBits(editSession.serialConfig.dataBits);
-      setStopBits(editSession.serialConfig.stopBits);
+      setBaudRate(Number(editSession.serialConfig.baudRate));
+      setDataBits(Number(editSession.serialConfig.dataBits) as 5 | 6 | 7 | 8);
+      setStopBits(Number(editSession.serialConfig.stopBits) as 1 | 1.5 | 2);
       setParity(editSession.serialConfig.parity);
       setConfigName(editSession.name);
       setSaveConfig(true);
@@ -202,7 +202,7 @@ export const SerialConnectDialog: React.FC<SerialConnectDialogProps> = ({
               <label className="block text-xs font-medium text-text-secondary mb-1.5">停止位</label>
               <select
                 value={stopBits}
-                onChange={(e) => setStopBits(Number(e.target.value) as 1 | 2)}
+                onChange={(e) => setStopBits(Number(e.target.value) as 1 | 1.5 | 2)}
                 className="dialog-select"
               >
                 {STOP_BITS.map((bits) => (
