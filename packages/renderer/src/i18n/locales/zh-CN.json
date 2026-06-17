@@ -162,9 +162,24 @@
     "no": "否",
     "duplicate": "复制为新配置",
     "moveUp": "上移",
-    "moveDown": "下移"
+    "moveDown": "下移",
+    "preview": "预览",
+    "description": "描述"
   },
   "sftp": {
     "openBrowser": "打开 SFTP 文件浏览器"
+  },
+  "quickButtons": {
+    "editButton": "编辑按钮",
+    "addButton": "添加按钮",
+    "command": "命令",
+    "delay": "延迟 (ms)",
+    "buttonColor": "按钮颜色",
+    "custom": "自定义",
+    "newGroup": "新建分组",
+    "groupName": "分组名称",
+    "deleteGroup": "删除分组",
+    "deleteButton": "删除按钮",
+    "defaultName": "按钮名称"
   }
 }

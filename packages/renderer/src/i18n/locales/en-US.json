@@ -162,9 +162,24 @@
     "no": "No",
     "duplicate": "Duplicate",
     "moveUp": "Move Up",
-    "moveDown": "Move Down"
+    "moveDown": "Move Down",
+    "preview": "Preview",
+    "description": "Description"
   },
   "sftp": {
     "openBrowser": "Open SFTP file browser"
+  },
+  "quickButtons": {
+    "editButton": "Edit Button",
+    "addButton": "Add Button",
+    "command": "Command",
+    "delay": "Delay (ms)",
+    "buttonColor": "Button Color",
+    "custom": "Custom",
+    "newGroup": "New Group",
+    "groupName": "Group Name",
+    "deleteGroup": "Delete Group",
+    "deleteButton": "Delete Button",
+    "defaultName": "Button Name"
   }
 }

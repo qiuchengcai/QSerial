@@ -91,7 +91,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
         {/* 标题 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-medium">
-            {editingButton ? '编辑按钮' : '添加按钮'}
+            {editingButton ? t('quickButtons.editButton') : t('quickButtons.addButton')}
           </h3>
         </div>
 
@@ -99,7 +99,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
           {/* 名称 + 描述 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-text-secondary mb-1.5 font-medium">名称</label>
+              <label className="block text-xs text-text-secondary mb-1.5 font-medium">{t('common.name')}</label>
               <input
                 type="text"
                 value={name}
@@ -110,7 +110,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs text-text-secondary mb-1.5 font-medium">描述</label>
+              <label className="block text-xs text-text-secondary mb-1.5 font-medium">{t('common.description')}</label>
               <input
                 type="text"
                 value={description}
@@ -123,7 +123,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
 
           {/* 命令 */}
           <div>
-            <label className="block text-xs text-text-secondary mb-1.5 font-medium">命令</label>
+            <label className="block text-xs text-text-secondary mb-1.5 font-medium">{t('quickButtons.command')}</label>
             <textarea
               value={command}
               onChange={(e) => setCommand(e.target.value)}
@@ -143,7 +143,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
               </label>
               {command.includes('\n') && (
                 <label className="flex items-center gap-1.5 text-[11px] text-text-secondary">
-                  <span>延迟</span>
+                  <span>{t('quickButtons.delay')}</span>
                   <input
                     type="number"
                     value={delay}
@@ -160,7 +160,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
 
           {/* 颜色选择 */}
           <div>
-            <label className="block text-xs text-text-secondary mb-1.5 font-medium">按钮颜色</label>
+            <label className="block text-xs text-text-secondary mb-1.5 font-medium">{t('quickButtons.buttonColor')}</label>
             <div className="flex flex-wrap gap-2.5 mb-2.5">
               {PRESET_COLORS.map((c) => {
                 const isActive = color === c.value && !customColor;
@@ -188,7 +188,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
               })}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-text-secondary">自定义</span>
+              <span className="text-[11px] text-text-secondary">{t('quickButtons.custom')}</span>
               <div className="relative">
                 <input
                   type="color"
@@ -208,7 +208,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
 
           {/* 实时预览 */}
           <div className="bg-background/50 rounded-lg border border-border/50 p-3">
-            <label className="block text-[11px] text-text-secondary/60 mb-2">预览</label>
+            <label className="block text-[11px] text-text-secondary/60 mb-2">{t('common.preview')}</label>
             <button
               type="button"
               className="h-7 pl-2.5 pr-3 text-[11px] rounded-[5px] whitespace-nowrap transition-all flex items-center gap-1.5 font-mono tracking-tight"
@@ -232,14 +232,14 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
                 const activeColor = customColor || color;
                 return activeColor ? <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: activeColor }} /> : null;
               })()}
-              {name || '按钮名称'}
+              {name || t('quickButtons.defaultName')}
             </button>
           </div>
         </div>
 
         {/* 底部操作 */}
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-background/30">
-          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs px-4 py-1.5">取消</button>
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs px-4 py-1.5">{t('common.cancel')}</button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || !command.trim()}
@@ -279,7 +279,7 @@ const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup
           <h3 className="text-sm font-medium">{editingGroup ? '编辑分组' : '新建分组'}</h3>
         </div>
         <div className="p-4">
-          <label className="block text-xs text-text-secondary mb-1.5 font-medium">分组名称</label>
+          <label className="block text-xs text-text-secondary mb-1.5 font-medium">{t('quickButtons.groupName')}</label>
           <input
             type="text"
             value={name}
@@ -291,7 +291,7 @@ const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup
           />
         </div>
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-background/30">
-          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs px-4 py-1.5">取消</button>
+          <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-xs px-4 py-1.5">{t('common.cancel')}</button>
           <button
             onClick={handleSave}
             disabled={!name.trim()}
@@ -315,6 +315,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
   const activeTabId = terminalState?.activeTabId;
   const sessions = terminalState?.sessions || {};
   const quickButtonsState = useQuickButtonsStore();
+  const { t } = useTranslation();
   const groups = quickButtonsState?.groups || [];
   const { savedMacros } = useTerminalMacroStore();
   const [, setPlayingMacroId] = useState<string | null>(null);
@@ -835,7 +836,7 @@ export const QuickButtonBar: React.FC<QuickButtonBarProps> = ({ direction: direc
             ) : (
               <>
                 <button onClick={handleEditGroup} className="w-full px-3 py-1.5 text-left text-sm hover:bg-hover">编辑分组</button>
-                <button onClick={handleDeleteGroup} className="w-full px-3 py-1.5 text-left text-sm text-error hover:bg-hover">删除分组</button>
+                <button onClick={handleDeleteGroup} className="w-full px-3 py-1.5 text-left text-sm text-error hover:bg-hover">{t('quickButtons.deleteGroup')}</button>
                 <div className="my-1 border-t border-border" />
                 <button
                   onClick={() => {
