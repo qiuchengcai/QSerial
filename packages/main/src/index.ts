@@ -77,7 +77,14 @@ function createWindow(): void {
   const config = ConfigManager.get('window');
 
   mainWindow = new BrowserWindow({
-    icon: nativeImage.createFromPath(path.join(process.resourcesPath, 'icon.png')),
+    icon: (() => {
+      const png = path.join(process.resourcesPath, 'icon.png');
+      const ico = path.join(process.resourcesPath, 'icon.ico');
+      if (fs.existsSync(png)) return nativeImage.createFromPath(png);
+      if (fs.existsSync(ico)) return nativeImage.createFromPath(ico);
+      // fallback: read from exe embedded icon
+      try { return nativeImage.createFromPath(process.execPath); } catch { return undefined; }
+    })(),
     width: config.width,
     height: config.height,
     x: config.x,
