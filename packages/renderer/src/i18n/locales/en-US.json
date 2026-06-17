@@ -165,6 +165,36 @@
     "moveDown": "Move Down"
   },
   "sftp": {
-    "openBrowser": "Open SFTP file browser"
+    "title": "Remote Files",
+    "closePanel": "Close Panel",
+    "back": "Back",
+    "forward": "Forward",
+    "upload": "Upload File",
+    "newFolder": "New Folder",
+    "name": "Name",
+    "size": "Size",
+    "modified": "Modified",
+    "emptyDir": "Empty Directory",
+    "noSessionHint": "Connect via SSH first, then click the SFTP button on the status bar",
+    "newFolderTitle": "New Folder",
+    "newFolderPlaceholder": "Enter folder name",
+    "rename": "Rename",
+    "renameTitle": "Rename",
+    "renamePlaceholder": "Enter new name",
+    "download": "Download",
+    "open": "Open",
+    "confirmDelete": "Confirm Delete",
+    "browserTitle": "SFTP File Browser",
+    "pickFile": "Select Local File",
+    "pickDir": "Select Local Directory"
+  },
+  "tab": {
+    "close": "Close",
+    "closeOthers": "Close Others",
+    "closeLeft": "Close Left",
+    "closeRight": "Close Right",
+    "closeAll": "Close All",
+    "rename": "Rename",
+    "duplicate": "Duplicate"
   }
 }

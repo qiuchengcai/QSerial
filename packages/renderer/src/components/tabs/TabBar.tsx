@@ -4,6 +4,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
+import { useTranslation } from '@/i18n';
 import { ContextMenu } from '../common/ContextMenu';
 import { ConnectionState } from '@qserial/shared';
 
@@ -20,6 +21,7 @@ export const TabBar: React.FC = () => {
   const activeTabId = terminalState?.activeTabId;
   const setActiveTab = terminalState?.setActiveTab;
   const closeTab = terminalState?.closeTab;
+  const { t } = useTranslation();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -97,26 +99,26 @@ export const TabBar: React.FC = () => {
 
     return [
       {
-        label: '关闭',
+        label: t('tab.close'),
         onClick: () => handleCloseTab(contextMenu.tabId),
       },
       {
-        label: '关闭其他标签页',
+        label: t('tab.closeOthers'),
         onClick: () => handleCloseOtherTabs(contextMenu.tabId),
         disabled: !hasOtherTabs,
       },
       {
-        label: '关闭左侧标签页',
+        label: t('tab.closeLeft'),
         onClick: () => handleCloseTabsToLeft(contextMenu.tabId),
         disabled: !hasTabsToLeft,
       },
       {
-        label: '关闭右侧标签页',
+        label: t('tab.closeRight'),
         onClick: () => handleCloseTabsToRight(contextMenu.tabId),
         disabled: !hasTabsToRight,
       },
       {
-        label: '关闭所有标签页',
+        label: t('tab.closeAll'),
         onClick: handleCloseAllTabs,
         divider: true,
       },

@@ -11,6 +11,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useTerminalMacroStore, PRESET_MACRO_COLORS } from '@/stores/terminalMacro';
 import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useConfigStore } from '@/stores/config';
+import { useTranslation } from '@/i18n';
 import { base64ToUint8Array, ConnectionType, ConnectionState } from '@qserial/shared';
 import 'xterm/css/xterm.css';
 
@@ -69,6 +70,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
   const stopLog = useTerminalStore(state => state.stopLog);
   const { currentTheme } = useThemeStore();
   const { config } = useConfigStore();
+  const { t } = useTranslation();
 
   // 调整终端尺寸 - 使用 FitAddon
   const resizeTerminal = useCallback(() => {
@@ -826,7 +828,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
             ) : isLogging ? (
               <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 2.5v7" stroke="currentColor" strokeWidth="0.8"/><path d="M7.5 2.5v7" stroke="currentColor" strokeWidth="0.8"/></svg>停止日志</>
             ) : (
-              <><svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary"><path d="M2 2.5h6l2 2v6H2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M2 10.5v-8h4l.5 1.5H10" stroke="currentColor" strokeWidth="1.2"/><path d="M4 8l1.5 1.5L8 6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>开始日志</>
+              <><svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary"><path d="M2 2.5h6l2 2v6H2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M2 10.5v-8h4l.5 1.5H10" stroke="currentColor" strokeWidth="1.2"/><path d="M4 8l1.5 1.5L8 6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>开始 + t('terminal.startLog') + '<'/>
             )}
           </button>
 
@@ -850,7 +852,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
             {isRecording ? (
               <><span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>REC {macroStore.getState().recordingSteps.length > 0 ? '(' + macroStore.getState().recordingSteps.length + ')' : ''}</>
             ) : (
-              <><svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-error"><circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.2"/></svg>录制</>
+              <><svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-error"><circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.2"/></svg>{t('terminal.record')}</>
             )}
           </button>
 
@@ -871,7 +873,7 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
               {reconnectLoading ? (
                 <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/><path d="M6 3v3l2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>连接中...</>
               ) : (
-                <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 5A4 4 0 019 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9.5 7A4 4 0 013 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9 1.5l1.5 2-2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 10.5l-1.5-2 2-1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>重连</>
+                <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 5A4 4 0 019 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9.5 7A4 4 0 013 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9 1.5l1.5 2-2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 10.5l-1.5-2 2-1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>{t('common.reconnect')}</>
               )}
             </button>
           )}
@@ -889,12 +891,12 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
         <div className="dialog-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-surface border border-border/80 rounded-xl shadow-md w-[360px]" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-medium">保存录制宏</h3>
+              <h3 className="text-sm font-medium">{t('terminal.saveMacro')}</h3>
               <span className="text-xs text-text-secondary">{macroStore.getState().recordingSteps.length} 步</span>
             </div>
             <div className="p-4 space-y-3">
               <div>
-                <label className="block text-xs text-text-secondary mb-1.5 font-medium">名称</label>
+                <label className="block text-xs text-text-secondary mb-1.5 font-medium">{t('common.name')}</label>
                 <input type="text" value={macroName} onChange={e => setMacroName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveMacro(); else if (e.key === 'Escape') { setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); } }} className="dialog-input" placeholder="输入宏名称..." autoFocus />
               </div>
               <div>
@@ -916,8 +918,8 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(({
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <button onClick={() => { setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); }} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-hover">取消</button>
-                <button onClick={handleSaveMacro} disabled={!macroName.trim()} className="px-3 py-1.5 text-xs rounded bg-primary text-white disabled:opacity-50">保存</button>
+                <button onClick={() => { setShowMacroSave(false); setMacroName(''); setMacroDesc(''); setMacroColor(''); }} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-hover">{t('common.cancel')}</button>
+                <button onClick={handleSaveMacro} disabled={!macroName.trim()} className="px-3 py-1.5 text-xs rounded bg-primary text-white disabled:opacity-50">{t('common.save')}</button>
               </div>
             </div>
           </div>
