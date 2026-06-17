@@ -77,7 +77,7 @@ function createWindow(): void {
   const config = ConfigManager.get('window');
 
   mainWindow = new BrowserWindow({
-    icon: path.join(__dirname, '../../resources/icon.png'),
+    icon: path.resolve(__dirname, '../../build/icon.ico'),
     width: config.width,
     height: config.height,
     x: config.x,
