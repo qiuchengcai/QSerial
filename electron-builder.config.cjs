@@ -1,9 +1,9 @@
-const { version } = require('./package.json');
+﻿const { version } = require('./package.json');
 
 module.exports = {
   appId: 'com.qserial.app',
   productName: 'QSerial',
-  copyright: `Copyright 漏 ${new Date().getFullYear()} QSerial Team`,
+  copyright: `Copyright 婕?${new Date().getFullYear()} QSerial Team`,
   publish: null,
 
   directories: {
@@ -20,7 +20,7 @@ module.exports = {
       to: 'node_modules/@qserial/shared',
       filter: ['dist/**/*', 'package.json'],
     },
-    // 杩愯鏃朵緷璧栨槧灏勶紙鐢?scripts/gen-deps-mapping.cjs 鑷姩鐢熸垚锛?    // 閲嶆柊鐢熸垚: node scripts/gen-deps-mapping.cjs
+    // 鏉╂劘顢戦弮鏈电贩鐠ф牗妲х亸鍕剁礄閻?scripts/gen-deps-mapping.cjs 閼奉亜濮╅悽鐔稿灇閿?    // 闁插秵鏌婇悽鐔稿灇: node scripts/gen-deps-mapping.cjs
     ...require('./electron-builder.config.deps.cjs'),
   ],
 
@@ -84,6 +84,9 @@ module.exports = {
     artifactName: '${productName}-${version}-${arch}-${os}.${ext}',
   },
 
+    win: {
+    icon: 'build/icon.ico',
+  },
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,

@@ -3,7 +3,7 @@
  * 启动优化：窗口立即显示，重模块延迟加载
  */
 
-import { app, BrowserWindow, Menu, session } from 'electron';
+import { app, BrowserWindow, nativeImage, Menu, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -54,7 +54,7 @@ app.commandLine.appendSwitch('disable-gpu-sandbox');
 app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
 
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.qserial.app');
+  app.setAppUserModelId('com.qserial.serialtool');
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -77,7 +77,7 @@ function createWindow(): void {
   const config = ConfigManager.get('window');
 
   mainWindow = new BrowserWindow({
-    icon: path.resolve(__dirname, '../../build/icon.ico'),
+    icon: nativeImage.createFromPath(path.join(process.resourcesPath, 'icon.png')),
     width: config.width,
     height: config.height,
     x: config.x,

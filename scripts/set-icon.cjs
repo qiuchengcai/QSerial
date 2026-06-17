@@ -1,7 +1,7 @@
-/**
- * 设置 Windows exe 图标
- * 使用 resedit 纯 JS 方式修改 PE 资源，不破坏文件结构
- * 解决 rcedit (wine) 修改后导致从 UNC 网络路径无法启动的问题
+﻿/**
+ * 璁剧疆 Windows exe 鍥炬爣
+ * 浣跨敤 resedit 绾?JS 鏂瑰紡淇敼 PE 璧勬簮锛屼笉鐮村潖鏂囦欢缁撴瀯
+ * 瑙ｅ喅 rcedit (wine) 淇敼鍚庡鑷翠粠 UNC 缃戠粶璺緞鏃犳硶鍚姩鐨勯棶棰?
  */
 
 const fs = require('fs');
@@ -10,7 +10,7 @@ const exePath = process.argv[2];
 const icoPath = process.argv[3];
 
 if (!exePath || !icoPath) {
-  console.error('用法: node set-icon.cjs <exe路径> <ico路径>');
+  console.error('鐢ㄦ硶: node set-icon.cjs <exe璺緞> <ico璺緞>');
   process.exit(1);
 }
 
@@ -24,8 +24,8 @@ async function main() {
   const res = NtExecutableResource.from(pe);
   const ico = Data.IconFile.from(icoData);
 
-  // 将 ico.icons 转换为 replaceIconsForResource 需要的格式
-  // RawIconItem 风格: { width, height, bitCount, bin, planes }
+  // 灏?ico.icons 杞崲涓?replaceIconsForResource 闇€瑕佺殑鏍煎紡
+  // RawIconItem 椋庢牸: { width, height, bitCount, bin, planes }
   const icons = ico.icons.map(e => ({
     width: e.data.width,
     height: e.data.height,
@@ -35,22 +35,30 @@ async function main() {
     isIcon: () => false,
   }));
 
-  // 替换图标：iconGroupID=1, lang=1033 (English)
-  Resource.IconGroupEntry.replaceIconsForResource(
-    res.entries,
-    1,
-    1033,
-    icons
-  );
+  // 鏇挎崲鍥炬爣锛歩conGroupID=1, lang=1033 (English)
+  // Try all icon groups (1-20)
+let replaced = false;
+for (let gid = 1; gid <= 20; gid++) {
+  try {
+    Resource.IconGroupEntry.replaceIconsForResource(res.entries, gid, 1033, icons);
+    replaced = true;
+    console.log('Replaced icon group ' + gid);
+    break;
+  } catch(e) { /* not found, try next */ }
+}
+if (!replaced) {
+  // Fallback: try main icon group
+  Resource.IconGroupEntry.replaceIconsForResource(res.entries, 1, 1033, icons);
+}
 
   res.outputResource(pe);
   const newData = pe.generate();
 
   fs.writeFileSync(exePath, Buffer.from(newData));
-  console.log('图标设置成功');
+  console.log('鍥炬爣璁剧疆鎴愬姛');
 }
 
 main().catch(err => {
-  console.error('错误:', err.message);
+  console.error('閿欒:', err.message);
   process.exit(1);
 });
