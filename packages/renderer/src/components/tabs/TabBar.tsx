@@ -1,10 +1,9 @@
-/**
- * Tab 栏组件
- */
+﻿/**
+ * Tab 鏍忕粍浠? */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTerminalStore } from '@/stores/terminal';
-import { useTranslation } from '@/i18n';
+import { useTranslation } from 'react-i18next';
 import { ContextMenu } from '../common/ContextMenu';
 import { ConnectionState } from '@qserial/shared';
 
@@ -25,7 +24,7 @@ export const TabBar: React.FC = () => {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
-  // 鼠标滚轮水平滚动
+  // 榧犳爣婊氳疆姘村钩婊氬姩
   useEffect(() => {
     const container = tabsContainerRef.current;
     if (!container) return;
@@ -66,8 +65,7 @@ export const TabBar: React.FC = () => {
     const tabIndex = tabs.findIndex((t) => t.id === tabId);
     if (tabIndex === -1) return;
 
-    // 从右向左关闭，避免索引问题
-    for (let i = tabs.length - 1; i > tabIndex; i--) {
+    // 浠庡彸鍚戝乏鍏抽棴锛岄伩鍏嶇储寮曢棶棰?    for (let i = tabs.length - 1; i > tabIndex; i--) {
       closeTab(tabs[i].id);
     }
   };
@@ -76,15 +74,13 @@ export const TabBar: React.FC = () => {
     const tabIndex = tabs.findIndex((t) => t.id === tabId);
     if (tabIndex === -1) return;
 
-    // 从右向左关闭，避免索引问题
-    for (let i = tabIndex - 1; i >= 0; i--) {
+    // 浠庡彸鍚戝乏鍏抽棴锛岄伩鍏嶇储寮曢棶棰?    for (let i = tabIndex - 1; i >= 0; i--) {
       closeTab(tabs[i].id);
     }
   };
 
   const handleCloseAllTabs = () => {
-    // 从右向左关闭，避免索引问题
-    for (let i = tabs.length - 1; i >= 0; i--) {
+    // 浠庡彸鍚戝乏鍏抽棴锛岄伩鍏嶇储寮曢棶棰?    for (let i = tabs.length - 1; i >= 0; i--) {
       closeTab(tabs[i].id);
     }
   };
@@ -152,7 +148,7 @@ export const TabBar: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 onContextMenu={(e) => handleContextMenu(e, tab.id, tab.name)}
               >
-                {/* 连接状态指示点 */}
+                {/* 杩炴帴鐘舵€佹寚绀虹偣 */}
                 <span className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${
                   isConnected ? 'bg-success' : 'bg-text-secondary/40'
                 }`} />
@@ -165,7 +161,7 @@ export const TabBar: React.FC = () => {
                   className="w-4 h-4 flex items-center justify-center rounded hover:bg-active opacity-0 group-hover:opacity-100 ml-1 text-text-secondary hover:text-text"
                   style={{ opacity: isActive ? 1 : undefined }}
                 >
-                  ×
+                  脳
                 </button>
               </div>
             );
@@ -173,7 +169,7 @@ export const TabBar: React.FC = () => {
         </div>
       </div>
 
-      {/* 右键菜单 */}
+      {/* 鍙抽敭鑿滃崟 */}
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
