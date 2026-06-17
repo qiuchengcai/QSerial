@@ -172,7 +172,7 @@ export const appHandlers: Record<string, ToolHandler> = {
                 await expectPattern(pattern, timeout);
                 results.push('(expected: ' + pattern + ')');
               } catch (e) {
-                return formatError('SCRIPT_ABORTED', 'Expect failed: ' + (e as Error).message);
+                throw new Error('Expect timeout: ' + (e as Error).message);
               }
               break;
             }

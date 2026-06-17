@@ -75,6 +75,48 @@ function getSshClient(connectionId: string): Client | null {
 /**
  * 创建 SFTP 会话
  */
+
+
+/**
+ * Create standalone SFTP session (independent of SSH terminal connection)
+ */
+export async function createStandaloneSftp(options: {
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+}): Promise<string> {
+  const sftpId = `sftp-standalone-${"{Date.now()}-${Math.random().toString(36).slice(2, 8)}"}`;
+  const client = new Client();
+  const cfg: Record<string, unknown> = {
+    host: options.host, port: options.port || 22, username: options.username,
+    readyTimeout: 20000, keepaliveInterval: 30000,
+  };
+  if (options.privateKey) {
+    try { cfg.privateKey = fs.readFileSync(options.privateKey.replace(/^~/, os.homedir())); } catch {}
+  }
+  if (options.password) { cfg.password = options.password; }
+  if (!options.privateKey && !options.password) {
+    for (const kn of ['id_ed25519','id_rsa','id_ecdsa','id_dsa']) {
+      const kp = path.join(os.homedir(), '.ssh', kn);
+      try { if (fs.existsSync(kp)) { cfg.privateKey = fs.readFileSync(kp); break; } } catch { continue; }
+    }
+  }
+  return new Promise<string>((resolve, reject) => {
+    client.on('ready', () => {
+      client.sftp((err, sftp) => {
+        if (err) { client.end(); reject(err); return; }
+        standaloneClients.set(sftpId, client);
+        sftpInstances.set(sftpId, { id: sftpId, connectionId: sftpId, sftp });
+        resolve(sftpId);
+      });
+    });
+    client.on('error', (err) => { standaloneClients.delete(sftpId); reject(err); });
+    client.connect(cfg);
+  });
+}
+
 export async function createSftp(connectionId: string): Promise<string> {
   const client = getSshClient(connectionId);
   if (!client) {
