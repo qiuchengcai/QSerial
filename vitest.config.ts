@@ -5,17 +5,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@qserial/shared': resolve(__dirname, 'packages/shared/src'),
+      '@': resolve(__dirname, 'packages/renderer/src'),
     },
   },
   test: {
     globals: true,
-    environment: 'node',
-    include: ['packages/**/__tests__/**/*.test.ts'],
+    include: ['packages/**/__tests__/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       include: [
         'packages/main/src/**/*.ts',
         'packages/shared/src/**/*.ts',
+        'packages/renderer/src/**/*.{ts,tsx}',
       ],
       exclude: [
         'packages/main/src/services/mcp/manager.ts',
