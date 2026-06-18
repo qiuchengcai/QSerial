@@ -94,7 +94,7 @@ export async function createStandaloneSftp(options: {
     readyTimeout: 20000, keepaliveInterval: 30000,
   };
   if (options.privateKey) {
-    try { cfg.privateKey = fs.readFileSync(options.privateKey.replace(/^~/, os.homedir())); } catch {}
+    try { cfg.privateKey = fs.readFileSync(options.privateKey.replace(/^~/, os.homedir())); } catch { /* 私钥文件读取失败，跳过 */ }
   }
   if (options.password) { cfg.password = options.password; }
   if (!options.privateKey && !options.password) {

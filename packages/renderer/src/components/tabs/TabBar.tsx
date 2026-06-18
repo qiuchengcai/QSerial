@@ -65,7 +65,8 @@ export const TabBar: React.FC = () => {
     const tabIndex = tabs.findIndex((t) => t.id === tabId);
     if (tabIndex === -1) return;
 
-    // 浠庡彸鍚戝乏鍏抽棴锛岄伩鍏嶇储寮曢棶棰?    for (let i = tabs.length - 1; i > tabIndex; i--) {
+    // 从右向左关闭，避免索引问题
+    for (let i = tabs.length - 1; i > tabIndex; i--) {
       closeTab(tabs[i].id);
     }
   };
@@ -74,13 +75,15 @@ export const TabBar: React.FC = () => {
     const tabIndex = tabs.findIndex((t) => t.id === tabId);
     if (tabIndex === -1) return;
 
-    // 浠庡彸鍚戝乏鍏抽棴锛岄伩鍏嶇储寮曢棶棰?    for (let i = tabIndex - 1; i >= 0; i--) {
+    // 从右向左关闭，避免索引问题
+    for (let i = tabIndex - 1; i >= 0; i--) {
       closeTab(tabs[i].id);
     }
   };
 
   const handleCloseAllTabs = () => {
-    // 浠庡彸鍚戝乏鍏抽棴锛岄伩鍏嶇储寮曢棶棰?    for (let i = tabs.length - 1; i >= 0; i--) {
+    // 从右向左关闭，避免索引问题
+    for (let i = tabs.length - 1; i >= 0; i--) {
       closeTab(tabs[i].id);
     }
   };
@@ -148,7 +151,7 @@ export const TabBar: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 onContextMenu={(e) => handleContextMenu(e, tab.id, tab.name)}
               >
-                {/* 杩炴帴鐘舵€佹寚绀虹偣 */}
+                {/* 连接状态指示点 */}
                 <span className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${
                   isConnected ? 'bg-success' : 'bg-text-secondary/40'
                 }`} />

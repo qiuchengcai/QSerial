@@ -5,6 +5,8 @@
 *.swo
 *~
 .claude/
+.agents/
+.zcode/
 
 # OS
 .DS_Store
@@ -61,6 +63,7 @@ nul
 *.bak
 package-lock.json
 package.json.override
+test-electron*.cjs
 
 # Build artifacts
 *.tsbuildinfo
