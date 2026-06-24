@@ -22,6 +22,7 @@ const ButtonDialog: React.FC<ButtonDialogProps> = ({
   editingButton,
   onSave,
 }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState(editingButton?.name || '');
   const [command, setCommand] = useState(editingButton?.commands?.join('\n') || editingButton?.command || '');
   const [delay, setDelay] = useState(editingButton?.delay ?? 100);
@@ -262,6 +263,7 @@ interface GroupDialogProps {
 }
 
 const GroupDialog: React.FC<GroupDialogProps> = ({ isOpen, onClose, editingGroup, onSave }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState(editingGroup?.name || '');
 
   const handleSave = () => {
