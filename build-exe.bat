@@ -43,9 +43,18 @@ for /f "tokens=*" %%v in ('node -v') do echo   - Node.js: %%v
 REM 1.4 Check pnpm
 where pnpm >nul 2>&1
 if %errorlevel% neq 0 (
-    echo   [FAIL] pnpm not found in PATH!
-    pause
-    exit /b 1
+    REM Try common pnpm locations if not in PATH
+    if exist "%LOCALAPPDATA%\pnpm\pnpm.exe" (
+        set "PATH=%LOCALAPPDATA%\pnpm;%PATH%"
+        echo   - pnpm: found at %%LOCALAPPDATA%%\pnpm
+    ) else if exist "%APPDATA%\npm\pnpm.cmd" (
+        set "PATH=%APPDATA%\npm;%PATH%"
+        echo   - pnpm: found at %%APPDATA%%\npm
+    ) else (
+        echo   [FAIL] pnpm not found! Install: npm i -g pnpm
+        pause
+        exit /b 1
+    )
 )
 for /f "tokens=*" %%v in ('pnpm -v') do echo   - pnpm: %%v
 
