@@ -64,6 +64,19 @@ export function consumeBuffer(id: string): Buffer {
   return result;
 }
 
+/** 精确消费 n 字节（不足时返回全部），用于 XModem 等逐字节协议 */
+export function consumeBytes(id: string, n: number): Buffer {
+  const all = getBuffer(id);
+  if (all.length <= n) {
+    buffers.set(id, []);
+    return all;
+  }
+  const result = all.subarray(0, n);
+  const remaining = all.subarray(n);
+  buffers.set(id, [remaining]);
+  return result;
+}
+
 export function peekBuffer(id: string, maxBytes: number): Buffer {
   const all = getBuffer(id);
   return all.subarray(Math.max(0, all.length - maxBytes));
@@ -80,6 +93,26 @@ export function removeBuffer(id: string): void {
     bufferSubscriptions.delete(id);
   }
   buffers.delete(id);
+}
+
+// ==================== 串行写锁（同一连接排队） ====================
+
+const writeLocks = new Map<string, Promise<void>>();
+
+export async function acquireWriteLock(id: string): Promise<void> {
+  const prev = writeLocks.get(id) || Promise.resolve();
+  let release: () => void;
+  const next = new Promise<void>(r => { release = r; });
+  writeLocks.set(id, prev.then(() => next));
+  await prev;
+  (next as Promise<void> & { _release?: () => void })._release = release!;
+}
+
+export function releaseWriteLock(id: string): void {
+  const lock = writeLocks.get(id) as Promise<void> & { _release?: () => void } | undefined;
+  if (lock?._release) {
+    lock._release();
+  }
 }
 
 export function bufferSize(id: string): number {

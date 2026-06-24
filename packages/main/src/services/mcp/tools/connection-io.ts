@@ -22,6 +22,8 @@ export const connIOHandlers: Record<string, ToolHandler> = {
     if (conn.state !== ConnectionState.CONNECTED) {
       return `错误: 连接 ${id} 未就绪（当前状态：${conn.state}）`;
     }
+    await ctx.acquireWriteLock(id);
+    try {
     ctx.ensureBuffer(id);
 
     if (args.wait_before) {
@@ -44,6 +46,9 @@ export const connIOHandlers: Record<string, ToolHandler> = {
     return output
       ? `${output}\n\n[${meta}]`
       : `已发送 (${data.length} 字符)，无立即回显 [${meta}]`;
+    } finally {
+      ctx.releaseWriteLock(id);
+    }
   },
 
   'conn.data.write_hex': async (args) => {
@@ -138,26 +143,44 @@ export const connIOHandlers: Record<string, ToolHandler> = {
     const conn = ConnectionFactory.get(id);
     if (!conn) return formatError('CONN_NOT_FOUND', 'connection not found: ' + id);
     if (conn.state !== ConnectionState.CONNECTED) return formatError('CONN_NOT_CONNECTED', 'not connected');
+
+    await ctx.acquireWriteLock(id);
+    try {
     ctx.ensureBuffer(id); ctx.clearBuffer(id);
 
     const timeoutMs = (args.timeout_ms as number) || 5000;
     const cmdForDisplay = command.endsWith('\n') ? command.slice(0, -1) : command;
-    conn.write(Buffer.from(cmdForDisplay + '\n', 'utf-8'));
+
+    // 长命令分片发送（>512 字节），每片 ≤256B，间隔 50ms
+    const MAX_CHUNK = 256;
+    if (cmdForDisplay.length > 512) {
+      const chunks: string[] = [];
+      for (let i = 0; i < cmdForDisplay.length; i += MAX_CHUNK) {
+        chunks.push(cmdForDisplay.slice(i, i + MAX_CHUNK));
+      }
+      for (let i = 0; i < chunks.length; i++) {
+        conn.write(Buffer.from(chunks[i], 'utf-8'));
+        if (i < chunks.length - 1) await ctx.sleep(50);
+      }
+      conn.write(Buffer.from('\n', 'utf-8'));
+    } else {
+      conn.write(Buffer.from(cmdForDisplay + '\n', 'utf-8'));
+    }
     appendHistory(id, 'send', cmdForDisplay + '\n');
     const t0 = Date.now();
 
     const promptPattern = { pattern: '[#$>]\\s', isRegex: true };
 
-    // Phase 1: Wait for command echo to arrive (device echoes the command back)
-    await ctx.waitForData(id, Math.min(timeoutMs, 1500));
+    // Phase 1: Wait for command echo — use longer timeout for long commands
+    const echoTimeout = Math.max(1500, Math.floor(timeoutMs / 3));
+    await ctx.waitForData(id, echoTimeout);
     const echoData = ctx.consumeBuffer(id).toString('utf-8');
 
     // Phase 2: Wait for the REAL prompt that appears AFTER command output
-    // This avoids matching the prompt that's embedded in the echo line.
     const result = await ctx.waitForAnyPattern(id, [promptPattern], Math.ceil(timeoutMs / 1000));
     const cmdOutput = result.output;
 
-    // Combine echo + output, but mark echo for stripEcho to remove
+    // Combine echo + output
     const rawOutput = echoData + cmdOutput;
     if (rawOutput) appendHistory(id, 'recv', rawOutput);
 
@@ -175,6 +198,9 @@ export const connIOHandlers: Record<string, ToolHandler> = {
       duration_ms: Date.now() - t0,
       ...(atParsed.result !== 'unknown' || atParsed.fields.length ? { parsed: { at_result: atParsed.result, at_fields: atParsed.fields } } : {}),
     });
+    } finally {
+      ctx.releaseWriteLock(id);
+    }
   },
 
   'conn.data.history': async (args) => {
@@ -269,23 +295,101 @@ export const connIOHandlers: Record<string, ToolHandler> = {
 
     const readByte = async (timeoutMs: number): Promise<number> => {
       await ctx.waitForData(id, timeoutMs);
-      const buf = ctx.consumeBuffer(id);
+      const buf = ctx.consumeBytes(id, 1);
       return buf.length > 0 ? buf[0] : -1;
     };
 
     try {
       const timeout = (args.timeout as number) || 10;
-      await xmodemSend(
-        (data) => conn.write(data),
-        readByte,
-        fileData,
-        protocol as 'xmodem' | 'ymodem',
-        { timeout },
-      );
+      const retries = (args.retries as number) || 10;
+      await ctx.acquireWriteLock(id);
+      try {
+        await xmodemSend(
+          (data) => conn.write(data),
+          readByte,
+          fileData,
+          protocol as 'xmodem' | 'ymodem',
+          { timeout, retries },
+        );
+      } finally {
+        ctx.releaseWriteLock(id);
+      }
       const meta = `file=${localPath}, size=${fileData.length}B, protocol=${protocol}, ts=${Date.now()}`;
       return `文件已发送: ${localPath} (${fileData.length} 字节, ${protocol})\n[${meta}]`;
     } catch (err) {
       return `错误: 文件传输失败 — ${(err as Error).message}`;
+    }
+  },
+
+  'conn.file.write': async (args) => {
+    const id = ctx.resolveId(args);
+    const localPath = args.localPath as string;
+    if (!id) return formatError('MISSING_PARAM', 'missing id');
+    if (!localPath) return formatError('MISSING_PARAM', 'missing localPath');
+    const conn = ConnectionFactory.get(id);
+    if (!conn) return formatError('CONN_NOT_FOUND', 'connection not found: ' + id);
+    if (conn.state !== ConnectionState.CONNECTED) return formatError('CONN_NOT_CONNECTED', 'not connected');
+
+    let fileData: Buffer;
+    try {
+      fileData = fs.readFileSync(localPath);
+    } catch (err) {
+      return formatError('FILE_ERROR', 'read failed: ' + (err as Error).message);
+    }
+    if (fileData.length === 0) return formatError('FILE_ERROR', 'file is empty');
+
+    const content = fileData.toString('utf-8');
+    const lines = content.split('\n');
+    const chunkSize = (args.chunk_size as number) || 256;
+    const delayMs = (args.delay_ms as number) || 30;
+    const remotePath = args.remote_path as string || undefined;
+    const writeCmd = args.write_cmd as string || 'echo';
+
+    await ctx.acquireWriteLock(id);
+    try {
+      ctx.ensureBuffer(id);
+      let totalWritten = 0;
+      const MAX_CHUNK = Math.min(chunkSize, 256);
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        // 跳过空行（保留文件结构）
+        if (line === '' && i === lines.length - 1) break;
+
+        // 转义特殊字符
+        const escaped = line
+          .replace(/\\/g, '\\\\')
+          .replace(/"/g, '\\"')
+          .replace(/\$/g, '\\$')
+          .replace(/`/g, '\\`');
+
+        const cmd = remotePath
+          ? `${writeCmd} "${escaped}" >> "${remotePath}"\n`
+          : `${writeCmd} "${escaped}"\n`;
+
+        // 分片发送长行
+        if (cmd.length > MAX_CHUNK) {
+          const baseCmd = remotePath
+            ? `printf '%s' "${escaped}" >> "${remotePath}"\n`
+            : `printf '%s' "${escaped}"\n`;
+          conn.write(Buffer.from(baseCmd, 'utf-8'));
+          totalWritten += Buffer.byteLength(baseCmd, 'utf-8');
+        } else {
+          conn.write(Buffer.from(cmd, 'utf-8'));
+          totalWritten += Buffer.byteLength(cmd, 'utf-8');
+        }
+        await ctx.sleep(delayMs);
+      }
+
+      const meta = `file=${localPath}, lines=${lines.length}, bytes=${totalWritten}B, ts=${Date.now()}`;
+      return formatOk({
+        sent_lines: lines.length,
+        total_bytes: totalWritten,
+        remote_path: remotePath || '(stdout)',
+        message: `Written ${lines.length} lines to ${remotePath || 'device stdout'}`,
+      });
+    } finally {
+      ctx.releaseWriteLock(id);
     }
   },
 };

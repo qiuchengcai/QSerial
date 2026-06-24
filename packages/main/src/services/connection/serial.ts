@@ -55,6 +55,7 @@ export class SerialConnection implements IConnection {
         dataBits: this.options.dataBits,
         stopBits: this.options.stopBits,
         parity: this.options.parity,
+        ...(this.options.flowControl ? { flowControl: this.options.flowControl } : {}),
         autoOpen: false,
       });
 

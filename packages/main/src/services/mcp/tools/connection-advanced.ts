@@ -208,7 +208,7 @@ export const connAdvancedHandlers: Record<string, ToolHandler> = {
     const results: Array<Record<string, unknown>> = [];
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      const timeout2: number = typeof step.timeout_ms === 'number' ? step.timeout_ms : 5000;
+      const timeout2: number = typeof step.timeout_ms === 'number' ? step.timeout_ms : 15000;
       if (step.delay_ms) await ctx.sleep(step.delay_ms as number);
       ctx.ensureBuffer(rsid); ctx.clearBuffer(rsid);
       const t1 = Date.now();

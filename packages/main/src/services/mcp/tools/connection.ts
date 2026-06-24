@@ -60,6 +60,7 @@ export const connectionHandlers: Record<string, ToolHandler> = {
       options.dataBits = (args.dataBits as number) || 8;
       options.stopBits = (args.stopBits as number) || 1;
       options.parity = (args.parity as string) || 'none';
+      if (args.flowControl) options.flowControl = args.flowControl as 'none' | 'hardware' | 'software';
     } else if (ctype === 'ssh') {
       if (!args.host) return '错误: ssh 类型需要 host 参数';
       if (!args.username) return '错误: ssh 类型需要 username 参数';
