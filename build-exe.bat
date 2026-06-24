@@ -34,9 +34,29 @@ if exist "release\" (
 REM 1.3 Check Node.js
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo   [FAIL] Node.js not found in PATH!
-    pause
-    exit /b 1
+    REM Try common Node.js locations
+    set "NODE_FOUND="
+    for /d %%d in ("%USERPROFILE%\.workbuddy\binaries\node\versions\*") do (
+        if exist "%%d\node.exe" (
+            set "PATH=%%d;%PATH%"
+            set "NODE_FOUND=%%d"
+        )
+    )
+    if defined NODE_FOUND (
+        echo   - Node.js: found at !NODE_FOUND!
+    ) else if exist "%ProgramFiles%\nodejs\node.exe" (
+        set "PATH=%ProgramFiles%\nodejs;%PATH%"
+        echo   - Node.js: found at ProgramFiles\nodejs
+    ) else if exist "%LOCALAPPDATA%\fnm_multishells" (
+        for /f "tokens=*" %%v in ('dir /b /s "%LOCALAPPDATA%\fnm_multishells\node.exe" 2^>nul ^| findstr /v "fnm_multishells\\[0-9]"') do (
+            for %%p in ("%%v\..") do set "PATH=%%~fp;%PATH%"
+        )
+        echo   - Node.js: found via fnm
+    ) else (
+        echo   [FAIL] Node.js not found! Install from https://nodejs.org
+        pause
+        exit /b 1
+    )
 )
 for /f "tokens=*" %%v in ('node -v') do echo   - Node.js: %%v
 
