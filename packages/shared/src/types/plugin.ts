@@ -16,7 +16,8 @@ export type PluginPermission =
   | 'config'
   | 'device:register'
   | 'ui'
-  | 'log';
+  | 'log'
+  | 'ipc';
 
 /**
  * 插件清单（对应插件目录下的 package.json / plugin.json）。

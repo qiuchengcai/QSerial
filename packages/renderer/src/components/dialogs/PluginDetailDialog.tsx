@@ -23,6 +23,7 @@ const PERMISSION_LABEL_KEYS: Record<PluginPermission, string> = {
   'device:register': 'dialogs.pluginDetail.perms.device_register',
   ui: 'dialogs.pluginDetail.perms.ui',
   log: 'dialogs.pluginDetail.perms.log',
+  ipc: 'dialogs.pluginDetail.perms.ipc',
 };
 
 type TabId = 'info' | 'config';

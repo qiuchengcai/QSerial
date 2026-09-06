@@ -168,6 +168,17 @@ export function buildPluginContext(manifest: PluginManifest): PluginActivationCo
       },
     },
 
+    ipc: {
+      register: (method, handler) => {
+        assertPermission(perms, 'ipc');
+        registry.registerIpcHandler(id, method, handler);
+      },
+      emit: (event, payload) => {
+        assertPermission(perms, 'ipc');
+        registry.emitPluginEvent({ pluginId: id, event, payload });
+      },
+    },
+
     ui: {
       contribute: (entries) => {
         assertPermission(perms, 'ui');

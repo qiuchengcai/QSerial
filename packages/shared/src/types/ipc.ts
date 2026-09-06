@@ -130,6 +130,8 @@ export const IPC_CHANNELS = {
   PLUGIN_CONFIG_SET: 'plugin:configSet',
   PLUGIN_CONFIG_CHANGED: 'plugin:configChanged',
   PLUGINS_CHANGED: 'plugin:changed',
+  PLUGIN_INVOKE: 'plugin:invoke',
+  PLUGIN_EVENT: 'plugin:event',
 
   // 插件市场
   PLUGIN_MARKET_FETCH: 'plugin:marketFetch',
@@ -228,6 +230,7 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.PLUGIN_RELOAD]: { id: string };
   [IPC_CHANNELS.PLUGIN_CONFIG_GET]: { id: string };
   [IPC_CHANNELS.PLUGIN_CONFIG_SET]: { id: string; key: string; value: unknown };
+  [IPC_CHANNELS.PLUGIN_INVOKE]: { pluginId: string; method: string; args?: unknown };
   [IPC_CHANNELS.PLUGIN_MARKET_FETCH]: { sourceUrl?: string };
   [IPC_CHANNELS.PLUGIN_MARKET_INSTALL]: { pluginId: string; sourceUrl?: string };
   [IPC_CHANNELS.PLUGIN_MARKET_UPDATE]: { pluginId: string; sourceUrl?: string };
@@ -309,6 +312,7 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.PLUGIN_RELOAD]: PluginInfo[];
   [IPC_CHANNELS.PLUGIN_CONFIG_GET]: Record<string, unknown>;
   [IPC_CHANNELS.PLUGIN_CONFIG_SET]: void;
+  [IPC_CHANNELS.PLUGIN_INVOKE]: unknown;
   [IPC_CHANNELS.PLUGIN_MARKET_FETCH]: MarketIndex;
   [IPC_CHANNELS.PLUGIN_MARKET_INSTALL]: PluginInfo[];
   [IPC_CHANNELS.PLUGIN_MARKET_UPDATE]: PluginInfo[];

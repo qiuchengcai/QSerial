@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar';
 import { MainContent } from './MainContent';
 import { StatusBar } from './StatusBar';
 import { QuickButtonBar } from '../terminal/QuickButtonBar';
+import { AssistantPanel } from '../assistant';
 import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useThemeStore } from '../../stores/theme';
 import { useTftpStore } from '../../stores/tftp';
@@ -68,6 +69,9 @@ export const Layout: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* 智能助手面板 */}
+        <AssistantPanel />
 
         {/* 垂直模式的快捷按钮面板 */}
         {isVertical && (

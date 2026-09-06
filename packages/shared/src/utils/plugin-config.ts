@@ -15,6 +15,27 @@ export interface PluginConfigError {
 }
 
 /**
+ * 将嵌套对象拍平为「点分隔键」的扁平对象。
+ * ConfigManager 以点号键存储时会形成嵌套结构，渲染进程配置面板按 schema 的
+ * 点号 field.key 读取，因此读取时需拍平还原。
+ */
+export function flattenConfig(
+  obj: Record<string, unknown>,
+  prefix = '',
+  out: Record<string, unknown> = {}
+): Record<string, unknown> {
+  for (const [k, v] of Object.entries(obj || {})) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      flattenConfig(v as Record<string, unknown>, key, out);
+    } else {
+      out[key] = v;
+    }
+  }
+  return out;
+}
+
+/**
  * 根据 schema 生成默认配置对象。
  */
 export function getDefaultConfig(schema?: PluginConfigSchema): Record<string, unknown> {

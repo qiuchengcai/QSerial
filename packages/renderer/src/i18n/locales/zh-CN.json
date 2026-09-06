@@ -490,7 +490,8 @@
         "config": "读写自身命名空间配置",
         "device_register": "注册设备识别规则",
         "ui": "注入 UI 入口",
-        "log": "日志"
+        "log": "日志",
+        "ipc": "注册可供渲染进程调用的方法与事件"
       }
     },
     "pluginMarket": {

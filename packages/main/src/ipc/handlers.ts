@@ -4,7 +4,7 @@
  */
 
 import { app, ipcMain, BrowserWindow } from 'electron';
-import { IPC_CHANNELS, DEFAULT_MARKET_SOURCES } from '@qserial/shared';
+import { IPC_CHANNELS, DEFAULT_MARKET_SOURCES, flattenConfig } from '@qserial/shared';
 import type { IConnection } from '@qserial/shared';
 import { ConnectionFactory } from '../services/connection/factory.js';
 import { ConfigManager } from '../config/manager.js';
@@ -55,6 +55,17 @@ export function setupIpcHandlers(): void {
       setupMainWindowRefs();
     }
   });
+
+  // 插件 IPC 事件下沉：插件经 ctx.ipc.emit 推送的事件 → 渲染进程 PLUGIN_EVENT
+  import('../plugins/index.js')
+    .then((m) => {
+      m.setIpcEventSink((event) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(IPC_CHANNELS.PLUGIN_EVENT, event);
+        }
+      });
+    })
+    .catch(() => {});
 
   setupConnectionHandlers();
   setupConfigHandlers();
@@ -660,12 +671,23 @@ function setupPluginHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.PLUGIN_CONFIG_GET, async (_, { id }) => {
-    return (ConfigManager.get(`plugins.namespace.${id}`) as Record<string, unknown>) || {};
+    const nested = (ConfigManager.get(`plugins.namespace.${id}`) as Record<string, unknown>) || {};
+    return flattenConfig(nested);
   });
 
   ipcMain.handle(IPC_CHANNELS.PLUGIN_CONFIG_SET, async (_, { id, key, value }) => {
     ConfigManager.set(`plugins.namespace.${id}.${key}`, value);
     // 变更推送由 main/src/index.ts 的中央 ConfigManager.onChange 监听器完成
+  });
+
+  // 插件 IPC 桥：渲染进程调用插件注册的方法
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_INVOKE, async (_, { pluginId, method, args }) => {
+    const { getIpcHandler } = await import('../plugins/index.js');
+    const handler = getIpcHandler(pluginId, method);
+    if (!handler) {
+      throw new Error(`插件 ${pluginId} 未注册 IPC 方法: ${method}`);
+    }
+    return handler(args);
   });
 
   // 插件市场

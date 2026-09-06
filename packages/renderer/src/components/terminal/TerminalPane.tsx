@@ -12,6 +12,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useTerminalMacroStore, PRESET_MACRO_COLORS } from '@/stores/terminalMacro';
 import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useConfigStore } from '@/stores/config';
+import { useAssistantStore } from '@/stores/assistant';
 import { base64ToUint8Array, ConnectionType, ConnectionState } from '@qserial/shared';
 import 'xterm/css/xterm.css';
 
@@ -68,6 +69,11 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
     const searchPosRef = useRef(-1);
     const [showSerialShareDialog, setShowSerialShareDialog] = useState(false);
+    const [selectionMenu, setSelectionMenu] = useState<{
+      x: number;
+      y: number;
+      text: string;
+    } | null>(null);
     const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
     const mountCountRef = useRef(0);
 
@@ -835,6 +841,10 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(
         }}
         onContextMenu={(e) => {
           e.preventDefault();
+          const selection = xtermRef.current?.getSelection();
+          if (selection && selection.trim()) {
+            setSelectionMenu({ x: e.clientX, y: e.clientY, text: selection.trim() });
+          }
         }}
       >
         {/* 控制按钮组 */}
@@ -1147,6 +1157,22 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(
               )}
             </button>
 
+            {/* AI 生成命令按钮 */}
+            <button
+              onClick={() => {
+                useAssistantStore.getState().openPanel('chat');
+                useAssistantStore.getState().setGenerateMode(true);
+              }}
+              className="px-2 py-1 border rounded text-xs transition-colors bg-surface/80 border-border hover:bg-hover flex items-center gap-1.5"
+              title="用自然语言描述需求，AI 生成命令"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary">
+                <circle cx="6" cy="6" r="3" stroke="currentColor" strokeWidth="1.1" />
+                <circle cx="6" cy="6" r="1.1" fill="currentColor" opacity="0.5" />
+              </svg>
+              AI 生成
+            </button>
+
             {/* 重连按钮 - 手动重连（断开或出错时显示，服务端连接除外） */}
             {(isDisconnected || isError) &&
               session?.connectionType !== ConnectionType.CONNECTION_SERVER &&
@@ -1313,6 +1339,31 @@ export const TerminalPane: React.FC<TerminalPaneProps> = React.memo(
           onClose={() => setShowSerialShareDialog(false)}
           defaultSessionId={sessionId}
         />
+
+        {/* 选中文本右键菜单：用助手分析 */}
+        {selectionMenu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setSelectionMenu(null)} />
+            <div
+              className="fixed z-50 bg-surface border border-border rounded shadow-lg py-1 min-w-[160px]"
+              style={{ left: selectionMenu.x, top: selectionMenu.y }}
+            >
+              <button
+                onClick={() => {
+                  useAssistantStore.getState().analyzeText(selectionMenu.text);
+                  setSelectionMenu(null);
+                }}
+                className="w-full px-3 py-1.5 text-sm text-left hover:bg-hover flex items-center gap-2"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-primary">
+                  <circle cx="6" cy="6" r="3" stroke="currentColor" strokeWidth="1.1" />
+                  <circle cx="6" cy="6" r="1" fill="currentColor" opacity="0.5" />
+                </svg>
+                用助手分析
+              </button>
+            </div>
+          </>
+        )}
       </div>
     );
   }

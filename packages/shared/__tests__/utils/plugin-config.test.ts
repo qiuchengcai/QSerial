@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDefaultConfig, validatePluginConfig } from '@qserial/shared';
+import { getDefaultConfig, validatePluginConfig, flattenConfig } from '@qserial/shared';
 import type { PluginConfigSchema } from '@qserial/shared';
 
 const schema: PluginConfigSchema = {
@@ -76,5 +76,20 @@ describe('validatePluginConfig', () => {
 
   it('returns no errors when schema undefined', () => {
     expect(validatePluginConfig(undefined, {})).toEqual([]);
+  });
+});
+
+describe('flattenConfig', () => {
+  it('flattens nested objects into dotted keys', () => {
+    const flat = flattenConfig({ ai: { provider: 'ollama', model: 'llama3' }, rag: { topK: 5 } });
+    expect(flat).toEqual({ 'ai.provider': 'ollama', 'ai.model': 'llama3', 'rag.topK': 5 });
+  });
+
+  it('keeps flat keys as-is', () => {
+    expect(flattenConfig({ name: 'x', enabled: true })).toEqual({ name: 'x', enabled: true });
+  });
+
+  it('handles empty object', () => {
+    expect(flattenConfig({})).toEqual({});
   });
 });

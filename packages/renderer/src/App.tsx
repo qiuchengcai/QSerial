@@ -15,6 +15,7 @@ import { initMcpListeners } from './stores/mcp';
 import { useMcpStore } from './stores/mcp';
 import { initQuickButtonBridge } from './stores/quickButtons';
 import { initPluginBridge } from './stores/plugins';
+import { initAssistantBridge } from './stores/assistant';
 import { initMarketBridge, usePluginMarketStore } from './stores/pluginMarket';
 import i18n from './i18n';
 
@@ -32,6 +33,7 @@ export const App: React.FC = () => {
     initMcpListeners();
     initQuickButtonBridge();
     initPluginBridge();
+    initAssistantBridge();
     initMarketBridge();
     // 启动后后台检查插件更新（失败静默，不影响使用）
     usePluginMarketStore

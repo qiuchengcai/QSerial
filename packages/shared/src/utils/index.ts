@@ -7,3 +7,8 @@ export * from './encoding.js';
 export * from './validation.js';
 export * from './plugin-config.js';
 export * from './plugin-market.js';
+export * from './assistant-chunker.js';
+export * from './assistant-embedding.js';
+export * from './assistant-retriever.js';
+export * from './assistant-prompt.js';
+export * from './assistant-knowledge.js';

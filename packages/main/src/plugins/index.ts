@@ -14,4 +14,7 @@ export {
   getQuickButtons,
   getUiEntries,
   getOutputFilters,
+  getIpcHandler,
+  setIpcEventSink,
+  emitPluginEvent,
 } from './registry.js';

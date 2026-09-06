@@ -490,7 +490,8 @@
         "config": "Read/write its own namespaced config",
         "device_register": "Register device recognition profiles",
         "ui": "Inject UI entries",
-        "log": "Logging"
+        "log": "Logging",
+        "ipc": "Register renderer-callable methods and events"
       }
     },
     "pluginMarket": {

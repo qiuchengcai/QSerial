@@ -66,6 +66,12 @@ export interface PluginActivationContext {
   ui: {
     contribute(entries: UiContribution[]): void;
   };
+
+  /** IPC 桥 API（需 `ipc` 权限）：供插件注册可供渲染进程调用的方法并推送事件 */
+  ipc: {
+    register(method: string, handler: (args: unknown) => unknown | Promise<unknown>): void;
+    emit(event: string, payload: unknown): void;
+  };
 }
 
 /**

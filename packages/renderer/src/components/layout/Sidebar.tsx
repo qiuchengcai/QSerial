@@ -12,6 +12,7 @@ import { useTftpStore } from '@/stores/tftp';
 import { useNfsStore } from '@/stores/nfs';
 import { useFtpStore } from '@/stores/ftp';
 import { useMcpStore } from '@/stores/mcp';
+import { useAssistantStore } from '@/stores/assistant';
 import { ConnectionType, ConnectionState } from '@qserial/shared';
 import { SerialConnectDialog } from '../dialogs/SerialConnectDialog';
 import { SshConnectDialog } from '../dialogs/SshConnectDialog';
@@ -1038,6 +1039,23 @@ export const Sidebar: React.FC = () => {
               )}
             </div>
           ))}
+
+          {/* 智能助手面板入口 */}
+          <div
+            onClick={() => useAssistantStore.getState().toggle()}
+            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer hover:bg-hover transition-all group"
+          >
+            <span className="flex-shrink-0 text-primary opacity-70 group-hover:opacity-100 transition-opacity">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.6" />
+                <circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.2" />
+                <circle cx="8" cy="8" r="1.4" fill="currentColor" opacity="0.4" />
+              </svg>
+            </span>
+            <span className="text-xs flex-1 text-text-secondary group-hover:text-text transition-colors">
+              智能助手
+            </span>
+          </div>
         </div>
       </div>
 

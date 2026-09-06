@@ -68,6 +68,18 @@ export interface OutputFilter {
   filter: (text: string) => string;
 }
 
+/**
+ * 插件注册的 IPC 方法处理器。渲染进程经 `plugin:invoke` 调用，主进程按 pluginId+method 路由。
+ */
+export type PluginIpcHandler = (args: unknown) => unknown | Promise<unknown>;
+
+/** 插件推送给渲染进程的事件负载。 */
+export interface PluginIpcEvent {
+  pluginId: string;
+  event: string;
+  payload: unknown;
+}
+
 // ==================== 注册表状态 ====================
 
 const deviceProfiles = new Map<string, DeviceProfile[]>();
@@ -76,6 +88,8 @@ const quickButtons = new Map<string, QuickButtonContribution[]>();
 const outputFilters = new Map<string, OutputFilter[]>();
 const terminalCommands = new Map<string, Map<string, (args: unknown[]) => void | Promise<void>>>();
 const uiEntries = new Map<string, UiContribution[]>();
+const ipcHandlers = new Map<string, Map<string, PluginIpcHandler>>();
+let ipcEventSink: ((event: PluginIpcEvent) => void) | null = null;
 
 // ==================== 设备识别 ====================
 
@@ -205,6 +219,37 @@ export function getUiEntries(): UiContribution[] {
   return result;
 }
 
+// ==================== 插件 IPC 桥 ====================
+
+/** 注册插件 IPC 方法处理器。 */
+export function registerIpcHandler(pluginId: string, method: string, handler: PluginIpcHandler): void {
+  let methods = ipcHandlers.get(pluginId);
+  if (!methods) {
+    methods = new Map();
+    ipcHandlers.set(pluginId, methods);
+  }
+  methods.set(method, handler);
+}
+
+/** 按 pluginId + method 查找处理器。 */
+export function getIpcHandler(pluginId: string, method: string): PluginIpcHandler | undefined {
+  return ipcHandlers.get(pluginId)?.get(method);
+}
+
+export function removeIpcHandlers(pluginId: string): void {
+  ipcHandlers.delete(pluginId);
+}
+
+/** 设置事件下沉函数（由 main/index.ts 注入，将事件推送到渲染进程）。 */
+export function setIpcEventSink(sink: (event: PluginIpcEvent) => void): void {
+  ipcEventSink = sink;
+}
+
+/** 插件调用：将事件推送到渲染进程（无下沉函数时静默丢弃）。 */
+export function emitPluginEvent(event: PluginIpcEvent): void {
+  if (ipcEventSink) ipcEventSink(event);
+}
+
 /** 停用插件时回收其全部贡献 */
 export function removeAllContributions(pluginId: string): void {
   removeDeviceProfiles(pluginId);
@@ -213,4 +258,5 @@ export function removeAllContributions(pluginId: string): void {
   removeOutputFilters(pluginId);
   removeTerminalCommands(pluginId);
   removeUiEntries(pluginId);
+  removeIpcHandlers(pluginId);
 }

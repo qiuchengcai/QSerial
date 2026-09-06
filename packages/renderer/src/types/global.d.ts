@@ -161,6 +161,10 @@ interface QSerialAPI {
     reload: (id: string) => Promise<PluginInfo[]>;
     configGet: (id: string) => Promise<Record<string, unknown>>;
     configSet: (id: string, key: string, value: unknown) => Promise<void>;
+    invoke: (pluginId: string, method: string, args?: unknown) => Promise<unknown>;
+    onEvent: (
+      callback: (event: { pluginId: string; event: string; payload: unknown }) => void
+    ) => () => void;
     onChanged: (callback: (plugins: PluginInfo[]) => void) => () => void;
     onConfigChanged: (
       callback: (event: { id: string; config: Record<string, unknown> }) => void

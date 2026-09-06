@@ -248,6 +248,16 @@ const api = {
     configGet: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_CONFIG_GET, { id }),
     configSet: (id: string, key: string, value: unknown) =>
       ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_CONFIG_SET, { id, key, value }),
+    invoke: (pluginId: string, method: string, args?: unknown) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_INVOKE, { pluginId, method, args }),
+    onEvent: (callback: (event: { pluginId: string; event: string; payload: unknown }) => void) => {
+      const handler = (
+        _: unknown,
+        event: { pluginId: string; event: string; payload: unknown }
+      ) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.PLUGIN_EVENT, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.PLUGIN_EVENT, handler);
+    },
     onChanged: (callback: (plugins: unknown[]) => void) => {
       const handler = (_: unknown, event: unknown[]) => callback(event);
       ipcRenderer.on(IPC_CHANNELS.PLUGINS_CHANGED, handler);

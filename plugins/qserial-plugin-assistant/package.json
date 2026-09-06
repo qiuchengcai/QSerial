@@ -1,0 +1,68 @@
+{
+  "name": "qserial-plugin-assistant",
+  "version": "1.0.0",
+  "author": "QSerial Team",
+  "description": "QSerial 智能助手：模块化知识库 + RAG 问答 + 日志分析 + 命令生成（本地优先，隐私安全）。",
+  "main": "index.mjs",
+  "qserial": {
+    "id": "qserial-plugin-assistant",
+    "description": "智能助手：模块化本地知识库与 RAG 问答，支持串口日志分析与命令生成。",
+    "builtin": true,
+    "permissions": ["connection:read", "config", "ui", "mcp:register", "ipc"],
+    "configSchema": {
+      "fields": [
+        {
+          "key": "ai.provider",
+          "label": "AI 服务提供方",
+          "type": "select",
+          "default": "disabled",
+          "options": [
+            { "value": "disabled", "label": "关闭（仅本地检索）" },
+            { "value": "openai-compatible", "label": "OpenAI 兼容接口" },
+            { "value": "ollama", "label": "Ollama" }
+          ]
+        },
+        {
+          "key": "ai.baseUrl",
+          "label": "API 地址",
+          "type": "string",
+          "description": "如 https://api.openai.com/v1 或 http://localhost:11434/v1"
+        },
+        {
+          "key": "ai.apiKey",
+          "label": "API Key",
+          "type": "string",
+          "description": "Ollama 本地服务可留空"
+        },
+        {
+          "key": "ai.model",
+          "label": "对话模型",
+          "type": "string",
+          "description": "如 gpt-4o-mini / qwen2.5 / llama3"
+        },
+        {
+          "key": "ai.embeddingModel",
+          "label": "向量模型",
+          "type": "string",
+          "description": "留空则使用本地哈希向量（无需联网）"
+        },
+        {
+          "key": "rag.topK",
+          "label": "检索条数",
+          "type": "number",
+          "default": 5,
+          "min": 1,
+          "max": 20
+        },
+        {
+          "key": "rag.chunkSize",
+          "label": "分块大小（字符）",
+          "type": "number",
+          "default": 500,
+          "min": 100,
+          "max": 2000
+        }
+      ]
+    }
+  }
+}

@@ -7,7 +7,7 @@ import { app, BrowserWindow, nativeImage, Menu, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
-import { IPC_CHANNELS } from '@qserial/shared';
+import { IPC_CHANNELS, flattenConfig } from '@qserial/shared';
 import { ConfigManager } from './config/manager.js';
 
 // 尽早注册未处理异常处理器，确保能捕获模块加载阶段的崩溃
@@ -373,7 +373,9 @@ async function initBackgroundServices(): Promise<void> {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(IPC_CHANNELS.PLUGIN_CONFIG_CHANGED, {
           id,
-          config: ConfigManager.get(`plugins.namespace.${id}`) || {},
+          config: flattenConfig(
+            (ConfigManager.get(`plugins.namespace.${id}`) as Record<string, unknown>) || {}
+          ),
         });
       }
     });
