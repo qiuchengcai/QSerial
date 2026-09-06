@@ -209,7 +209,25 @@ describe('MCP SSE transport', () => {
     const frame = await client.nextFrame();
     const msg = JSON.parse(frame.data);
     expect(msg.id).toBe(2);
-    expect(msg.result.tools).toHaveLength(47);
+    // 47 既有 + 10 buttons.* = 57
+    expect(msg.result.tools).toHaveLength(57);
+    // buttons.* 工具须全部可被发现（供 AI 客户端 tools/list 调用）
+    const toolNames = (msg.result.tools as Array<{ name: string }>).map((t) => t.name);
+    const buttonsTools = [
+      'buttons.groups.list',
+      'buttons.list',
+      'buttons.get',
+      'buttons.create',
+      'buttons.update',
+      'buttons.delete',
+      'buttons.groups.create',
+      'buttons.groups.update',
+      'buttons.groups.delete',
+      'buttons.run',
+    ];
+    for (const n of buttonsTools) {
+      expect(toolNames).toContain(n);
+    }
   });
 
   it('acknowledges notifications with 202', async () => {

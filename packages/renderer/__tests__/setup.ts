@@ -103,6 +103,9 @@ if (typeof window !== 'undefined') {
     dialog: {
       pickDir: vi.fn().mockResolvedValue('/test/dir'),
     },
+    quickButtons: {
+      onChanged: vi.fn().mockReturnValue(noop),
+    },
     getLocalIp: vi.fn().mockResolvedValue('127.0.0.1'),
     readFile: vi.fn().mockResolvedValue('{}'),
     sftp: {

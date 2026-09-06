@@ -39,6 +39,8 @@ interface QuickButtonsState {
   moveButton: (fromGroupId: string, toGroupId: string, buttonId: string, toIndex?: number) => void;
   importGroups: (groups: ButtonGroup[]) => void;
   setDirection: (direction: ButtonBarDirection) => void;
+  /** 整体替换分组（MCP/主进程变更入口）：以传入分组覆盖当前状态并持久化 */
+  setGroups: (groups: ButtonGroup[]) => void;
 }
 
 export const useQuickButtonsStore = create<QuickButtonsState>()(
@@ -137,6 +139,10 @@ export const useQuickButtonsStore = create<QuickButtonsState>()(
       setDirection: (direction) => {
         set({ direction });
       },
+
+      setGroups: (groups) => {
+        set({ groups });
+      },
     }),
     {
       name: 'qserial-quick-buttons',
@@ -168,3 +174,45 @@ export const PRESET_COLORS = [
   { name: '粉色', value: '#EC4899', textColor: '#FFFFFF' },
   { name: '灰色', value: '#6B7280', textColor: '#FFFFFF' },
 ];
+
+/**
+ * 校验主进程下发的分组数据是否为合法 ButtonGroup[]
+ * 宽松校验：只要求结构与字段类型基本正确，避免把脏数据写入 store。
+ */
+function isButtonGroupArray(value: unknown): value is ButtonGroup[] {
+  if (!Array.isArray(value)) return false;
+  return value.every((g) => {
+    if (!g || typeof g !== 'object') return false;
+    const group = g as Record<string, unknown>;
+    if (typeof group.id !== 'string' || typeof group.name !== 'string') return false;
+    if (!Array.isArray(group.buttons)) return false;
+    return group.buttons.every((b) => {
+      if (!b || typeof b !== 'object') return false;
+      const btn = b as Record<string, unknown>;
+      return (
+        typeof btn.id === 'string' &&
+        typeof btn.name === 'string' &&
+        typeof btn.command === 'string'
+      );
+    });
+  });
+}
+
+/**
+ * 初始化"主进程 → 快捷按钮 store"变更桥（在 App 启动时调用一次）。
+ * MCP 工具（buttons.*）对按钮配置的任何写操作，最终都会以 QUICK_BUTTONS_CHANGED
+ * 事件把变更后的完整分组数组送回渲染进程，这里用 setGroups 覆盖刷新，
+ * zustand set() 会触发 React 重渲染并同步持久化到 localStorage。
+ */
+let quickButtonBridgeInitialized = false;
+
+export function initQuickButtonBridge(): void {
+  if (quickButtonBridgeInitialized) return;
+  quickButtonBridgeInitialized = true;
+
+  window.qserial.quickButtons.onChanged((groups) => {
+    if (isButtonGroupArray(groups)) {
+      useQuickButtonsStore.getState().setGroups(groups);
+    }
+  });
+}
