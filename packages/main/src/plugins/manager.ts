@@ -11,7 +11,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import type { PluginInfo, PluginManifest, PluginPermission } from '@qserial/shared';
 import { buildPluginContext } from './host-api.js';
 import { removeAllContributions } from './registry.js';
@@ -19,29 +19,47 @@ import type { PluginManagerOptions, PluginModule, PluginRuntime } from './types.
 
 const DEFAULT_DESCRIPTION = '';
 
+/** 基于 import.meta.url 计算的 __dirname（ESM 下无内置 __dirname） */
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * 收集插件搜索目录（多候选去重，适配 dev 直启 / electron . / 打包等多种启动方式）。
+ */
+function collectSearchPaths(extraDirs: string[] = []): string[] {
+  const candidates = new Set<string>();
+  // 1. 相对编译产物目录上溯到仓库/应用根的 plugins（覆盖 electron <dist>/index.js 直启）
+  candidates.add(path.resolve(MODULE_DIR, '../../../plugins'));
+  // 2. electron app.getAppPath() / userData 目录（打包/标准启动）
+  for (const dir of extraDirs) {
+    candidates.add(path.join(dir, 'plugins'));
+  }
+  // 3. 进程工作目录回退
+  candidates.add(path.join(process.cwd(), 'plugins'));
+
+  const result: string[] = [];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) result.push(c);
+  }
+  return result;
+}
+
 function defaultSearchPaths(): Promise<string[]> {
-  // 惰性 import electron，避免在非 electron 环境（单元测试）下解析失败
   return import('electron')
     .then(({ app }) => {
-      const paths: string[] = [];
+      const extra: string[] = [];
       try {
-        const builtin = path.join(app.getAppPath(), 'plugins');
-        if (fs.existsSync(builtin)) paths.push(builtin);
+        extra.push(app.getAppPath());
       } catch {
         /* ignore */
       }
       try {
-        const user = path.join(app.getPath('userData'), 'plugins');
-        if (fs.existsSync(user)) paths.push(user);
+        extra.push(app.getPath('userData'));
       } catch {
         /* ignore */
       }
-      return paths;
+      return collectSearchPaths(extra);
     })
-    .catch(() => {
-      const cwd = path.join(process.cwd(), 'plugins');
-      return fs.existsSync(cwd) ? [cwd] : [];
-    });
+    .catch(() => collectSearchPaths());
 }
 
 export class PluginManagerImpl {
