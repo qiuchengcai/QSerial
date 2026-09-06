@@ -16,6 +16,9 @@ import type {
   FtpClientInfo,
   FtpClientEvent,
   PluginInfo,
+  MarketIndex,
+  PluginUpdateInfo,
+  PluginDownloadProgress,
 } from '@qserial/shared';
 
 interface QSerialAPI {
@@ -162,6 +165,11 @@ interface QSerialAPI {
     onConfigChanged: (
       callback: (event: { id: string; config: Record<string, unknown> }) => void
     ) => () => void;
+    marketFetch: (sourceUrl?: string) => Promise<MarketIndex>;
+    marketInstall: (pluginId: string, sourceUrl?: string) => Promise<PluginInfo[]>;
+    marketUpdate: (pluginId: string, sourceUrl?: string) => Promise<PluginInfo[]>;
+    marketCheckUpdates: (sourceUrl?: string) => Promise<PluginUpdateInfo[]>;
+    onDownloadProgress: (callback: (progress: PluginDownloadProgress) => void) => () => void;
   };
 
   // SFTP 文件传输

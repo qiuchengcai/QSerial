@@ -5,8 +5,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePluginsStore } from '@/stores/plugins';
+import { usePluginMarketStore } from '@/stores/pluginMarket';
 import type { PluginConfigField, PluginInfo, PluginPermission } from '@qserial/shared';
-import { getDefaultConfig, validatePluginConfig } from '@qserial/shared';
+import { getDefaultConfig, validatePluginConfig, compareVersions } from '@qserial/shared';
 
 interface PluginDetailDialogProps {
   isOpen: boolean;
@@ -26,6 +27,13 @@ const PERMISSION_LABEL_KEYS: Record<PluginPermission, string> = {
 
 type TabId = 'info' | 'config';
 
+function formatSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '-';
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
 export const PluginDetailDialog: React.FC<PluginDetailDialogProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
   const selectedPluginId = usePluginsStore((s) => s.selectedPluginId);
@@ -38,6 +46,15 @@ export const PluginDetailDialog: React.FC<PluginDetailDialogProps> = ({ isOpen, 
     () => plugins.find((p) => p.id === selectedPluginId),
     [plugins, selectedPluginId]
   );
+
+  const marketPlugins = usePluginMarketStore((s) => s.marketPlugins);
+  const marketUpdatePlugin = usePluginMarketStore((s) => s.updatePlugin);
+  const marketInstall = usePluginMarketStore((s) => s.installFromMarket);
+  const downloadingPlugins = usePluginMarketStore((s) => s.downloadingPlugins);
+  const marketItem = marketPlugins.find((p) => p.id === selectedPluginId);
+  const hasMarketUpdate =
+    !!plugin && !!marketItem && compareVersions(marketItem.version, plugin.version) > 0;
+  const downloading = selectedPluginId ? downloadingPlugins[selectedPluginId] : undefined;
 
   const [activeTab, setActiveTab] = useState<TabId>('info');
   const [confirmUninstall, setConfirmUninstall] = useState(false);
@@ -67,9 +84,14 @@ export const PluginDetailDialog: React.FC<PluginDetailDialogProps> = ({ isOpen, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, plugin?.id]);
 
-  if (!isOpen || !plugin) return null;
+  if (!isOpen || (!plugin && !marketItem)) return null;
 
-  const persisted = pluginConfigs[plugin.id] || {};
+  const displayName = plugin?.name || marketItem?.name || '';
+  const displayVersion = plugin?.version || marketItem?.version || '';
+  const displayAuthor = plugin?.author || marketItem?.author;
+  const displayDescription = plugin?.description || marketItem?.description;
+
+  const persisted = plugin ? pluginConfigs[plugin.id] || {} : {};
   const isDirty = schema?.fields
     ? schema.fields.some(
         (f) => draft[f.key] !== (persisted[f.key] !== undefined ? persisted[f.key] : f.default)
@@ -77,7 +99,7 @@ export const PluginDetailDialog: React.FC<PluginDetailDialogProps> = ({ isOpen, 
     : false;
 
   const handleSave = async () => {
-    if (!schema?.fields) return;
+    if (!plugin || !schema?.fields) return;
     setSaveError(null);
     setSaved(false);
     const errors = validatePluginConfig(schema, draft);
@@ -96,7 +118,7 @@ export const PluginDetailDialog: React.FC<PluginDetailDialogProps> = ({ isOpen, 
   };
 
   const handleRestoreDefaults = async () => {
-    if (!schema?.fields) return;
+    if (!plugin || !schema?.fields) return;
     const defaults = getDefaultConfig(schema);
     setDraft(defaults);
     for (const f of schema.fields) {
@@ -185,8 +207,8 @@ export const PluginDetailDialog: React.FC<PluginDetailDialogProps> = ({ isOpen, 
         {/* 头部 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold truncate">{plugin.name}</h3>
-            <span className="text-[10px] font-mono text-text-secondary/70">v{plugin.version}</span>
+            <h3 className="text-sm font-semibold truncate">{displayName}</h3>
+            <span className="text-[10px] font-mono text-text-secondary/70">v{displayVersion}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex rounded-md border border-border overflow-hidden">
@@ -232,117 +254,224 @@ export const PluginDetailDialog: React.FC<PluginDetailDialogProps> = ({ isOpen, 
                   <span className="w-20 text-text-secondary flex-shrink-0">
                     {t('dialogs.pluginDetail.name')}
                   </span>
-                  <span className="text-text">{plugin.name}</span>
+                  <span className="text-text">{displayName}</span>
                 </div>
                 <div className="flex">
                   <span className="w-20 text-text-secondary flex-shrink-0">
                     {t('dialogs.pluginDetail.author')}
                   </span>
                   <span className="text-text">
-                    {plugin.author || t('dialogs.pluginDetail.none')}
+                    {displayAuthor || t('dialogs.pluginDetail.none')}
                   </span>
                 </div>
-                <div className="flex">
-                  <span className="w-20 text-text-secondary flex-shrink-0">
-                    {t('dialogs.pluginDetail.type')}
-                  </span>
-                  <span className="text-text">
-                    {plugin.builtin
-                      ? t('dialogs.pluginDetail.builtinType')
-                      : t('dialogs.pluginDetail.userType')}
-                  </span>
-                </div>
-                <div className="flex">
-                  <span className="w-20 text-text-secondary flex-shrink-0">
-                    {t('dialogs.pluginDetail.status')}
-                  </span>
-                  <span
-                    className={
-                      plugin.status === 'error'
-                        ? 'text-error'
-                        : plugin.enabled
-                          ? 'text-success'
-                          : 'text-text-secondary'
-                    }
-                  >
-                    {plugin.status === 'error'
-                      ? t('dialogs.settings.pluginsError')
-                      : plugin.enabled
-                        ? t('dialogs.settings.pluginsEnabled')
-                        : t('dialogs.settings.pluginsDisabled')}
-                  </span>
-                </div>
-                {plugin.description && (
+                {plugin && (
+                  <>
+                    <div className="flex">
+                      <span className="w-20 text-text-secondary flex-shrink-0">
+                        {t('dialogs.pluginDetail.type')}
+                      </span>
+                      <span className="text-text">
+                        {plugin.builtin
+                          ? t('dialogs.pluginDetail.builtinType')
+                          : t('dialogs.pluginDetail.userType')}
+                      </span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-20 text-text-secondary flex-shrink-0">
+                        {t('dialogs.pluginDetail.status')}
+                      </span>
+                      <span
+                        className={
+                          plugin.status === 'error'
+                            ? 'text-error'
+                            : plugin.enabled
+                              ? 'text-success'
+                              : 'text-text-secondary'
+                        }
+                      >
+                        {plugin.status === 'error'
+                          ? t('dialogs.settings.pluginsError')
+                          : plugin.enabled
+                            ? t('dialogs.settings.pluginsEnabled')
+                            : t('dialogs.settings.pluginsDisabled')}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {displayDescription && (
                   <div className="pt-2">
                     <span className="text-text-secondary">
                       {t('dialogs.pluginDetail.description')}:{' '}
                     </span>
-                    <span className="text-text">{plugin.description}</span>
+                    <span className="text-text">{displayDescription}</span>
                   </div>
                 )}
               </div>
 
-              {plugin.error && (
+              {/* 市场信息 */}
+              {marketItem && (
+                <div className="rounded-lg border border-border/60 p-3 space-y-1.5">
+                  <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    {t('dialogs.pluginDetail.marketInfo')}
+                  </h4>
+                  {marketItem.releaseDate && (
+                    <div className="flex text-xs">
+                      <span className="w-20 text-text-secondary flex-shrink-0">
+                        {t('dialogs.pluginDetail.releaseDate')}
+                      </span>
+                      <span className="text-text">{marketItem.releaseDate}</span>
+                    </div>
+                  )}
+                  {marketItem.size !== undefined && (
+                    <div className="flex text-xs">
+                      <span className="w-20 text-text-secondary flex-shrink-0">
+                        {t('dialogs.pluginDetail.size')}
+                      </span>
+                      <span className="text-text">{formatSize(marketItem.size)}</span>
+                    </div>
+                  )}
+                  {marketItem.downloads !== undefined && (
+                    <div className="flex text-xs">
+                      <span className="w-20 text-text-secondary flex-shrink-0">
+                        {t('dialogs.pluginDetail.downloads')}
+                      </span>
+                      <span className="text-text">{marketItem.downloads}</span>
+                    </div>
+                  )}
+                  {marketItem.tags.length > 0 && (
+                    <div className="flex text-xs items-center">
+                      <span className="w-20 text-text-secondary flex-shrink-0">
+                        {t('dialogs.pluginDetail.tags')}
+                      </span>
+                      <span className="flex gap-1 flex-wrap">
+                        {marketItem.tags.map((x) => (
+                          <span
+                            key={x}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary"
+                          >
+                            {x}
+                          </span>
+                        ))}
+                      </span>
+                    </div>
+                  )}
+                  {marketItem.homepage && (
+                    <div className="flex text-xs">
+                      <span className="w-20 text-text-secondary flex-shrink-0">
+                        {t('dialogs.pluginDetail.homepage')}
+                      </span>
+                      <a
+                        href={marketItem.homepage}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-primary underline break-all"
+                      >
+                        {marketItem.homepage}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {plugin?.error && (
                 <div className="text-xs text-error bg-error/10 border-l-2 border-error px-3 py-2 rounded-r-lg whitespace-pre-wrap">
                   {plugin.error}
                 </div>
               )}
 
-              <div>
-                <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
-                  {t('dialogs.pluginDetail.permissions')}
-                </h4>
-                {plugin.permissions.length === 0 ? (
-                  <p className="text-xs text-text-secondary/70">
-                    {t('dialogs.pluginDetail.noPermissions')}
-                  </p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {plugin.permissions.map((p) => (
-                      <li key={p} className="flex items-start gap-2 text-xs">
-                        <code className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-background/60 text-primary flex-shrink-0">
-                          {p}
-                        </code>
-                        <span className="text-text-secondary">{t(PERMISSION_LABEL_KEYS[p])}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {plugin && (
+                <div>
+                  <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+                    {t('dialogs.pluginDetail.permissions')}
+                  </h4>
+                  {plugin.permissions.length === 0 ? (
+                    <p className="text-xs text-text-secondary/70">
+                      {t('dialogs.pluginDetail.noPermissions')}
+                    </p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {plugin.permissions.map((p) => (
+                        <li key={p} className="flex items-start gap-2 text-xs">
+                          <code className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-background/60 text-primary flex-shrink-0">
+                            {p}
+                          </code>
+                          <span className="text-text-secondary">{t(PERMISSION_LABEL_KEYS[p])}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
 
               {/* 操作区 */}
               <div className="flex items-center gap-2 pt-2 border-t border-border/60">
-                <button
-                  onClick={() => usePluginsStore.getState().setEnabled(plugin.id, !plugin.enabled)}
-                  className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5"
-                >
-                  {plugin.enabled
-                    ? t('dialogs.pluginDetail.disable')
-                    : t('dialogs.pluginDetail.enable')}
-                </button>
-                <button
-                  onClick={() => usePluginsStore.getState().reload(plugin.id)}
-                  className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5"
-                >
-                  {t('dialogs.pluginDetail.reload')}
-                </button>
-                {!plugin.builtin &&
-                  (confirmUninstall ? (
+                {plugin ? (
+                  <>
                     <button
-                      onClick={() => usePluginsStore.getState().uninstall(plugin.id)}
-                      className="dialog-btn text-xs px-3 py-1.5 text-error border-error"
+                      onClick={() =>
+                        usePluginsStore.getState().setEnabled(plugin.id, !plugin.enabled)
+                      }
+                      className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5"
                     >
-                      {t('dialogs.settings.pluginsConfirm')}
+                      {plugin.enabled
+                        ? t('dialogs.pluginDetail.disable')
+                        : t('dialogs.pluginDetail.enable')}
                     </button>
-                  ) : (
                     <button
-                      onClick={() => setConfirmUninstall(true)}
-                      className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5 text-error"
+                      onClick={() => usePluginsStore.getState().reload(plugin.id)}
+                      className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5"
                     >
-                      {t('dialogs.settings.pluginsUninstall')}
+                      {t('dialogs.pluginDetail.reload')}
                     </button>
-                  ))}
+                    {hasMarketUpdate && marketItem && (
+                      <button
+                        onClick={() => marketUpdatePlugin(plugin.id)}
+                        className="dialog-btn text-xs px-3 py-1.5 text-accent border-accent"
+                      >
+                        {t('dialogs.pluginMarket.update')} v{marketItem.version}
+                      </button>
+                    )}
+                    {!plugin.builtin &&
+                      (confirmUninstall ? (
+                        <button
+                          onClick={() => usePluginsStore.getState().uninstall(plugin.id)}
+                          className="dialog-btn text-xs px-3 py-1.5 text-error border-error"
+                        >
+                          {t('dialogs.settings.pluginsConfirm')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmUninstall(true)}
+                          className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5 text-error"
+                        >
+                          {t('dialogs.settings.pluginsUninstall')}
+                        </button>
+                      ))}
+                  </>
+                ) : marketItem ? (
+                  <button
+                    onClick={() => marketInstall(marketItem.id)}
+                    disabled={!!downloading}
+                    className="dialog-btn dialog-btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
+                  >
+                    {downloading
+                      ? t('dialogs.settings.pluginsProcessing')
+                      : t('dialogs.pluginMarket.install')}
+                  </button>
+                ) : null}
               </div>
+              {!plugin && downloading && (
+                <div>
+                  <div className="flex items-center gap-2 text-xs text-text-secondary">
+                    <span>{downloading.percent}%</span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded bg-border overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${downloading.percent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               {confirmUninstall && (
                 <p className="text-xs text-warning">
                   {t('dialogs.settings.pluginsConfirmUninstall')}

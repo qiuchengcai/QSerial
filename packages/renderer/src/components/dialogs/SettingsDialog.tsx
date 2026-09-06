@@ -12,7 +12,9 @@ import { useTftpStore } from '@/stores/tftp';
 import { useNfsStore } from '@/stores/nfs';
 import { useFtpStore } from '@/stores/ftp';
 import { usePluginsStore } from '@/stores/plugins';
+import { usePluginMarketStore } from '@/stores/pluginMarket';
 import { PluginDetailDialog } from './PluginDetailDialog';
+import { PluginMarketPanel } from './PluginMarketPanel';
 import type { AppConfig, Theme, PluginInfo } from '@qserial/shared';
 
 interface SettingsDialogProps {
@@ -55,6 +57,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
 
   const [activeSection, setActiveSection] = useState<SectionId>('appearance');
   const [confirmUninstallId, setConfirmUninstallId] = useState<string | null>(null);
+  const [pluginSubTab, setPluginSubTab] = useState<'installed' | 'market'>('installed');
+  const marketUpdates = usePluginMarketStore((s) => s.updates);
 
   // ── 本地编辑状态 ──
   const [fontSize, setFontSize] = useState(config.terminal.fontSize);
@@ -561,10 +565,35 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
       case 'plugins':
         return (
           <div className="space-y-4">
-            {/* 顶部操作区：安装 + 刷新 */}
+            {/* 顶部操作区 + 子 Tab 切换 */}
             <div className="flex items-center gap-2">
               <SectionTitle title={t('dialogs.settings.plugins')} />
+              <div className="flex rounded-md border border-border overflow-hidden ml-2">
+                <button
+                  onClick={() => setPluginSubTab('installed')}
+                  className={`px-2.5 py-1 text-xs ${pluginSubTab === 'installed' ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-hover'}`}
+                >
+                  {t('dialogs.pluginMarket.installedTab')}
+                  {marketUpdates.length > 0 && (
+                    <span className="inline-block w-1.5 h-1.5 ml-1 rounded-full bg-error align-middle" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setPluginSubTab('market')}
+                  className={`px-2.5 py-1 text-xs ${pluginSubTab === 'market' ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-hover'}`}
+                >
+                  {t('dialogs.pluginMarket.marketTab')}
+                </button>
+              </div>
               <div className="ml-auto flex gap-2">
+                {marketUpdates.length > 0 && (
+                  <button
+                    onClick={() => usePluginMarketStore.getState().updateAll()}
+                    className="dialog-btn text-xs px-3 py-1.5 text-accent border-accent"
+                  >
+                    {t('dialogs.pluginMarket.updateAll', { count: marketUpdates.length })}
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     const dir = await window.qserial.dialog.pickDir(
@@ -591,132 +620,144 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
               </div>
             </div>
 
-            {pluginsError && (
-              <div className="flex items-center gap-2 text-xs text-error bg-error/10 border-l-2 border-error px-3 py-2 rounded-r-lg">
-                {pluginsError}
-              </div>
-            )}
-
-            {plugins.length === 0 ? (
-              <p className="text-xs text-text-secondary/70">{t('dialogs.settings.pluginsEmpty')}</p>
+            {pluginSubTab === 'market' ? (
+              <PluginMarketPanel />
             ) : (
-              <div className="space-y-3">
-                {plugins.map((plugin: PluginInfo) => {
-                  const isPending = pluginsPendingId === plugin.id;
-                  const isTransient =
-                    plugin.status === 'installing' ||
-                    plugin.status === 'uninstalling' ||
-                    plugin.status === 'updating';
-                  const statusLabel = isTransient
-                    ? t('dialogs.settings.pluginsProcessing')
-                    : plugin.status === 'error'
-                      ? t('dialogs.settings.pluginsError')
-                      : plugin.enabled
-                        ? t('dialogs.settings.pluginsEnabled')
-                        : t('dialogs.settings.pluginsDisabled');
-                  return (
-                    <div
-                      key={plugin.id}
-                      className="rounded-lg border border-border bg-background/30 p-3.5"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{plugin.name}</span>
-                            <span className="text-[10px] font-mono text-text-secondary/70">
-                              v{plugin.version}
-                            </span>
-                            {plugin.builtin && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                {t('dialogs.settings.pluginsBuiltin')}
-                              </span>
-                            )}
+              <>
+                {pluginsError && (
+                  <div className="flex items-center gap-2 text-xs text-error bg-error/10 border-l-2 border-error px-3 py-2 rounded-r-lg">
+                    {pluginsError}
+                  </div>
+                )}
+
+                {plugins.length === 0 ? (
+                  <p className="text-xs text-text-secondary/70">
+                    {t('dialogs.settings.pluginsEmpty')}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {plugins.map((plugin: PluginInfo) => {
+                      const isPending = pluginsPendingId === plugin.id;
+                      const isTransient =
+                        plugin.status === 'installing' ||
+                        plugin.status === 'uninstalling' ||
+                        plugin.status === 'updating';
+                      const statusLabel = isTransient
+                        ? t('dialogs.settings.pluginsProcessing')
+                        : plugin.status === 'error'
+                          ? t('dialogs.settings.pluginsError')
+                          : plugin.enabled
+                            ? t('dialogs.settings.pluginsEnabled')
+                            : t('dialogs.settings.pluginsDisabled');
+                      return (
+                        <div
+                          key={plugin.id}
+                          className="rounded-lg border border-border bg-background/30 p-3.5"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{plugin.name}</span>
+                                <span className="text-[10px] font-mono text-text-secondary/70">
+                                  v{plugin.version}
+                                </span>
+                                {plugin.builtin && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                    {t('dialogs.settings.pluginsBuiltin')}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-text-secondary mt-0.5">
+                                {t('dialogs.settings.pluginsAuthor')}:{' '}
+                                {plugin.author || t('dialogs.settings.pluginsNone')}
+                              </div>
+                              {plugin.description && (
+                                <p className="text-[11px] text-text-secondary/80 mt-1">
+                                  {plugin.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => usePluginsStore.getState().selectPlugin(plugin.id)}
+                                className="text-[11px] px-2 py-1 rounded text-text-secondary hover:bg-hover"
+                              >
+                                {t('dialogs.pluginDetail.title')}
+                              </button>
+                              {!plugin.builtin &&
+                                (confirmUninstallId === plugin.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() =>
+                                        usePluginsStore.getState().uninstall(plugin.id)
+                                      }
+                                      disabled={isPending}
+                                      className="text-[11px] px-2 py-1 rounded bg-error/10 text-error hover:bg-error/20 disabled:opacity-50"
+                                    >
+                                      {t('dialogs.settings.pluginsConfirm')}
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmUninstallId(null)}
+                                      className="text-[11px] px-2 py-1 rounded text-text-secondary hover:bg-hover"
+                                    >
+                                      {t('dialogs.settings.cancel')}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmUninstallId(plugin.id)}
+                                    disabled={isPending}
+                                    className="text-[11px] px-2 py-1 rounded text-error/80 hover:bg-error/10 disabled:opacity-50"
+                                  >
+                                    {t('dialogs.settings.pluginsUninstall')}
+                                  </button>
+                                ))}
+                              <Toggle
+                                label=""
+                                checked={plugin.enabled}
+                                onChange={(v) =>
+                                  usePluginsStore.getState().setEnabled(plugin.id, v)
+                                }
+                              />
+                            </div>
                           </div>
-                          <div className="text-[11px] text-text-secondary mt-0.5">
-                            {t('dialogs.settings.pluginsAuthor')}:{' '}
-                            {plugin.author || t('dialogs.settings.pluginsNone')}
-                          </div>
-                          {plugin.description && (
-                            <p className="text-[11px] text-text-secondary/80 mt-1">
-                              {plugin.description}
+                          {confirmUninstallId === plugin.id && (
+                            <p className="text-[11px] text-warning mt-2">
+                              {t('dialogs.settings.pluginsConfirmUninstall')}
                             </p>
                           )}
+                          {plugin.error && (
+                            <p className="text-[11px] text-error mt-2">{plugin.error}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-border/60">
+                            <span className="text-[11px] text-text-secondary">
+                              {t('dialogs.settings.pluginsPermissions')}:
+                            </span>
+                            <span className="text-[11px] text-text-secondary/80">
+                              {plugin.permissions.length > 0
+                                ? plugin.permissions.join(', ')
+                                : t('dialogs.settings.pluginsNone')}
+                            </span>
+                            <span
+                              className={`ml-auto text-[11px] ${
+                                plugin.status === 'error'
+                                  ? 'text-error'
+                                  : isTransient
+                                    ? 'text-text-secondary'
+                                    : plugin.enabled
+                                      ? 'text-success'
+                                      : 'text-text-secondary'
+                              }`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => usePluginsStore.getState().selectPlugin(plugin.id)}
-                            className="text-[11px] px-2 py-1 rounded text-text-secondary hover:bg-hover"
-                          >
-                            {t('dialogs.pluginDetail.title')}
-                          </button>
-                          {!plugin.builtin &&
-                            (confirmUninstallId === plugin.id ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => usePluginsStore.getState().uninstall(plugin.id)}
-                                  disabled={isPending}
-                                  className="text-[11px] px-2 py-1 rounded bg-error/10 text-error hover:bg-error/20 disabled:opacity-50"
-                                >
-                                  {t('dialogs.settings.pluginsConfirm')}
-                                </button>
-                                <button
-                                  onClick={() => setConfirmUninstallId(null)}
-                                  className="text-[11px] px-2 py-1 rounded text-text-secondary hover:bg-hover"
-                                >
-                                  {t('dialogs.settings.cancel')}
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setConfirmUninstallId(plugin.id)}
-                                disabled={isPending}
-                                className="text-[11px] px-2 py-1 rounded text-error/80 hover:bg-error/10 disabled:opacity-50"
-                              >
-                                {t('dialogs.settings.pluginsUninstall')}
-                              </button>
-                            ))}
-                          <Toggle
-                            label=""
-                            checked={plugin.enabled}
-                            onChange={(v) => usePluginsStore.getState().setEnabled(plugin.id, v)}
-                          />
-                        </div>
-                      </div>
-                      {confirmUninstallId === plugin.id && (
-                        <p className="text-[11px] text-warning mt-2">
-                          {t('dialogs.settings.pluginsConfirmUninstall')}
-                        </p>
-                      )}
-                      {plugin.error && (
-                        <p className="text-[11px] text-error mt-2">{plugin.error}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-border/60">
-                        <span className="text-[11px] text-text-secondary">
-                          {t('dialogs.settings.pluginsPermissions')}:
-                        </span>
-                        <span className="text-[11px] text-text-secondary/80">
-                          {plugin.permissions.length > 0
-                            ? plugin.permissions.join(', ')
-                            : t('dialogs.settings.pluginsNone')}
-                        </span>
-                        <span
-                          className={`ml-auto text-[11px] ${
-                            plugin.status === 'error'
-                              ? 'text-error'
-                              : isTransient
-                                ? 'text-text-secondary'
-                                : plugin.enabled
-                                  ? 'text-success'
-                                  : 'text-text-secondary'
-                          }`}
-                        >
-                          {statusLabel}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
         );

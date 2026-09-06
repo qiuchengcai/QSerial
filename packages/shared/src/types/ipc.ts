@@ -4,6 +4,7 @@
 
 import type { ConnectionOptions, SerialPortInfo } from './connection.js';
 import type { PluginInfo } from './plugin.js';
+import type { MarketIndex, PluginUpdateInfo } from './plugin-market.js';
 
 /**
  * IPC 通道名称
@@ -129,6 +130,13 @@ export const IPC_CHANNELS = {
   PLUGIN_CONFIG_SET: 'plugin:configSet',
   PLUGIN_CONFIG_CHANGED: 'plugin:configChanged',
   PLUGINS_CHANGED: 'plugin:changed',
+
+  // 插件市场
+  PLUGIN_MARKET_FETCH: 'plugin:marketFetch',
+  PLUGIN_MARKET_INSTALL: 'plugin:marketInstall',
+  PLUGIN_MARKET_UPDATE: 'plugin:marketUpdate',
+  PLUGIN_MARKET_CHECK_UPDATES: 'plugin:marketCheckUpdates',
+  PLUGIN_DOWNLOAD_PROGRESS: 'plugin:downloadProgress',
 } as const;
 
 /**
@@ -220,6 +228,10 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.PLUGIN_RELOAD]: { id: string };
   [IPC_CHANNELS.PLUGIN_CONFIG_GET]: { id: string };
   [IPC_CHANNELS.PLUGIN_CONFIG_SET]: { id: string; key: string; value: unknown };
+  [IPC_CHANNELS.PLUGIN_MARKET_FETCH]: { sourceUrl?: string };
+  [IPC_CHANNELS.PLUGIN_MARKET_INSTALL]: { pluginId: string; sourceUrl?: string };
+  [IPC_CHANNELS.PLUGIN_MARKET_UPDATE]: { pluginId: string; sourceUrl?: string };
+  [IPC_CHANNELS.PLUGIN_MARKET_CHECK_UPDATES]: { sourceUrl?: string };
 }
 
 /**
@@ -297,6 +309,10 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.PLUGIN_RELOAD]: PluginInfo[];
   [IPC_CHANNELS.PLUGIN_CONFIG_GET]: Record<string, unknown>;
   [IPC_CHANNELS.PLUGIN_CONFIG_SET]: void;
+  [IPC_CHANNELS.PLUGIN_MARKET_FETCH]: MarketIndex;
+  [IPC_CHANNELS.PLUGIN_MARKET_INSTALL]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_MARKET_UPDATE]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_MARKET_CHECK_UPDATES]: PluginUpdateInfo[];
 }
 
 /**

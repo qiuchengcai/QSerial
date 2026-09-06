@@ -15,6 +15,7 @@ import { initMcpListeners } from './stores/mcp';
 import { useMcpStore } from './stores/mcp';
 import { initQuickButtonBridge } from './stores/quickButtons';
 import { initPluginBridge } from './stores/plugins';
+import { initMarketBridge, usePluginMarketStore } from './stores/pluginMarket';
 import i18n from './i18n';
 
 // StrictMode 在 dev 下会双执行 effect，避免自动启动服务被触发两次
@@ -31,6 +32,12 @@ export const App: React.FC = () => {
     initMcpListeners();
     initQuickButtonBridge();
     initPluginBridge();
+    initMarketBridge();
+    // 启动后后台检查插件更新（失败静默，不影响使用）
+    usePluginMarketStore
+      .getState()
+      .loadSources()
+      .then(() => usePluginMarketStore.getState().checkUpdates());
 
     // 自启服务：autoStart = true 的服务在应用启动时自动运行
     const autoStartServices = async () => {

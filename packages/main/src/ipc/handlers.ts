@@ -4,7 +4,7 @@
  */
 
 import { app, ipcMain, BrowserWindow } from 'electron';
-import { IPC_CHANNELS } from '@qserial/shared';
+import { IPC_CHANNELS, DEFAULT_MARKET_SOURCES } from '@qserial/shared';
 import type { IConnection } from '@qserial/shared';
 import { ConnectionFactory } from '../services/connection/factory.js';
 import { ConfigManager } from '../config/manager.js';
@@ -666,6 +666,47 @@ function setupPluginHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.PLUGIN_CONFIG_SET, async (_, { id, key, value }) => {
     ConfigManager.set(`plugins.namespace.${id}.${key}`, value);
     // 变更推送由 main/src/index.ts 的中央 ConfigManager.onChange 监听器完成
+  });
+
+  // 插件市场
+  const resolveMarketUrl = (sourceUrl?: string): string =>
+    sourceUrl || DEFAULT_MARKET_SOURCES[0].url;
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_MARKET_FETCH, async (_, { sourceUrl }) => {
+    const { getPluginMarket } = await import('../plugins/index.js');
+    return getPluginMarket().fetchMarketIndex(resolveMarketUrl(sourceUrl));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_MARKET_INSTALL, async (_, { pluginId, sourceUrl }) => {
+    const { getPluginMarket, getPluginManager } = await import('../plugins/index.js');
+    const market = getPluginMarket();
+    const index = await market.fetchMarketIndex(resolveMarketUrl(sourceUrl));
+    const item = index.plugins.find((p) => p.id === pluginId);
+    if (!item) throw new Error(`市场未找到插件: ${pluginId}`);
+    await market.installFromMarket(item, (progress) => {
+      safeSend(IPC_CHANNELS.PLUGIN_DOWNLOAD_PROGRESS, progress);
+    });
+    return getPluginManager().list();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_MARKET_UPDATE, async (_, { pluginId, sourceUrl }) => {
+    const { getPluginMarket, getPluginManager } = await import('../plugins/index.js');
+    const market = getPluginMarket();
+    const index = await market.fetchMarketIndex(resolveMarketUrl(sourceUrl));
+    const item = index.plugins.find((p) => p.id === pluginId);
+    if (!item) throw new Error(`市场未找到插件: ${pluginId}`);
+    await market.updatePlugin(pluginId, item, (progress) => {
+      safeSend(IPC_CHANNELS.PLUGIN_DOWNLOAD_PROGRESS, progress);
+    });
+    return getPluginManager().list();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_MARKET_CHECK_UPDATES, async (_, { sourceUrl }) => {
+    const { getPluginMarket, getPluginManager } = await import('../plugins/index.js');
+    const { computeUpdates } = await import('@qserial/shared');
+    const market = getPluginMarket();
+    const index = await market.fetchMarketIndex(resolveMarketUrl(sourceUrl));
+    return computeUpdates(getPluginManager().list(), index.plugins);
   });
 }
 

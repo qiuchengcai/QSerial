@@ -261,6 +261,19 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.PLUGIN_CONFIG_CHANGED, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.PLUGIN_CONFIG_CHANGED, handler);
     },
+    marketFetch: (sourceUrl?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_MARKET_FETCH, { sourceUrl }),
+    marketInstall: (pluginId: string, sourceUrl?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_MARKET_INSTALL, { pluginId, sourceUrl }),
+    marketUpdate: (pluginId: string, sourceUrl?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_MARKET_UPDATE, { pluginId, sourceUrl }),
+    marketCheckUpdates: (sourceUrl?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_MARKET_CHECK_UPDATES, { sourceUrl }),
+    onDownloadProgress: (callback: (progress: unknown) => void) => {
+      const handler = (_: unknown, event: unknown) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.PLUGIN_DOWNLOAD_PROGRESS, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.PLUGIN_DOWNLOAD_PROGRESS, handler);
+    },
   },
 
   // 通用对话框
