@@ -625,6 +625,8 @@ function setupSftpHandlers(): void {
 
 /**
  * 插件系统处理器
+ * 注意：所有变更（启用/禁用/安装/卸载/重扫/热重载）统一由 PluginManager 的
+ * onChange 监听器（见 main/src/index.ts）推送 PLUGINS_CHANGED，这里只负责调用。
  */
 function setupPluginHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, async () => {
@@ -634,10 +636,36 @@ function setupPluginHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.PLUGIN_SET_ENABLED, async (_, { id, enabled }) => {
     const { getPluginManager } = await import('../plugins/index.js');
-    const list = await getPluginManager().setEnabled(id, enabled);
-    // 主进程 → 渲染进程：插件集合变化（启用/禁用）实时同步
-    safeSend(IPC_CHANNELS.PLUGINS_CHANGED, list);
-    return list;
+    return getPluginManager().setEnabled(id, enabled);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_INSTALL, async (_, { sourcePath }) => {
+    const { getPluginManager } = await import('../plugins/index.js');
+    return getPluginManager().installPlugin(sourcePath);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_UNINSTALL, async (_, { id, confirm }) => {
+    const { getPluginManager } = await import('../plugins/index.js');
+    return getPluginManager().uninstallPlugin(id, confirm);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_RESCAN, async () => {
+    const { getPluginManager } = await import('../plugins/index.js');
+    return getPluginManager().rescan();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_RELOAD, async (_, { id }) => {
+    const { getPluginManager } = await import('../plugins/index.js');
+    return getPluginManager().reloadPlugin(id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_CONFIG_GET, async (_, { id }) => {
+    return (ConfigManager.get(`plugins.namespace.${id}`) as Record<string, unknown>) || {};
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_CONFIG_SET, async (_, { id, key, value }) => {
+    ConfigManager.set(`plugins.namespace.${id}.${key}`, value);
+    // 变更推送由 main/src/index.ts 的中央 ConfigManager.onChange 监听器完成
   });
 }
 

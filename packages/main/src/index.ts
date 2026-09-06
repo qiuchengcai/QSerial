@@ -7,6 +7,7 @@ import { app, BrowserWindow, nativeImage, Menu, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
+import { IPC_CHANNELS } from '@qserial/shared';
 import { ConfigManager } from './config/manager.js';
 
 // 尽早注册未处理异常处理器，确保能捕获模块加载阶段的崩溃
@@ -353,7 +354,31 @@ async function initBackgroundServices(): Promise<void> {
 
     // 插件系统：扫描并激活已启用插件（单个失败不影响主程序）
     const { getPluginManager } = await import('./plugins/index.js');
-    await getPluginManager().loadAll();
+    const pluginManager = getPluginManager();
+    await pluginManager.loadAll();
+    // 插件集合变化（启用/禁用/安装/卸载/重扫/热重载）→ 渲染进程实时同步
+    pluginManager.onChange(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.PLUGINS_CHANGED, pluginManager.list());
+      }
+    });
+    // 插件配置变更 → 渲染进程实时同步（含插件经 ctx.config.set 触发的变更）
+    ConfigManager.onChange((key) => {
+      const prefix = 'plugins.namespace.';
+      if (!key.startsWith(prefix)) return;
+      const rest = key.slice(prefix.length);
+      const dot = rest.indexOf('.');
+      if (dot < 0) return;
+      const id = rest.slice(0, dot);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.PLUGIN_CONFIG_CHANGED, {
+          id,
+          config: ConfigManager.get(`plugins.namespace.${id}`) || {},
+        });
+      }
+    });
+    // 目录监听（窗口显示后启动，不阻塞首屏）
+    await pluginManager.startWatcher();
     console.log('PluginManager initialized');
 
     // NFS manager 延迟加载
@@ -418,7 +443,9 @@ app.on('before-quit', async (event) => {
     // MCP 清理
     await import('./services/mcp/manager.js').then((m) => m.destroyMcpManager()).catch(() => {});
     // 插件清理
-    await import('./plugins/index.js').then((m) => m.getPluginManager().deactivateAll()).catch(() => {});
+    await import('./plugins/index.js')
+      .then((m) => m.getPluginManager().deactivateAll())
+      .catch(() => {});
     // 连接清理
     const { ConnectionFactory } = await import('./services/connection/factory.js');
     await ConnectionFactory.destroyAll();

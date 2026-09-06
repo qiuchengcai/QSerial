@@ -19,6 +19,42 @@ import type { PluginActivationContext } from './types.js';
 /** 插件自身命名空间配置的前缀 */
 const NAMESPACE_PREFIX = 'plugins.namespace';
 
+/** 插件配置变更订阅：pluginId → 回调集合 */
+const configSubscriptions = new Map<
+  string,
+  Set<(change: { key: string; value: unknown }) => void>
+>();
+let globalConfigListenerRegistered = false;
+
+/** 全局 ConfigManager.onChange 监听器：把命名空间内变更分发给对应插件 */
+function ensureGlobalConfigListener(): void {
+  if (globalConfigListenerRegistered) return;
+  globalConfigListenerRegistered = true;
+  ConfigManager.onChange((key, value) => {
+    const prefix = `${NAMESPACE_PREFIX}.`;
+    if (!key.startsWith(prefix)) return;
+    const rest = key.slice(prefix.length);
+    const dot = rest.indexOf('.');
+    if (dot < 0) return;
+    const pluginId = rest.slice(0, dot);
+    const fieldKey = rest.slice(dot + 1);
+    const subs = configSubscriptions.get(pluginId);
+    if (!subs) return;
+    for (const cb of subs) {
+      try {
+        cb({ key: fieldKey, value });
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+}
+
+/** 清除指定插件的配置订阅（插件停用时调用） */
+export function removePluginConfigSubscriptions(pluginId: string): void {
+  configSubscriptions.delete(pluginId);
+}
+
 export function buildPluginContext(manifest: PluginManifest): PluginActivationContext {
   const perms = manifest.permissions || [];
   const id = manifest.id;
@@ -46,6 +82,23 @@ export function buildPluginContext(manifest: PluginManifest): PluginActivationCo
       delete: (key) => {
         assertPermission(perms, 'config');
         ConfigManager.delete(`${NAMESPACE_PREFIX}.${id}.${key}`);
+      },
+      getAll: () => {
+        assertPermission(perms, 'config');
+        return (ConfigManager.get(`${NAMESPACE_PREFIX}.${id}`) as Record<string, unknown>) || {};
+      },
+      onChange: (callback) => {
+        assertPermission(perms, 'config');
+        ensureGlobalConfigListener();
+        let subs = configSubscriptions.get(id);
+        if (!subs) {
+          subs = new Set();
+          configSubscriptions.set(id, subs);
+        }
+        subs.add(callback);
+        return () => {
+          subs.delete(callback);
+        };
       },
     },
 

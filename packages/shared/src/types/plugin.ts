@@ -34,12 +34,52 @@ export interface PluginManifest {
   permissions: PluginPermission[];
   /** 是否为内置插件（随应用分发，默认启用） */
   builtin?: boolean;
+  /** 配置项声明（可选）。由宿主统一渲染表单，插件仅声明 schema。 */
+  configSchema?: PluginConfigSchema;
+}
+
+/**
+ * 插件配置字段类型。
+ */
+export type PluginConfigFieldType = 'string' | 'number' | 'boolean' | 'select' | 'textarea';
+
+/**
+ * 插件配置字段声明。
+ */
+export interface PluginConfigField {
+  key: string;
+  label: string;
+  type: PluginConfigFieldType;
+  default?: string | number | boolean;
+  description?: string;
+  required?: boolean;
+  /** select 类型的选项 */
+  options?: Array<{ value: string; label: string }>;
+  /** number 类型的取值范围（可选） */
+  min?: number;
+  max?: number;
+}
+
+/**
+ * 插件配置 Schema（字段列表）。
+ */
+export interface PluginConfigSchema {
+  fields: PluginConfigField[];
 }
 
 /**
  * 插件运行时状态。
+ * `installing` / `uninstalling` / `updating` 为安装/卸载/重载过程中的瞬时状态，
+ * 最终会落回 `active` / `disabled` / `error`。
  */
-export type PluginStatus = 'active' | 'inactive' | 'error' | 'disabled';
+export type PluginStatus =
+  | 'active'
+  | 'inactive'
+  | 'error'
+  | 'disabled'
+  | 'installing'
+  | 'uninstalling'
+  | 'updating';
 
 /**
  * 渲染进程可见的插件信息（可序列化，不含函数）。
@@ -56,4 +96,6 @@ export interface PluginInfo {
   error?: string;
   builtin: boolean;
   hasMain: boolean;
+  /** 配置项声明（供渲染进程渲染配置表单） */
+  configSchema?: PluginConfigSchema;
 }

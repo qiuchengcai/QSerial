@@ -121,6 +121,13 @@ export const IPC_CHANNELS = {
   // 插件系统
   PLUGIN_LIST: 'plugin:list',
   PLUGIN_SET_ENABLED: 'plugin:setEnabled',
+  PLUGIN_INSTALL: 'plugin:install',
+  PLUGIN_UNINSTALL: 'plugin:uninstall',
+  PLUGIN_RESCAN: 'plugin:rescan',
+  PLUGIN_RELOAD: 'plugin:reload',
+  PLUGIN_CONFIG_GET: 'plugin:configGet',
+  PLUGIN_CONFIG_SET: 'plugin:configSet',
+  PLUGIN_CONFIG_CHANGED: 'plugin:configChanged',
   PLUGINS_CHANGED: 'plugin:changed',
 } as const;
 
@@ -207,6 +214,12 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.SFTP_REALPATH]: { sftpId: string; path: string };
   [IPC_CHANNELS.PLUGIN_LIST]: void;
   [IPC_CHANNELS.PLUGIN_SET_ENABLED]: { id: string; enabled: boolean };
+  [IPC_CHANNELS.PLUGIN_INSTALL]: { sourcePath: string };
+  [IPC_CHANNELS.PLUGIN_UNINSTALL]: { id: string; confirm: boolean };
+  [IPC_CHANNELS.PLUGIN_RESCAN]: void;
+  [IPC_CHANNELS.PLUGIN_RELOAD]: { id: string };
+  [IPC_CHANNELS.PLUGIN_CONFIG_GET]: { id: string };
+  [IPC_CHANNELS.PLUGIN_CONFIG_SET]: { id: string; key: string; value: unknown };
 }
 
 /**
@@ -278,6 +291,12 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.SFTP_REALPATH]: string;
   [IPC_CHANNELS.PLUGIN_LIST]: PluginInfo[];
   [IPC_CHANNELS.PLUGIN_SET_ENABLED]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_INSTALL]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_UNINSTALL]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_RESCAN]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_RELOAD]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_CONFIG_GET]: Record<string, unknown>;
+  [IPC_CHANNELS.PLUGIN_CONFIG_SET]: void;
 }
 
 /**

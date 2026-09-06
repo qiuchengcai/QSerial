@@ -12,6 +12,7 @@ import { useTftpStore } from '@/stores/tftp';
 import { useNfsStore } from '@/stores/nfs';
 import { useFtpStore } from '@/stores/ftp';
 import { usePluginsStore } from '@/stores/plugins';
+import { PluginDetailDialog } from './PluginDetailDialog';
 import type { AppConfig, Theme, PluginInfo } from '@qserial/shared';
 
 interface SettingsDialogProps {
@@ -48,8 +49,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
   const ftpConfig = useFtpStore((s) => s.config);
   const pluginsState = usePluginsStore();
   const plugins = pluginsState?.plugins || [];
+  const pluginsBusy = pluginsState?.busy ?? null;
+  const pluginsPendingId = pluginsState?.pendingId ?? null;
+  const pluginsError = pluginsState?.error ?? null;
 
   const [activeSection, setActiveSection] = useState<SectionId>('appearance');
+  const [confirmUninstallId, setConfirmUninstallId] = useState<string | null>(null);
 
   // ── 本地编辑状态 ──
   const [fontSize, setFontSize] = useState(config.terminal.fontSize);
@@ -556,14 +561,55 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
       case 'plugins':
         return (
           <div className="space-y-4">
-            <SectionTitle title={t('dialogs.settings.plugins')} />
+            {/* 顶部操作区：安装 + 刷新 */}
+            <div className="flex items-center gap-2">
+              <SectionTitle title={t('dialogs.settings.plugins')} />
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={async () => {
+                    const dir = await window.qserial.dialog.pickDir(
+                      t('dialogs.settings.pluginsInstall')
+                    );
+                    if (dir) usePluginsStore.getState().install(dir);
+                  }}
+                  disabled={pluginsBusy === 'install' || pluginsBusy === 'rescan'}
+                  className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5 disabled:opacity-50"
+                >
+                  {pluginsBusy === 'install'
+                    ? t('dialogs.settings.pluginsProcessing')
+                    : t('dialogs.settings.pluginsInstall')}
+                </button>
+                <button
+                  onClick={() => usePluginsStore.getState().rescan()}
+                  disabled={pluginsBusy !== null}
+                  className="dialog-btn dialog-btn-secondary text-xs px-3 py-1.5 disabled:opacity-50"
+                >
+                  {pluginsBusy === 'rescan'
+                    ? t('dialogs.settings.pluginsProcessing')
+                    : t('dialogs.settings.pluginsRefresh')}
+                </button>
+              </div>
+            </div>
+
+            {pluginsError && (
+              <div className="flex items-center gap-2 text-xs text-error bg-error/10 border-l-2 border-error px-3 py-2 rounded-r-lg">
+                {pluginsError}
+              </div>
+            )}
+
             {plugins.length === 0 ? (
               <p className="text-xs text-text-secondary/70">{t('dialogs.settings.pluginsEmpty')}</p>
             ) : (
               <div className="space-y-3">
                 {plugins.map((plugin: PluginInfo) => {
-                  const statusLabel =
-                    plugin.status === 'error'
+                  const isPending = pluginsPendingId === plugin.id;
+                  const isTransient =
+                    plugin.status === 'installing' ||
+                    plugin.status === 'uninstalling' ||
+                    plugin.status === 'updating';
+                  const statusLabel = isTransient
+                    ? t('dialogs.settings.pluginsProcessing')
+                    : plugin.status === 'error'
                       ? t('dialogs.settings.pluginsError')
                       : plugin.enabled
                         ? t('dialogs.settings.pluginsEnabled')
@@ -596,12 +642,51 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
                             </p>
                           )}
                         </div>
-                        <Toggle
-                          label=""
-                          checked={plugin.enabled}
-                          onChange={(v) => usePluginsStore.getState().setEnabled(plugin.id, v)}
-                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => usePluginsStore.getState().selectPlugin(plugin.id)}
+                            className="text-[11px] px-2 py-1 rounded text-text-secondary hover:bg-hover"
+                          >
+                            {t('dialogs.pluginDetail.title')}
+                          </button>
+                          {!plugin.builtin &&
+                            (confirmUninstallId === plugin.id ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => usePluginsStore.getState().uninstall(plugin.id)}
+                                  disabled={isPending}
+                                  className="text-[11px] px-2 py-1 rounded bg-error/10 text-error hover:bg-error/20 disabled:opacity-50"
+                                >
+                                  {t('dialogs.settings.pluginsConfirm')}
+                                </button>
+                                <button
+                                  onClick={() => setConfirmUninstallId(null)}
+                                  className="text-[11px] px-2 py-1 rounded text-text-secondary hover:bg-hover"
+                                >
+                                  {t('dialogs.settings.cancel')}
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmUninstallId(plugin.id)}
+                                disabled={isPending}
+                                className="text-[11px] px-2 py-1 rounded text-error/80 hover:bg-error/10 disabled:opacity-50"
+                              >
+                                {t('dialogs.settings.pluginsUninstall')}
+                              </button>
+                            ))}
+                          <Toggle
+                            label=""
+                            checked={plugin.enabled}
+                            onChange={(v) => usePluginsStore.getState().setEnabled(plugin.id, v)}
+                          />
+                        </div>
                       </div>
+                      {confirmUninstallId === plugin.id && (
+                        <p className="text-[11px] text-warning mt-2">
+                          {t('dialogs.settings.pluginsConfirmUninstall')}
+                        </p>
+                      )}
                       {plugin.error && (
                         <p className="text-[11px] text-error mt-2">{plugin.error}</p>
                       )}
@@ -618,9 +703,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
                           className={`ml-auto text-[11px] ${
                             plugin.status === 'error'
                               ? 'text-error'
-                              : plugin.enabled
-                                ? 'text-success'
-                                : 'text-text-secondary'
+                              : isTransient
+                                ? 'text-text-secondary'
+                                : plugin.enabled
+                                  ? 'text-success'
+                                  : 'text-text-secondary'
                           }`}
                         >
                           {statusLabel}
@@ -640,64 +727,70 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
-      <div className="bg-surface rounded-xl shadow-md w-[660px] h-[480px] max-h-[88vh] overflow-hidden border border-border/80 flex">
-        {/* 左侧导航 */}
-        <div className="w-[130px] flex-shrink-0 border-r border-border bg-background/30 flex flex-col">
-          <div className="px-3.5 pt-3.5 pb-2.5 border-b border-border/50">
-            <h2 className="text-sm font-semibold">{t('dialogs.settings.title')}</h2>
+    <>
+      <div className="fixed inset-0 bg-black/60 dialog-overlay flex items-center justify-center z-50">
+        <div className="bg-surface rounded-xl shadow-md w-[660px] h-[480px] max-h-[88vh] overflow-hidden border border-border/80 flex">
+          {/* 左侧导航 */}
+          <div className="w-[130px] flex-shrink-0 border-r border-border bg-background/30 flex flex-col">
+            <div className="px-3.5 pt-3.5 pb-2.5 border-b border-border/50">
+              <h2 className="text-sm font-semibold">{t('dialogs.settings.title')}</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto py-1.5">
+              {SECTIONS.map((section) => (
+                <button
+                  key={section}
+                  onClick={() => setActiveSection(section)}
+                  className={`w-full text-left px-3.5 py-1.5 text-xs transition-all ${
+                    activeSection === section
+                      ? 'bg-primary/10 text-primary border-r-[2.5px] border-primary font-medium'
+                      : 'text-text-secondary hover:bg-hover hover:text-text'
+                  }`}
+                >
+                  {t(`dialogs.settings.${section}`)}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto py-1.5">
-            {SECTIONS.map((section) => (
+
+          {/* 右侧内容 */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0 bg-surface">
+              <h3 className="text-sm font-medium">{t(`dialogs.settings.${activeSection}`)}</h3>
               <button
-                key={section}
-                onClick={() => setActiveSection(section)}
-                className={`w-full text-left px-3.5 py-1.5 text-xs transition-all ${
-                  activeSection === section
-                    ? 'bg-primary/10 text-primary border-r-[2.5px] border-primary font-medium'
-                    : 'text-text-secondary hover:bg-hover hover:text-text'
-                }`}
+                onClick={onClose}
+                className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text hover:bg-hover transition-colors"
               >
-                {t(`dialogs.settings.${section}`)}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M1 1l12 12M13 1L1 13" />
+                </svg>
               </button>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* 右侧内容 */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0 bg-surface">
-            <h3 className="text-sm font-medium">{t(`dialogs.settings.${activeSection}`)}</h3>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text hover:bg-hover transition-colors"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M1 1l12 12M13 1L1 13" />
-              </svg>
-            </button>
-          </div>
+            <div className="flex-1 overflow-y-auto p-5">{renderSection()}</div>
 
-          <div className="flex-1 overflow-y-auto p-5">{renderSection()}</div>
-
-          {/* 底部按钮 */}
-          <div className="flex justify-end gap-2.5 px-5 py-3.5 border-t border-border bg-background/30 flex-shrink-0">
-            <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-sm px-4">
-              {t('dialogs.settings.cancel')}
-            </button>
-            <button onClick={handleSave} className="dialog-btn dialog-btn-primary text-sm px-4">
-              {t('dialogs.settings.save')}
-            </button>
+            {/* 底部按钮 */}
+            <div className="flex justify-end gap-2.5 px-5 py-3.5 border-t border-border bg-background/30 flex-shrink-0">
+              <button onClick={onClose} className="dialog-btn dialog-btn-secondary text-sm px-4">
+                {t('dialogs.settings.cancel')}
+              </button>
+              <button onClick={handleSave} className="dialog-btn dialog-btn-primary text-sm px-4">
+                {t('dialogs.settings.save')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <PluginDetailDialog
+        isOpen={pluginsState?.selectedPluginId != null}
+        onClose={() => usePluginsStore.getState().closePlugin()}
+      />
+    </>
   );
 };

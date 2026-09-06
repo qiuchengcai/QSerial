@@ -6,18 +6,29 @@
  * - 加载入口模块（import()，不使用 eval / new Function）；
  * - 构建受限宿主 API 上下文并调用 activate(ctx)；
  * - 支持启用/禁用（即时生效），状态持久化；
+ * - 运行时热加载：目录监听（fs.watch）→ 增量同步（新增/删除/修改重载）；
+ * - 运行时安装/卸载、手动重扫；
  * - 加载失败隔离：单个插件崩溃/抛错不影响主程序与其他插件。
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import type { PluginInfo, PluginManifest, PluginPermission } from '@qserial/shared';
-import { buildPluginContext } from './host-api.js';
+import type {
+  PluginInfo,
+  PluginManifest,
+  PluginPermission,
+  PluginConfigSchema,
+  PluginConfigField,
+  PluginConfigFieldType,
+} from '@qserial/shared';
+import { ConfigManager } from '../config/manager.js';
+import { buildPluginContext, removePluginConfigSubscriptions } from './host-api.js';
 import { removeAllContributions } from './registry.js';
 import type { PluginManagerOptions, PluginModule, PluginRuntime } from './types.js';
 
 const DEFAULT_DESCRIPTION = '';
+const WATCH_DEBOUNCE_MS = 400;
 
 /** 基于 import.meta.url 计算的 __dirname（ESM 下无内置 __dirname） */
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -66,6 +77,8 @@ export class PluginManagerImpl {
   private runtimes = new Map<string, PluginRuntime>();
   private options: PluginManagerOptions = {};
   private listeners = new Set<() => void>();
+  private watchers: fs.FSWatcher[] = [];
+  private watchTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** 注入依赖（测试用），并返回 this 便于链式调用 */
   configure(options: PluginManagerOptions): this {
@@ -73,7 +86,7 @@ export class PluginManagerImpl {
     return this;
   }
 
-  /** 监听插件集合变化（启用/禁用/加载） */
+  /** 监听插件集合变化（启用/禁用/加载/安装/卸载/重扫/热重载） */
   onChange(callback: () => void): () => void {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
@@ -94,6 +107,15 @@ export class PluginManagerImpl {
       return Promise.resolve(this.options.searchPaths());
     }
     return defaultSearchPaths();
+  }
+
+  /** 用户插件目录（安装目标 / 卸载删除范围判定）。默认 electron userData/plugins。 */
+  private async resolveUserPluginsDir(): Promise<string> {
+    if (this.options.userPluginsDir) return this.options.userPluginsDir();
+    const { app } = await import('electron');
+    const dir = path.join(app.getPath('userData'), 'plugins');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return dir;
   }
 
   /** 读取清单（package.json）。非法或非插件目录返回 null。 */
@@ -129,7 +151,50 @@ export class PluginManagerImpl {
       main: hasMain ? (raw.main as string) : undefined,
       permissions,
       builtin: qserial.builtin === true,
+      configSchema: this.parseConfigSchema(qserial),
     };
+  }
+
+  /** 从 qserial.configSchema 解析并规范化配置项声明（宽松校验，非法字段忽略）。 */
+  private parseConfigSchema(qserial: Record<string, unknown>): PluginConfigSchema | undefined {
+    const raw = qserial.configSchema;
+    if (!raw || typeof raw !== 'object') return undefined;
+    const fieldsRaw = (raw as Record<string, unknown>).fields;
+    if (!Array.isArray(fieldsRaw)) return undefined;
+
+    const fields: PluginConfigField[] = [];
+    for (const f of fieldsRaw) {
+      if (!f || typeof f !== 'object') continue;
+      const o = f as Record<string, unknown>;
+      if (typeof o.key !== 'string' || typeof o.label !== 'string' || typeof o.type !== 'string') {
+        continue;
+      }
+      const field: PluginConfigField = {
+        key: o.key,
+        label: o.label,
+        type: o.type as PluginConfigFieldType,
+      };
+      if (o.default !== undefined) field.default = o.default as string | number | boolean;
+      if (typeof o.description === 'string') field.description = o.description;
+      if (o.required === true) field.required = true;
+      if (typeof o.min === 'number') field.min = o.min;
+      if (typeof o.max === 'number') field.max = o.max;
+      if (Array.isArray(o.options)) {
+        const options: Array<{ value: string; label: string }> = [];
+        for (const opt of o.options) {
+          if (opt && typeof opt === 'object') {
+            const p = opt as Record<string, unknown>;
+            if (typeof p.value === 'string' && typeof p.label === 'string') {
+              options.push({ value: p.value, label: p.label });
+            }
+          }
+        }
+        field.options = options;
+      }
+      fields.push(field);
+    }
+
+    return fields.length > 0 ? { fields } : undefined;
   }
 
   private isEnabledByDefault(manifest: PluginManifest): boolean {
@@ -137,15 +202,70 @@ export class PluginManagerImpl {
   }
 
   private resolveEnabled(manifest: PluginManifest): boolean {
-    if (this.options.getEnabledState) {
-      const persisted = this.options.getEnabledState(manifest.id);
-      if (persisted !== undefined) return persisted;
-    }
+    const getter = this.options.getEnabledState || this.defaultGetEnabledState;
+    const persisted = getter(manifest.id);
+    if (persisted !== undefined) return persisted;
     return this.isEnabledByDefault(manifest);
   }
 
   private persistEnabled(id: string, enabled: boolean): void {
-    this.options.setEnabledState?.(id, enabled);
+    const setter = this.options.setEnabledState || this.defaultSetEnabledState;
+    setter(id, enabled);
+  }
+
+  private clearEnabled(id: string): void {
+    const clearer = this.options.clearEnabledState || this.defaultClearEnabledState;
+    clearer(id);
+  }
+
+  private defaultGetEnabledState(id: string): boolean | undefined {
+    return ConfigManager.get<boolean>(`plugins.enabled.${id}`);
+  }
+
+  private defaultSetEnabledState(id: string, enabled: boolean): void {
+    ConfigManager.set(`plugins.enabled.${id}`, enabled);
+  }
+
+  private defaultClearEnabledState(id: string): void {
+    ConfigManager.delete(`plugins.enabled.${id}`);
+  }
+
+  private isHotReloadEnabled(): boolean {
+    if (this.options.hotReload) return this.options.hotReload();
+    return ConfigManager.get<boolean>('plugins.hotReload') !== false;
+  }
+
+  /** 计算变更检测签名（manifest 关键字段 + 入口 mtime） */
+  private computeSignature(manifest: PluginManifest, dir: string): string {
+    let mtime = 0;
+    if (manifest.main) {
+      try {
+        mtime = fs.statSync(path.join(dir, manifest.main)).mtimeMs;
+      } catch {
+        mtime = 0;
+      }
+    }
+    return (
+      JSON.stringify({
+        v: manifest.version,
+        main: manifest.main,
+        perms: manifest.permissions,
+        builtin: manifest.builtin === true,
+      }) + `|${mtime}`
+    );
+  }
+
+  private createRuntime(dir: string, manifest: PluginManifest, enabled: boolean): PluginRuntime {
+    return {
+      id: manifest.id,
+      manifest,
+      dir,
+      entryPath: manifest.main ? path.join(dir, manifest.main) : undefined,
+      enabled,
+      status: 'disabled',
+      importVersion: 0,
+      signature: this.computeSignature(manifest, dir),
+    };
   }
 
   private async activatePlugin(runtime: PluginRuntime): Promise<void> {
@@ -157,7 +277,8 @@ export class PluginManagerImpl {
     }
 
     try {
-      const url = pathToFileURL(runtime.entryPath).href;
+      const version = runtime.importVersion || 0;
+      const url = pathToFileURL(runtime.entryPath).href + (version > 0 ? `?v=${version}` : '');
       const mod = (await import(url)) as PluginModule;
       runtime.module = mod;
 
@@ -192,24 +313,17 @@ export class PluginManagerImpl {
     } finally {
       runtime.module = undefined;
       removeAllContributions(runtime.id);
+      removePluginConfigSubscriptions(runtime.id);
       runtime.status = 'disabled';
       runtime.error = undefined;
     }
   }
 
-  /** 扫描并加载所有插件，激活启用项。 */
-  async loadAll(): Promise<void> {
-    this.runtimes.clear();
-
-    let dirs: string[];
-    try {
-      dirs = await this.resolveSearchPaths();
-    } catch {
-      dirs = [];
-    }
-
-    const discovered: PluginRuntime[] = [];
-    const seenDirs = new Set<string>();
+  /** 扫描所有搜索目录，返回（去重后按 id 排序的）插件清单列表。 */
+  private async scanDiscoveries(): Promise<Array<{ dir: string; manifest: PluginManifest }>> {
+    const dirs = await this.resolveSearchPaths();
+    const discovered: Array<{ dir: string; manifest: PluginManifest }> = [];
+    const seen = new Set<string>();
 
     for (const pluginsDir of dirs) {
       if (!fs.existsSync(pluginsDir)) continue;
@@ -224,28 +338,108 @@ export class PluginManagerImpl {
         const dir = path.join(pluginsDir, entry.name);
         const manifest = this.loadManifest(dir);
         if (!manifest) continue;
-        if (seenDirs.has(manifest.id)) continue; // 同名插件仅加载首个
-        seenDirs.add(manifest.id);
-
-        const runtime: PluginRuntime = {
-          id: manifest.id,
-          manifest,
-          dir,
-          entryPath: manifest.main ? path.join(dir, manifest.main) : undefined,
-          enabled: this.resolveEnabled(manifest),
-          status: 'disabled',
-        };
-        discovered.push(runtime);
+        if (seen.has(manifest.id)) continue; // 同名插件仅加载首个
+        seen.add(manifest.id);
+        discovered.push({ dir, manifest });
       }
     }
 
-    // 按 id 稳定排序，便于测试与 UI 展示
-    discovered.sort((a, b) => a.id.localeCompare(b.id));
+    discovered.sort((a, b) => a.manifest.id.localeCompare(b.manifest.id));
+    return discovered;
+  }
 
-    for (const runtime of discovered) {
+  /** 扫描并加载所有插件，激活启用项。 */
+  async loadAll(): Promise<void> {
+    this.runtimes.clear();
+
+    const discovered = await this.scanDiscoveries();
+    for (const d of discovered) {
+      const runtime = this.createRuntime(d.dir, d.manifest, this.resolveEnabled(d.manifest));
       this.runtimes.set(runtime.id, runtime);
       if (runtime.enabled) {
         await this.activatePlugin(runtime);
+      }
+    }
+
+    this.notify();
+  }
+
+  /** 从内存移除插件（停用 + 回收贡献 + 清理持久化状态），不删除磁盘文件。 */
+  private async removeRuntime(runtime: PluginRuntime): Promise<void> {
+    if (runtime.enabled) {
+      await this.deactivatePlugin(runtime);
+    } else {
+      removeAllContributions(runtime.id);
+    }
+    this.runtimes.delete(runtime.id);
+    this.clearEnabled(runtime.id);
+  }
+
+  /** 重载插件（停用 → 更新元数据 → 按原启用状态重新激活），import 缓存失效。 */
+  private async reloadRuntime(
+    runtime: PluginRuntime,
+    dir: string,
+    manifest: PluginManifest,
+    signature: string
+  ): Promise<void> {
+    const wasEnabled = runtime.enabled;
+    runtime.status = 'updating';
+    this.notify();
+    await this.deactivatePlugin(runtime);
+
+    runtime.dir = dir;
+    runtime.manifest = manifest;
+    runtime.entryPath = manifest.main ? path.join(dir, manifest.main) : undefined;
+    runtime.signature = signature;
+    runtime.importVersion = (runtime.importVersion || 0) + 1;
+
+    if (wasEnabled) {
+      await this.activatePlugin(runtime);
+    }
+  }
+
+  /** 手动全量重扫：新增（inactive）/ 移除（停用），不重复加载已有插件。 */
+  async rescan(): Promise<PluginInfo[]> {
+    const discovered = await this.scanDiscoveries();
+    const discoveredIds = new Set(discovered.map((d) => d.manifest.id));
+
+    for (const runtime of [...this.runtimes.values()]) {
+      if (!discoveredIds.has(runtime.id)) {
+        await this.removeRuntime(runtime);
+      }
+    }
+    for (const d of discovered) {
+      if (!this.runtimes.has(d.manifest.id)) {
+        // 新增 → inactive（不自动激活）
+        this.runtimes.set(d.manifest.id, this.createRuntime(d.dir, d.manifest, false));
+      }
+    }
+
+    this.notify();
+    return this.list();
+  }
+
+  /** 磁盘同步（目录监听触发）：新增 / 移除 / 修改重载。 */
+  async syncFromDisk(): Promise<void> {
+    const discovered = await this.scanDiscoveries();
+    const discoveredIds = new Set(discovered.map((d) => d.manifest.id));
+
+    for (const runtime of [...this.runtimes.values()]) {
+      if (!discoveredIds.has(runtime.id)) {
+        await this.removeRuntime(runtime);
+      }
+    }
+
+    for (const d of discovered) {
+      const existing = this.runtimes.get(d.manifest.id);
+      if (!existing) {
+        // 新增 → inactive
+        this.runtimes.set(d.manifest.id, this.createRuntime(d.dir, d.manifest, false));
+        continue;
+      }
+      const signature = this.computeSignature(d.manifest, d.dir);
+      if (existing.signature !== signature) {
+        await this.reloadRuntime(existing, d.dir, d.manifest, signature);
       }
     }
 
@@ -275,13 +469,144 @@ export class PluginManagerImpl {
     return this.list();
   }
 
+  /** 重新加载单个插件（停用 → 重新激活，保持原启用状态，import 缓存失效）。 */
+  async reloadPlugin(id: string): Promise<PluginInfo[]> {
+    const runtime = this.runtimes.get(id);
+    if (!runtime) {
+      throw new Error(`Plugin not found: ${id}`);
+    }
+    const signature = this.computeSignature(runtime.manifest, runtime.dir);
+    await this.reloadRuntime(runtime, runtime.dir, runtime.manifest, signature);
+    this.notify();
+    return this.list();
+  }
+
+  /** 运行时安装：复制到用户插件目录 → 加载（默认禁用）。 */
+  async installPlugin(sourcePath: string): Promise<PluginInfo[]> {
+    const src = path.resolve(sourcePath);
+    if (!fs.existsSync(src) || !fs.statSync(src).isDirectory()) {
+      throw new Error(`无效的插件目录: ${sourcePath}`);
+    }
+    const manifest = this.loadManifest(src);
+    if (!manifest) {
+      throw new Error('目录不含合法的插件清单 (package.json)');
+    }
+    if (manifest.main && !fs.existsSync(path.join(src, manifest.main))) {
+      throw new Error(`插件入口文件不存在: ${manifest.main}`);
+    }
+    if (this.runtimes.has(manifest.id)) {
+      throw new Error(`插件已安装: ${manifest.id}`);
+    }
+
+    const userDir = await this.resolveUserPluginsDir();
+    const targetDir = path.join(userDir, manifest.id);
+    if (path.resolve(targetDir) !== src && fs.existsSync(targetDir)) {
+      throw new Error(`目标目录已存在: ${targetDir}`);
+    }
+    if (path.resolve(targetDir) !== src) {
+      fs.cpSync(src, targetDir, { recursive: true });
+    }
+
+    // 安装后默认禁用（安全）
+    const runtime = this.createRuntime(targetDir, manifest, false);
+    this.runtimes.set(runtime.id, runtime);
+    this.clearEnabled(runtime.id);
+
+    this.notify();
+    return this.list();
+  }
+
+  /** 运行时卸载：停用 → 移除 → 删目录。内置插件禁止卸载，需 confirm。 */
+  async uninstallPlugin(id: string, confirm: boolean): Promise<PluginInfo[]> {
+    if (confirm !== true) {
+      throw new Error('卸载插件需显式确认 (confirm=true)');
+    }
+    const runtime = this.runtimes.get(id);
+    if (!runtime) {
+      throw new Error(`插件不存在: ${id}`);
+    }
+    if (runtime.manifest.builtin === true) {
+      throw new Error('内置插件不可卸载');
+    }
+
+    runtime.status = 'uninstalling';
+    this.notify();
+
+    await this.removeRuntime(runtime);
+
+    // 仅删除用户目录下的插件文件（内置目录只读）
+    const userDir = path.resolve(await this.resolveUserPluginsDir());
+    const resolved = path.resolve(runtime.dir);
+    if (resolved.startsWith(userDir + path.sep) || resolved === userDir) {
+      try {
+        fs.rmSync(resolved, { recursive: true, force: true });
+      } catch (err) {
+        console.error(`[Plugin] Failed to remove dir ${resolved}:`, err);
+      }
+    }
+
+    this.notify();
+    return this.list();
+  }
+
   /** 停用全部插件（应用退出前清理）。 */
   async deactivateAll(): Promise<void> {
+    this.stopWatcher();
     for (const runtime of this.runtimes.values()) {
       if (runtime.enabled) {
         await this.deactivatePlugin(runtime);
       }
     }
+  }
+
+  // ==================== 目录监听（热发现） ====================
+
+  /** 启动目录监听。可配置关闭（plugins.hotReload=false），无监听时 no-op。 */
+  async startWatcher(): Promise<void> {
+    if (this.watchers.length > 0) return;
+    if (!this.isHotReloadEnabled()) return;
+
+    const dirs = await this.resolveSearchPaths();
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) continue;
+      try {
+        const watcher = fs.watch(dir, { recursive: true }, () => this.scheduleSync());
+        watcher.on('error', () => {
+          /* 忽略监听错误（如 asar 只读目录） */
+        });
+        this.watchers.push(watcher);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (this.watchers.length > 0) {
+      console.log(`[Plugin] Watching ${this.watchers.length} plugin dir(s)`);
+    }
+  }
+
+  stopWatcher(): void {
+    for (const w of this.watchers) {
+      try {
+        w.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.watchers = [];
+    if (this.watchTimer) {
+      clearTimeout(this.watchTimer);
+      this.watchTimer = null;
+    }
+  }
+
+  private scheduleSync(): void {
+    if (this.watchTimer) clearTimeout(this.watchTimer);
+    this.watchTimer = setTimeout(() => {
+      this.watchTimer = null;
+      this.syncFromDisk().catch((err) => {
+        console.error('[Plugin] syncFromDisk failed:', err);
+      });
+    }, WATCH_DEBOUNCE_MS);
   }
 
   list(): PluginInfo[] {
@@ -297,6 +622,7 @@ export class PluginManagerImpl {
       error: r.error,
       builtin: r.manifest.builtin === true,
       hasMain: !!r.manifest.main,
+      configSchema: r.manifest.configSchema,
     }));
   }
 

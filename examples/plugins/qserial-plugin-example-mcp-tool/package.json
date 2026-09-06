@@ -1,0 +1,58 @@
+{
+  "name": "qserial-plugin-example-mcp-tool",
+  "version": "1.0.0",
+  "author": "QSerial Team",
+  "description": "示例插件：演示如何注册一个自定义 MCP 工具 conn.analyze.custom（需经现有 Bearer token 鉴权调用）。",
+  "main": "index.mjs",
+  "qserial": {
+    "id": "qserial-plugin-example-mcp-tool",
+    "permissions": [
+      "mcp:register",
+      "connection:read",
+      "config"
+    ],
+    "builtin": false,
+    "configSchema": {
+      "fields": [
+        {
+          "key": "greeting",
+          "label": "问候语",
+          "type": "string",
+          "default": "Hello from plugin",
+          "description": "自定义工具返回文本中使用的问候语"
+        },
+        {
+          "key": "maxConnections",
+          "label": "最大连接数",
+          "type": "number",
+          "default": 10,
+          "min": 1,
+          "max": 100
+        },
+        {
+          "key": "verbose",
+          "label": "详细日志",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "key": "mode",
+          "label": "运行模式",
+          "type": "select",
+          "options": [
+            { "value": "summary", "label": "摘要" },
+            { "value": "full", "label": "完整" }
+          ],
+          "default": "summary"
+        },
+        {
+          "key": "note",
+          "label": "备注",
+          "type": "textarea",
+          "default": "",
+          "description": "可选备注，不影响功能"
+        }
+      ]
+    }
+  }
+}

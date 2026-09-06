@@ -1,10 +1,8 @@
 /**
- * 示例插件：自定义 MCP 工具
+ * 示例插件：自定义 MCP 工具 + 配置项演示
  *
- * 演示如何通过宿主 API 注册一个新的 MCP 工具。该工具会自动纳入现有
- * tools/list 与鉴权体系（Bearer token），调用方必须持有正确 token 才能访问。
- *
- * 第三方开发者参照此结构即可注册任意自定义 MCP 工具。
+ * 演示如何通过宿主 API 注册一个新的 MCP 工具（自动纳入现有 tools/list 与
+ * Bearer token 鉴权），以及如何声明 configSchema、订阅配置变更（ctx.config.onChange）。
  */
 
 export async function activate(ctx) {
@@ -20,10 +18,12 @@ export async function activate(ctx) {
     },
     async () => {
       const connections = ctx.connection.list();
+      const greeting = ctx.config.get('greeting') || 'Hello from plugin';
       return JSON.stringify(
         {
           ok: true,
           tool: 'conn.analyze.custom',
+          greeting,
           active_connections: connections.length,
           connections: connections.map((c) => ({
             id: c.id,
@@ -37,6 +37,12 @@ export async function activate(ctx) {
       );
     }
   );
+
+  // 订阅配置变更：设置页保存配置后，插件侧实时收到通知
+  ctx.config.onChange(({ key, value }) => {
+    ctx.log.info(`config changed: ${key} = ${JSON.stringify(value)}`);
+  });
+
   ctx.log.info('registered MCP tool conn.analyze.custom');
 }
 

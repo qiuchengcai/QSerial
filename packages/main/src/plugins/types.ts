@@ -32,6 +32,8 @@ export interface PluginActivationContext {
     get(key: string): unknown;
     set(key: string, value: unknown): void;
     delete(key: string): void;
+    getAll(): Record<string, unknown>;
+    onChange(callback: (change: { key: string; value: unknown }) => void): () => void;
   };
 
   /** 连接域 API（需 `connection:read` / `connection:write` 权限） */
@@ -86,6 +88,10 @@ export interface PluginRuntime {
   status: PluginStatus;
   error?: string;
   module?: PluginModule;
+  /** 入口模块导入版本（重载时递增，用于 import() 缓存失效） */
+  importVersion?: number;
+  /** 变更检测签名（manifest 字段 + 入口 mtime），不一致则重载 */
+  signature?: string;
 }
 
 /**
@@ -94,8 +100,14 @@ export interface PluginRuntime {
 export interface PluginManagerOptions {
   /** 插件搜索目录列表 */
   searchPaths?: () => string[];
+  /** 用户插件目录（安装目标 / 卸载删除范围判定） */
+  userPluginsDir?: () => string;
   /** 读取持久化的启用状态 */
   getEnabledState?: (id: string) => boolean | undefined;
   /** 持久化启用状态 */
   setEnabledState?: (id: string, enabled: boolean) => void;
+  /** 清除持久化的启用状态（卸载时调用） */
+  clearEnabledState?: (id: string) => void;
+  /** 是否启用热加载目录监听（可配置关闭） */
+  hotReload?: () => boolean;
 }

@@ -5,3 +5,4 @@
 export * from './uuid.js';
 export * from './encoding.js';
 export * from './validation.js';
+export * from './plugin-config.js';

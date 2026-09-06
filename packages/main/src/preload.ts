@@ -239,10 +239,27 @@ const api = {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_LIST),
     setEnabled: (id: string, enabled: boolean) =>
       ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_SET_ENABLED, { id, enabled }),
+    install: (sourcePath: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_INSTALL, { sourcePath }),
+    uninstall: (id: string, confirm: boolean) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_UNINSTALL, { id, confirm }),
+    rescan: () => ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_RESCAN),
+    reload: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_RELOAD, { id }),
+    configGet: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_CONFIG_GET, { id }),
+    configSet: (id: string, key: string, value: unknown) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_CONFIG_SET, { id, key, value }),
     onChanged: (callback: (plugins: unknown[]) => void) => {
       const handler = (_: unknown, event: unknown[]) => callback(event);
       ipcRenderer.on(IPC_CHANNELS.PLUGINS_CHANGED, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.PLUGINS_CHANGED, handler);
+    },
+    onConfigChanged: (
+      callback: (event: { id: string; config: Record<string, unknown> }) => void
+    ) => {
+      const handler = (_: unknown, event: { id: string; config: Record<string, unknown> }) =>
+        callback(event);
+      ipcRenderer.on(IPC_CHANNELS.PLUGIN_CONFIG_CHANGED, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.PLUGIN_CONFIG_CHANGED, handler);
     },
   },
 

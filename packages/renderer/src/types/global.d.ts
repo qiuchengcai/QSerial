@@ -152,7 +152,16 @@ interface QSerialAPI {
   plugin: {
     list: () => Promise<PluginInfo[]>;
     setEnabled: (id: string, enabled: boolean) => Promise<PluginInfo[]>;
+    install: (sourcePath: string) => Promise<PluginInfo[]>;
+    uninstall: (id: string, confirm: boolean) => Promise<PluginInfo[]>;
+    rescan: () => Promise<PluginInfo[]>;
+    reload: (id: string) => Promise<PluginInfo[]>;
+    configGet: (id: string) => Promise<Record<string, unknown>>;
+    configSet: (id: string, key: string, value: unknown) => Promise<void>;
     onChanged: (callback: (plugins: PluginInfo[]) => void) => () => void;
+    onConfigChanged: (
+      callback: (event: { id: string; config: Record<string, unknown> }) => void
+    ) => () => void;
   };
 
   // SFTP 文件传输
