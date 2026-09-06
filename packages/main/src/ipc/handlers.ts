@@ -70,6 +70,7 @@ export function setupIpcHandlers(): void {
   setupFileHandlers();
   setupMcpHandlers();
   setupSftpHandlers();
+  setupPluginHandlers();
 
   console.log('IPC handlers registered');
 }
@@ -619,6 +620,24 @@ function setupSftpHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.SFTP_PICK_LOCAL_DIR, async () => {
     return pickFolder('选择本地目录');
+  });
+}
+
+/**
+ * 插件系统处理器
+ */
+function setupPluginHandlers(): void {
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, async () => {
+    const { getPluginManager } = await import('../plugins/index.js');
+    return getPluginManager().list();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.PLUGIN_SET_ENABLED, async (_, { id, enabled }) => {
+    const { getPluginManager } = await import('../plugins/index.js');
+    const list = await getPluginManager().setEnabled(id, enabled);
+    // 主进程 → 渲染进程：插件集合变化（启用/禁用）实时同步
+    safeSend(IPC_CHANNELS.PLUGINS_CHANGED, list);
+    return list;
   });
 }
 

@@ -234,9 +234,34 @@ const api = {
     },
   },
 
+  // 插件系统
+  plugin: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_LIST),
+    setEnabled: (id: string, enabled: boolean) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PLUGIN_SET_ENABLED, { id, enabled }),
+    onChanged: (callback: (plugins: unknown[]) => void) => {
+      const handler = (_: unknown, event: unknown[]) => callback(event);
+      ipcRenderer.on(IPC_CHANNELS.PLUGINS_CHANGED, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.PLUGINS_CHANGED, handler);
+    },
+  },
+
   // 通用对话框
   dialog: {
     pickDir: (title: string) => ipcRenderer.invoke(IPC_CHANNELS.DIALOG_PICK_DIR, { title }),
+  },
+
+  // 快捷按钮（MCP 集成：监听主进程发起的配置变更，供渲染进程 store 同步）
+  quickButtons: {
+    onChanged: (callback: (groups: unknown[]) => void) => {
+      const handler = (_: unknown, event: { groups?: unknown[] }) => {
+        if (Array.isArray(event.groups)) {
+          callback(event.groups);
+        }
+      };
+      ipcRenderer.on(IPC_CHANNELS.QUICK_BUTTONS_CHANGED, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.QUICK_BUTTONS_CHANGED, handler);
+    },
   },
 
   // 网络

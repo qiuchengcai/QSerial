@@ -3,6 +3,7 @@
  */
 
 import type { ConnectionOptions, SerialPortInfo } from './connection.js';
+import type { PluginInfo } from './plugin.js';
 
 /**
  * IPC 通道名称
@@ -113,6 +114,14 @@ export const IPC_CHANNELS = {
   SFTP_PICK_LOCAL_DIR: 'sftp:pickLocalDir',
   SFTP_PROGRESS_EVENT: 'sftp:progressEvent',
   SFTP_REALPATH: 'sftp:realpath',
+
+  // 快捷按钮（MCP 集成：主进程发起变更 → 渲染进程 store 同步）
+  QUICK_BUTTONS_CHANGED: 'quickButtons:changed',
+
+  // 插件系统
+  PLUGIN_LIST: 'plugin:list',
+  PLUGIN_SET_ENABLED: 'plugin:setEnabled',
+  PLUGINS_CHANGED: 'plugin:changed',
 } as const;
 
 /**
@@ -196,6 +205,8 @@ export interface IpcRequestMap {
   [IPC_CHANNELS.SFTP_PICK_LOCAL]: void;
   [IPC_CHANNELS.SFTP_PICK_LOCAL_DIR]: void;
   [IPC_CHANNELS.SFTP_REALPATH]: { sftpId: string; path: string };
+  [IPC_CHANNELS.PLUGIN_LIST]: void;
+  [IPC_CHANNELS.PLUGIN_SET_ENABLED]: { id: string; enabled: boolean };
 }
 
 /**
@@ -265,6 +276,8 @@ export interface IpcResponseMap {
   [IPC_CHANNELS.SFTP_PICK_LOCAL]: string | null;
   [IPC_CHANNELS.SFTP_PICK_LOCAL_DIR]: string | null;
   [IPC_CHANNELS.SFTP_REALPATH]: string;
+  [IPC_CHANNELS.PLUGIN_LIST]: PluginInfo[];
+  [IPC_CHANNELS.PLUGIN_SET_ENABLED]: PluginInfo[];
 }
 
 /**

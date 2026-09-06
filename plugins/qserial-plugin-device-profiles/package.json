@@ -1,0 +1,14 @@
+{
+  "name": "qserial-plugin-device-profiles",
+  "version": "1.0.0",
+  "author": "QSerial Team",
+  "description": "内置设备识别规则插件：提供 21 类常见嵌入式/网络设备指纹，供 conn.analyze.probe 使用。",
+  "main": "index.mjs",
+  "qserial": {
+    "id": "qserial-plugin-device-profiles",
+    "permissions": [
+      "device:register"
+    ],
+    "builtin": true
+  }
+}

@@ -351,6 +351,11 @@ async function initBackgroundServices(): Promise<void> {
     ConnectionFactory.initialize();
     console.log('ConnectionFactory initialized');
 
+    // 插件系统：扫描并激活已启用插件（单个失败不影响主程序）
+    const { getPluginManager } = await import('./plugins/index.js');
+    await getPluginManager().loadAll();
+    console.log('PluginManager initialized');
+
     // NFS manager 延迟加载
     const { initNfsManager } = await import('./services/nfs/manager.js');
     initNfsManager();
@@ -412,6 +417,8 @@ app.on('before-quit', async (event) => {
     await import('./services/ftp/manager.js').then((m) => m.destroyFtpManager()).catch(() => {});
     // MCP 清理
     await import('./services/mcp/manager.js').then((m) => m.destroyMcpManager()).catch(() => {});
+    // 插件清理
+    await import('./plugins/index.js').then((m) => m.getPluginManager().deactivateAll()).catch(() => {});
     // 连接清理
     const { ConnectionFactory } = await import('./services/connection/factory.js');
     await ConnectionFactory.destroyAll();

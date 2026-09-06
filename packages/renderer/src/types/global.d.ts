@@ -15,6 +15,7 @@ import type {
   FtpServerStatus,
   FtpClientInfo,
   FtpClientEvent,
+  PluginInfo,
 } from '@qserial/shared';
 
 interface QSerialAPI {
@@ -139,8 +140,20 @@ interface QSerialAPI {
   // 网络
   getLocalIp: () => Promise<string>;
 
+  // 快捷按钮（MCP 集成：主进程变更通知）
+  quickButtons: {
+    onChanged: (callback: (groups: unknown[]) => void) => () => void;
+  };
+
   // 文件操作
   readFile: (path: string) => Promise<string>;
+
+  // 插件系统
+  plugin: {
+    list: () => Promise<PluginInfo[]>;
+    setEnabled: (id: string, enabled: boolean) => Promise<PluginInfo[]>;
+    onChanged: (callback: (plugins: PluginInfo[]) => void) => () => void;
+  };
 
   // SFTP 文件传输
   dialog: {

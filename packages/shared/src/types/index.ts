@@ -7,3 +7,4 @@ export * from './config.js';
 export * from './theme.js';
 export * from './ipc.js';
 export * from './session.js';
+export * from './plugin.js';

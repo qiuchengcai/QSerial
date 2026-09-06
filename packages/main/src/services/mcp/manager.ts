@@ -20,6 +20,7 @@ import {
   getPluginPrompt,
 } from './plugin-loader.js';
 import * as ctx from './context.js';
+import { getMcpToolDefinitions, getMcpToolHandler } from '../../plugins/registry.js';
 import type { ToolContext } from './types.js';
 
 // Handler imports
@@ -30,6 +31,7 @@ import { connIOHandlers } from './tools/connection-io.js';
 import { connAdvancedHandlers } from './tools/connection-advanced.js';
 import { sftpHandlers } from './tools/sftp.js';
 import { appHandlers } from './tools/app.js';
+import { buttonsHandlers } from './tools/buttons.js';
 
 // ==================== 模块级状态 ====================
 
@@ -330,6 +332,150 @@ const MCP_TOOLS = [
         sessionId: { type: 'string', description: '要删除的会话 ID' },
       },
       required: ['sessionId'],
+    },
+  },
+  {
+    name: 'buttons.groups.list',
+    description:
+      '列出所有快捷按钮分组。返回每个分组的 id、名称与按钮数量，以及各按钮的 id/名称摘要。',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'buttons.list',
+    description:
+      '列出快捷按钮（完整字段）。可传 group_id 只看指定分组；不传则列出所有分组下的按钮。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        group_id: { type: 'string', description: '分组 ID（可选，缺省列出全部）' },
+      },
+    },
+  },
+  {
+    name: 'buttons.get',
+    description: '按按钮 id 获取单个快捷按钮的完整详情。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '按钮 ID（必需）' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'buttons.create',
+    description:
+      '在指定分组创建快捷按钮。name 与 command（或非空 commands）必填；支持 delay/noNewline/macroId/description/color/textColor。id 由服务端生成。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        group_id: { type: 'string', description: '目标分组 ID（必需）' },
+        name: { type: 'string', description: '按钮名称（必需）' },
+        command: { type: 'string', description: '单条命令（单行按钮）。多行请用 commands' },
+        commands: {
+          type: 'array',
+          description: '多行命令数组（多行按钮，按行依次发送）',
+          items: { type: 'string' },
+        },
+        delay: { type: 'integer', description: '多行命令行间延迟 ms（默认 100）' },
+        noNewline: { type: 'boolean', description: 'true 时不自动追加 \\r\\n' },
+        macroId: { type: 'string', description: '关联终端宏 ID（存在时点击回放宏而非发送文本）' },
+        description: { type: 'string', description: '按钮描述（可选）' },
+        color: { type: 'string', description: '按钮颜色（可选，如 #EF4444）' },
+        textColor: { type: 'string', description: '文字颜色（可选）' },
+      },
+      required: ['group_id', 'name'],
+    },
+  },
+  {
+    name: 'buttons.update',
+    description: '按按钮 id 局部更新快捷按钮的任意字段。仅更新传入字段，未传字段保持不变。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '按钮 ID（必需）' },
+        name: { type: 'string', description: '新名称' },
+        command: { type: 'string', description: '新命令（覆盖单行）' },
+        commands: {
+          type: 'array',
+          description: '新多行命令数组',
+          items: { type: 'string' },
+        },
+        delay: { type: 'integer', description: '行间延迟 ms' },
+        noNewline: { type: 'boolean', description: '是否不自动追加换行' },
+        macroId: { type: 'string', description: '关联宏 ID' },
+        description: { type: 'string', description: '描述' },
+        color: { type: 'string', description: '颜色' },
+        textColor: { type: 'string', description: '文字颜色' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'buttons.delete',
+    description:
+      '按按钮 id 删除快捷按钮。删除是破坏性操作：必须显式传 confirm=true，否则拒绝执行。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '按钮 ID（必需）' },
+        confirm: { type: 'boolean', description: '确认删除，必须为 true' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'buttons.groups.create',
+    description: '创建一个空快捷按钮分组。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '分组名称（必需，且不能与其他分组重名）' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'buttons.groups.update',
+    description: '重命名快捷按钮分组。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '分组 ID（必需）' },
+        name: { type: 'string', description: '新分组名称（必需）' },
+      },
+      required: ['id', 'name'],
+    },
+  },
+  {
+    name: 'buttons.groups.delete',
+    description:
+      '删除快捷按钮分组。组为空：仅需 confirm=true；组内有按钮：需 confirm=true 且 cascade=true 级联删除整组（与 GUI 整组移除语义一致）。不传 confirm 一律拒绝。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '分组 ID（必需）' },
+        confirm: { type: 'boolean', description: '确认删除，必须为 true' },
+        cascade: { type: 'boolean', description: '组内有按钮时是否级联删除（默认 false）' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'buttons.run',
+    description:
+      '在指定已打开连接上执行一个快捷按钮，等价用户在 GUI 点击该按钮。普通按钮按行依次发送（支持行间 delay 与 noNewline）；按钮关联宏（macroId）时按宏步骤回放。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: '快捷按钮 ID（必需）' },
+        connection_id: { type: 'string', description: '目标连接 ID（必需，需已连接）' },
+        connectionId: { type: 'string', description: '连接 ID（connection_id 的别名）' },
+      },
+      required: ['id'],
     },
   },
   {
@@ -765,20 +911,33 @@ const allHandlers: Record<
   ...connAdvancedHandlers,
   ...sftpHandlers,
   ...appHandlers,
+  ...buttonsHandlers,
 };
 
 // ==================== 工具执行 ====================
 
 async function executeTool(name: string, args: Record<string, unknown>): Promise<string> {
   const handler = allHandlers[name];
-  if (!handler) {
-    return `错误: 未知工具 "${name}"`;
+  if (handler) {
+    try {
+      return await handler(args, toolContext);
+    } catch (err) {
+      return `错误: ${(err as Error).message}`;
+    }
   }
-  try {
-    return await handler(args, toolContext);
-  } catch (err) {
-    return `错误: ${(err as Error).message}`;
+
+  // 插件注册的 MCP 工具：同样经过外层 HTTP 鉴权（checkAuth），无后门
+  const pluginHandler = getMcpToolHandler(name);
+  if (pluginHandler) {
+    try {
+      const result = await pluginHandler(args);
+      return typeof result === 'string' ? result : JSON.stringify(result);
+    } catch (err) {
+      return `错误: ${(err as Error).message}`;
+    }
   }
+
+  return `错误: 未知工具 "${name}"`;
 }
 
 // ==================== 窗口引用 ====================
@@ -914,7 +1073,11 @@ function createRpcHandler(): (channel: RpcChannel, body: string) => Promise<void
         return;
       }
       if (method === 'tools/list') {
-        channel.send({ jsonrpc: '2.0', id: reqId, result: { tools: MCP_TOOLS } });
+        channel.send({
+          jsonrpc: '2.0',
+          id: reqId,
+          result: { tools: [...MCP_TOOLS, ...getMcpToolDefinitions()] },
+        });
         return;
       }
       if (method === 'tools/call') {

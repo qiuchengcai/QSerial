@@ -11,7 +11,8 @@ import { useQuickButtonsStore } from '@/stores/quickButtons';
 import { useTftpStore } from '@/stores/tftp';
 import { useNfsStore } from '@/stores/nfs';
 import { useFtpStore } from '@/stores/ftp';
-import type { AppConfig, Theme } from '@qserial/shared';
+import { usePluginsStore } from '@/stores/plugins';
+import type { AppConfig, Theme, PluginInfo } from '@qserial/shared';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -30,9 +31,9 @@ interface ExportedConfig {
   ftp?: { port: number; rootDir: string; username: string; password: string; autoStart: boolean };
 }
 
-type SectionId = 'appearance' | 'behavior' | 'terminal' | 'manage';
+type SectionId = 'appearance' | 'behavior' | 'terminal' | 'manage' | 'plugins';
 
-const SECTIONS: SectionId[] = ['appearance', 'behavior', 'terminal', 'manage'];
+const SECTIONS: SectionId[] = ['appearance', 'behavior', 'terminal', 'manage', 'plugins'];
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
@@ -45,6 +46,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
   const tftpConfig = useTftpStore((s) => s.config);
   const nfsConfig = useNfsStore((s) => s.config);
   const ftpConfig = useFtpStore((s) => s.config);
+  const pluginsState = usePluginsStore();
+  const plugins = pluginsState?.plugins || [];
 
   const [activeSection, setActiveSection] = useState<SectionId>('appearance');
 
@@ -68,6 +71,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
 
   const [importError, setImportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
+
+  // 打开设置时加载插件列表
+  useEffect(() => {
+    if (isOpen) {
+      usePluginsStore
+        .getState()
+        .load()
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   // 同步 store → local state
   useEffect(() => {
@@ -537,6 +550,87 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose 
               </div>
             )}
             <p className="text-xs text-text-secondary/70">{t('dialogs.settings.exportIncludes')}</p>
+          </div>
+        );
+
+      case 'plugins':
+        return (
+          <div className="space-y-4">
+            <SectionTitle title={t('dialogs.settings.plugins')} />
+            {plugins.length === 0 ? (
+              <p className="text-xs text-text-secondary/70">{t('dialogs.settings.pluginsEmpty')}</p>
+            ) : (
+              <div className="space-y-3">
+                {plugins.map((plugin: PluginInfo) => {
+                  const statusLabel =
+                    plugin.status === 'error'
+                      ? t('dialogs.settings.pluginsError')
+                      : plugin.enabled
+                        ? t('dialogs.settings.pluginsEnabled')
+                        : t('dialogs.settings.pluginsDisabled');
+                  return (
+                    <div
+                      key={plugin.id}
+                      className="rounded-lg border border-border bg-background/30 p-3.5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{plugin.name}</span>
+                            <span className="text-[10px] font-mono text-text-secondary/70">
+                              v{plugin.version}
+                            </span>
+                            {plugin.builtin && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                {t('dialogs.settings.pluginsBuiltin')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-text-secondary mt-0.5">
+                            {t('dialogs.settings.pluginsAuthor')}:{' '}
+                            {plugin.author || t('dialogs.settings.pluginsNone')}
+                          </div>
+                          {plugin.description && (
+                            <p className="text-[11px] text-text-secondary/80 mt-1">
+                              {plugin.description}
+                            </p>
+                          )}
+                        </div>
+                        <Toggle
+                          label=""
+                          checked={plugin.enabled}
+                          onChange={(v) => usePluginsStore.getState().setEnabled(plugin.id, v)}
+                        />
+                      </div>
+                      {plugin.error && (
+                        <p className="text-[11px] text-error mt-2">{plugin.error}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-border/60">
+                        <span className="text-[11px] text-text-secondary">
+                          {t('dialogs.settings.pluginsPermissions')}:
+                        </span>
+                        <span className="text-[11px] text-text-secondary/80">
+                          {plugin.permissions.length > 0
+                            ? plugin.permissions.join(', ')
+                            : t('dialogs.settings.pluginsNone')}
+                        </span>
+                        <span
+                          className={`ml-auto text-[11px] ${
+                            plugin.status === 'error'
+                              ? 'text-error'
+                              : plugin.enabled
+                                ? 'text-success'
+                                : 'text-text-secondary'
+                          }`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
 

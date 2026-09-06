@@ -6,3 +6,4 @@ export { useTerminalStore } from './terminal';
 export { useConfigStore } from './config';
 export { useThemeStore } from './theme';
 export { useSftpStore } from './sftp';
+export { usePluginsStore, initPluginBridge } from './plugins';

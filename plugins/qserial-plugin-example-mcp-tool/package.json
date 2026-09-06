@@ -1,0 +1,15 @@
+{
+  "name": "qserial-plugin-example-mcp-tool",
+  "version": "1.0.0",
+  "author": "QSerial Team",
+  "description": "示例插件：演示如何注册一个自定义 MCP 工具 conn.analyze.custom（需经现有 Bearer token 鉴权调用）。",
+  "main": "index.mjs",
+  "qserial": {
+    "id": "qserial-plugin-example-mcp-tool",
+    "permissions": [
+      "mcp:register",
+      "connection:read"
+    ],
+    "builtin": false
+  }
+}
