@@ -1,5 +1,5 @@
 /**
- * 知识库 Tab：模块列表 / 文档列表 / 文档编辑与预览。
+ * 知识库 Tab：模块列表 / 文档列表（含索引状态与排序）/ 文档编辑预览 / 索引状态栏。
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -14,6 +14,11 @@ export const KnowledgeBaseTab: React.FC = () => {
     currentDoc,
     docKeyword,
     setDocKeyword,
+    docSortBy,
+    setDocSortBy,
+    indexDocs,
+    indexing,
+    indexProgress,
     loadModules,
     loadDocs,
     loadDoc,
@@ -24,8 +29,8 @@ export const KnowledgeBaseTab: React.FC = () => {
     deleteModule,
     setModuleEnabled,
     rebuildIndex,
+    cancelRebuild,
     indexStatus,
-    loading,
     error,
   } = useAssistantStore();
 
@@ -36,13 +41,13 @@ export const KnowledgeBaseTab: React.FC = () => {
   const [showNewModule, setShowNewModule] = useState(false);
   const [newModuleName, setNewModuleName] = useState('');
   const [newModuleDesc, setNewModuleDesc] = useState('');
+  const [confirmRebuild, setConfirmRebuild] = useState(false);
 
   useEffect(() => {
     loadModules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 同步编辑器状态
   useEffect(() => {
     if (currentDoc) {
       setEditingTitle(currentDoc.meta.title);
@@ -56,6 +61,11 @@ export const KnowledgeBaseTab: React.FC = () => {
 
   const builtinModules = modules.filter((m) => m.type === 'builtin');
   const customModules = modules.filter((m) => m.type === 'custom');
+
+  const indexedMap = new Map(indexDocs.map((d) => [d.docId, d.indexed]));
+  const statusForCurrent = indexStatus.find((s) => s.id === currentModuleId);
+  const indexedCount = statusForCurrent?.indexedDocCount ?? 0;
+  const docCount = statusForCurrent?.docCount ?? docs.length;
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !currentModuleId) return;
@@ -72,10 +82,12 @@ export const KnowledgeBaseTab: React.FC = () => {
       }
     }
     await loadDocs(currentModuleId);
-    await useAssistantStore.getState().loadIndexStatus();
   };
 
-  const indexStatusForCurrent = indexStatus.find((s) => s.id === currentModuleId);
+  const doRebuild = () => {
+    setConfirmRebuild(false);
+    rebuildIndex(currentModuleId || undefined);
+  };
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -102,11 +114,11 @@ export const KnowledgeBaseTab: React.FC = () => {
           新建模块
         </button>
         <button
-          onClick={() => rebuildIndex(currentModuleId || undefined)}
-          disabled={loading}
+          onClick={() => setConfirmRebuild(true)}
+          disabled={indexing}
           className="px-2 py-1 text-[11px] rounded border border-border hover:bg-hover text-text-secondary disabled:opacity-40"
         >
-          {loading ? '重建中…' : '重建索引'}
+          {indexing ? '索引中…' : '重建索引'}
         </button>
         <input
           ref={fileInputRef}
@@ -118,6 +130,31 @@ export const KnowledgeBaseTab: React.FC = () => {
         />
       </div>
 
+      {/* 索引状态栏 */}
+      {statusForCurrent && (
+        <div className="px-3 py-1.5 border-b border-border/60 flex items-center gap-2">
+          <span className="text-[10px] text-text-secondary whitespace-nowrap">
+            已索引 {indexedCount}/{docCount} 篇文档
+          </span>
+          <div className="flex-1 h-1.5 rounded bg-border overflow-hidden">
+            <div
+              className={`h-full transition-all ${indexing ? 'bg-primary animate-pulse' : 'bg-success'}`}
+              style={{ width: `${docCount ? (indexedCount / docCount) * 100 : 0}%` }}
+            />
+          </div>
+          {indexing && indexProgress && (
+            <>
+              <span className="text-[10px] text-text-secondary whitespace-nowrap truncate max-w-[140px]">
+                {indexProgress.current}/{indexProgress.total} {indexProgress.docTitle}
+              </span>
+              <button onClick={cancelRebuild} className="text-[10px] text-error hover:underline whitespace-nowrap">
+                取消
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* 三栏 */}
       <div className="flex-1 min-h-0 flex">
         {/* 左：模块列表 */}
@@ -127,31 +164,51 @@ export const KnowledgeBaseTab: React.FC = () => {
         </div>
 
         {/* 中：文档列表 */}
-        <div className="w-36 flex-shrink-0 border-r border-border flex flex-col">
-          <div className="p-1.5 border-b border-border">
+        <div className="w-40 flex-shrink-0 border-r border-border flex flex-col">
+          <div className="p-1.5 border-b border-border space-y-1">
             <input
               value={docKeyword}
               onChange={(e) => setDocKeyword(e.target.value)}
               placeholder="搜索文档…"
               className="w-full text-[11px] bg-background border border-border rounded px-1.5 py-1 outline-none focus:border-primary"
             />
+            <select
+              value={docSortBy}
+              onChange={(e) => setDocSortBy(e.target.value as typeof docSortBy)}
+              className="w-full text-[10px] bg-background border border-border rounded px-1 py-0.5"
+            >
+              <option value="updatedAt">按更新时间</option>
+              <option value="createdAt">按创建时间</option>
+              <option value="title">按名称</option>
+              <option value="charCount">按字数</option>
+            </select>
           </div>
           <div className="flex-1 overflow-y-auto">
             {docs.length === 0 ? (
               <div className="text-[11px] text-text-tertiary text-center py-4 opacity-70">暂无文档</div>
             ) : (
-              docs.map((d) => (
-                <div
-                  key={d.id}
-                  onClick={() => currentModuleId && loadDoc(currentModuleId, d.id)}
-                  className={`px-2 py-1.5 text-[11px] cursor-pointer truncate border-b border-border/40 transition-colors ${
-                    currentDoc?.meta.id === d.id ? 'bg-primary/10 text-primary' : 'hover:bg-hover'
-                  }`}
-                  title={d.title}
-                >
-                  {d.title}
-                </div>
-              ))
+              docs.map((d) => {
+                const indexed = indexedMap.get(d.id) ?? true;
+                return (
+                  <div
+                    key={d.id}
+                    onClick={() => currentModuleId && loadDoc(currentModuleId, d.id)}
+                    className={`px-2 py-1.5 cursor-pointer border-b border-border/40 transition-colors ${
+                      currentDoc?.meta.id === d.id ? 'bg-primary/10 text-primary' : 'hover:bg-hover'
+                    }`}
+                    title={d.title}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${indexed ? 'bg-success' : 'bg-error'}`}
+                        title={indexed ? '已索引' : '索引失败/未索引'}
+                      />
+                      <span className="text-[11px] truncate flex-1">{d.title}</span>
+                    </div>
+                    <div className="text-[9px] text-text-tertiary pl-2.5">{d.charCount} 字</div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -185,11 +242,6 @@ export const KnowledgeBaseTab: React.FC = () => {
                   删除
                 </button>
               </div>
-              {indexStatusForCurrent && (
-                <div className="px-2.5 py-1 text-[10px] text-text-tertiary border-b border-border/50">
-                  索引进度 {indexStatusForCurrent.indexedDocCount}/{indexStatusForCurrent.docCount} 篇文档
-                </div>
-              )}
               <div className="flex-1 min-h-0">
                 {mode === 'edit' ? (
                   <textarea
@@ -214,6 +266,24 @@ export const KnowledgeBaseTab: React.FC = () => {
       </div>
 
       {error && <div className="px-3 py-1.5 text-[11px] text-error border-t border-error/20">{error}</div>}
+
+      {/* 重建索引确认 */}
+      {confirmRebuild && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setConfirmRebuild(false)}>
+          <div className="bg-surface border border-border rounded-lg w-72 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-medium">重建索引</h3>
+            <p className="text-xs text-text-secondary">将重新分块与向量化当前模块（{currentModuleId ? '当前模块' : '全部模块'}）的文档，可能耗时，是否继续？</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmRebuild(false)} className="px-2.5 py-1 text-xs rounded border border-border hover:bg-hover">
+                取消
+              </button>
+              <button onClick={doRebuild} className="px-2.5 py-1 text-xs rounded bg-primary text-white hover:brightness-110">
+                确认重建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 新建模块弹窗 */}
       {showNewModule && (

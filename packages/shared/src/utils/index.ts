@@ -12,3 +12,6 @@ export * from './assistant-embedding.js';
 export * from './assistant-retriever.js';
 export * from './assistant-prompt.js';
 export * from './assistant-knowledge.js';
+export * from './assistant-conversation.js';
+export * from './assistant-markdown.js';
+export * from './assistant-analysis.js';

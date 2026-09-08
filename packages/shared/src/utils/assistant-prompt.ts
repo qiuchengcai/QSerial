@@ -41,7 +41,7 @@ export const ASSISTANT_SYSTEM_PROMPT =
   '你是 QSerial 的智能助手，精通串口调试、嵌入式开发与常见通信协议（Modbus、AT 指令等）。' +
   '请优先依据提供的【参考资料】回答；若资料不足以回答，请如实说明并给出排查建议。' +
   '回答使用简洁、分点式的技术语言，必要时给出可复制的命令或配置片段。' +
-  '最后用【引用来源】列出你实际依据的文档。';
+  '引用资料时用上角标 [n]（n 为参考资料编号）标注，不要单独输出【引用来源】列表。';
 
 /** 将历史最近 N 轮格式化为对话文本。 */
 export function formatHistory(history: PromptHistoryTurn[], maxTurns = 4): string {

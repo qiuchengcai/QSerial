@@ -1,6 +1,6 @@
 /**
- * 智能助手服务：编排知识库、向量索引、检索与 LLM 对话。
- * 通过 ctx.ipc.register 暴露方法给渲染进程，通过 ctx.ipc.emit 推送流式事件。
+ * 智能助手服务：编排知识库、向量索引、检索、对话、结构化日志分析与命令生成。
+ * 通过 ctx.ipc.register 暴露方法给渲染进程，通过 ctx.ipc.emit 推送流式/进度事件。
  */
 
 import * as path from 'node:path';
@@ -15,26 +15,24 @@ import {
   importModuleBundle,
   inferDocType,
   createModuleMeta,
+  DEFAULT_QUICK_PROMPTS,
+  buildLogAnalysisPrompt,
+  buildCommandPrompt,
+  parseAnalysisResult,
+  parseCommandResult,
+  toConversationMeta,
+  fallbackConversationTitle,
 } from '@qserial/shared';
 import { KnowledgeStore } from './store.mjs';
 import {
   loadIndex,
   saveIndex,
   removeIndex,
-  buildModuleEntries,
-  indexFile,
+  buildDocEntries,
 } from './vector-store.mjs';
 import { ConversationStore } from './conversation.mjs';
 import { chatStream, chatOnce, isConfigured } from './llm.mjs';
 import { BUILTIN_MODULES } from './builtin.mjs';
-
-const QUICK_PROMPTS = [
-  { id: 'q1', label: '分析这段日志', prompt: '请分析这段串口日志，识别协议类型、关键字段和可能的异常：' },
-  { id: 'q2', label: 'CRC 怎么算', prompt: 'Modbus RTU 的 CRC16 校验如何计算？' },
-  { id: 'q3', label: '串口乱码排查', prompt: '串口通信出现乱码，可能的原因和排查步骤是什么？' },
-  { id: 'q4', label: '生成 AT 指令', prompt: '帮我生成一组 AT 指令，用于：' },
-  { id: 'q5', label: '波特率设置', prompt: '如何正确设置串口波特率？常见的波特率有哪些？' },
-];
 
 export class AssistantService {
   constructor({ ctx, pluginId, pluginDir, dataDir }) {
@@ -45,6 +43,7 @@ export class AssistantService {
     this.store = new KnowledgeStore(dataDir);
     this.conversations = new ConversationStore(dataDir);
     this._streamTasks = new Set();
+    this._cancelTokens = new Set();
   }
 
   getConfig() {
@@ -60,7 +59,23 @@ export class AssistantService {
       topK: Number(rag.topK ?? 5),
       chunkSize: Number(rag.chunkSize ?? 500),
       chunkOverlap: 50,
+      maxConversations: Number(all.maxConversations ?? 50),
     };
+  }
+
+  getQuickPrompts() {
+    const saved = this.ctx.config.get('quickPrompts');
+    if (Array.isArray(saved) && saved.length > 0) {
+      return saved
+        .filter((p) => p && typeof p.label === 'string' && typeof p.prompt === 'string')
+        .map((p, i) => ({
+          id: p.id || `q-${i}`,
+          label: p.label,
+          prompt: p.prompt,
+          category: p.category || 'query',
+        }));
+    }
+    return DEFAULT_QUICK_PROMPTS;
   }
 
   async init() {
@@ -69,7 +84,6 @@ export class AssistantService {
   }
 
   async shutdown() {
-    // 停止尚未结束的流式任务
     this._streamTasks.clear();
   }
 
@@ -78,7 +92,7 @@ export class AssistantService {
   async _seedBuiltinModules() {
     const existing = this.store.loadModules();
     for (const builtin of BUILTIN_MODULES) {
-      if (existing.some((m) => m.id === builtin.id)) continue; // 已播种过
+      if (existing.some((m) => m.id === builtin.id)) continue;
       const meta = createModuleMeta(
         { id: builtin.id, name: builtin.name, description: builtin.description, version: builtin.version, tags: builtin.tags, type: 'builtin' },
         Date.now()
@@ -92,26 +106,34 @@ export class AssistantService {
   }
 
   async _ensureIndexes() {
-    // 首次启用时自动索引内置模块；索引缺失/损坏自动重建
     for (const m of this.store.loadModules()) {
-      const hasIndex = loadIndex(this.dataDir, m.id) !== null;
-      if (!hasIndex) {
+      if (loadIndex(this.dataDir, m.id) === null) {
         await this.rebuildIndex(m.id);
       }
     }
   }
 
-  async rebuildIndex(moduleId) {
+  async rebuildIndex(moduleId, options = {}) {
     const cfg = this.getConfig();
+    const { onProgress, isCancelled } = options;
     const docs = this.store.listDocsWithContent(moduleId);
-    const entries = buildModuleEntries(moduleId, docs, {
-      chunkSize: cfg.chunkSize,
-      chunkOverlap: cfg.chunkOverlap,
-    });
-    saveIndex(this.dataDir, moduleId, entries);
-    // 更新 indexedDocCount
-    this._setIndexedCount(moduleId, docs.length);
-    return { moduleId, indexedDocs: docs.length, chunks: entries.length };
+    const entries = [];
+    for (let i = 0; i < docs.length; i++) {
+      if (isCancelled && isCancelled()) break;
+      const d = docs[i];
+      entries.push(...buildDocEntries(moduleId, d.meta, d.content, {
+        chunkSize: cfg.chunkSize,
+        chunkOverlap: cfg.chunkOverlap,
+      }));
+      if (onProgress) {
+        onProgress({ moduleId, current: i + 1, total: docs.length, docId: d.meta.id, docTitle: d.meta.title });
+      }
+    }
+    if (!(isCancelled && isCancelled())) {
+      saveIndex(this.dataDir, moduleId, entries);
+      this._setIndexedCount(moduleId, docs.length);
+    }
+    return { moduleId, indexedDocs: entries.length ? docs.length : 0, chunks: entries.length, cancelled: !!(isCancelled && isCancelled()) };
   }
 
   _setIndexedCount(moduleId, count) {
@@ -192,6 +214,8 @@ export class AssistantService {
       documentTitle: h.chunk.documentTitle,
       heading: h.chunk.heading,
       snippet: h.chunk.text.slice(0, 120),
+      moduleId: h.chunk.moduleId,
+      documentId: h.chunk.documentId,
     }));
   }
 
@@ -219,6 +243,26 @@ export class AssistantService {
       messages,
     });
     return { content, references: this._toReferences(result.hits) };
+  }
+
+  async _generateTitle(query) {
+    const cfg = this.getConfig();
+    if (!isConfigured(cfg)) return fallbackConversationTitle();
+    try {
+      const title = await chatOnce({
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey,
+        model: cfg.model,
+        messages: [
+          { role: 'system', content: '你是标题生成器。把用户的问题概括为不超过 15 个字的简短标题，只输出标题本身，不要引号。' },
+          { role: 'user', content: query },
+        ],
+      });
+      const t = String(title || '').trim().replace(/\s+/g, ' ').slice(0, 15);
+      return t || fallbackConversationTitle();
+    } catch {
+      return fallbackConversationTitle();
+    }
   }
 
   async _runChatStream(requestId, query, history, deviceContext, conversationId) {
@@ -253,22 +297,24 @@ export class AssistantService {
       });
 
       const references = this._toReferences(result.hits);
+      let conversation = null;
       if (conversationId) {
-        this.conversations.append(conversationId, {
-          id: `${Date.now()}-user`,
-          role: 'user',
-          content: query,
-          createdAt: Date.now(),
+        const existing = this.conversations.get(conversationId);
+        const isFirst = !existing || existing.messages.length === 0;
+        this.conversations.appendMessage(conversationId, {
+          id: `${requestId}-u`, role: 'user', content: query, createdAt: Date.now(),
         });
-        this.conversations.append(conversationId, {
-          id: `${Date.now()}-assistant`,
-          role: 'assistant',
-          content,
-          createdAt: Date.now(),
-          references,
+        this.conversations.appendMessage(conversationId, {
+          id: `${requestId}-a`, role: 'assistant', content, createdAt: Date.now(), references,
         });
+        if (isFirst) {
+          const title = await this._generateTitle(query);
+          this.conversations.setTitle(conversationId, title);
+        }
+        this.conversations.prune(cfg.maxConversations);
+        conversation = toConversationMeta(this.conversations.get(conversationId));
       }
-      emit('chat.done', { content, references });
+      emit('chat.done', { content, references, conversation });
     } catch (err) {
       emit('chat.error', { code: 'llm_error', message: err.message || String(err) });
     }
@@ -289,11 +335,22 @@ export class AssistantService {
     return parts.length ? '本地分析结果：\n' + parts.join('\n') + '\n\n（配置 AI 服务后可获得更详细的协议解析与异常定位）' : '未识别到明显的协议特征';
   }
 
-  async analyzeLogSync(text) {
+  async analyzeLogSync(text, deviceContext) {
     const cfg = this.getConfig();
-    if (!isConfigured(cfg)) return this.analyzeLogLocal(text);
-    const query = `请分析以下串口日志，识别协议类型、解析关键字段、指出可能的异常：\n\n\`\`\`\n${text.slice(0, 8000)}\n\`\`\``;
-    return this.chatSync(query, [], undefined).then((r) => r.content);
+    if (!isConfigured(cfg)) {
+      return { raw: this.analyzeLogLocal(text), parsed: null };
+    }
+    const { system, user } = buildLogAnalysisPrompt(text, deviceContext || undefined);
+    const content = await chatOnce({
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      model: cfg.model,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    });
+    return { raw: content, parsed: parseAnalysisResult(content) };
   }
 
   async generateCommandSync(description, deviceContext) {
@@ -301,8 +358,17 @@ export class AssistantService {
     if (!isConfigured(cfg)) {
       throw new Error('NOT_CONFIGURED: 尚未配置 AI 服务，请到插件设置中配置模型');
     }
-    const query = `请根据以下自然语言需求生成可发送的串口命令（或 AT 指令），并给出简短说明：${description}`;
-    return this.chatSync(query, [], deviceContext).then((r) => r.content);
+    const { system, user } = buildCommandPrompt(description, deviceContext || undefined);
+    const content = await chatOnce({
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      model: cfg.model,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    });
+    return { raw: content, parsed: parseCommandResult(content) };
   }
 
   // ==================== IPC 注册 ====================
@@ -324,7 +390,18 @@ export class AssistantService {
       };
     });
 
-    reg('quickPrompts', () => QUICK_PROMPTS);
+    // 快捷指令
+    reg('quickPrompts.list', () => this.getQuickPrompts());
+    reg('quickPrompts.save', (args) => {
+      const { list } = args || {};
+      if (!Array.isArray(list)) throw new Error('快捷指令列表不合法');
+      this.ctx.config.set('quickPrompts', list);
+      return this.getQuickPrompts();
+    });
+    reg('quickPrompts.reset', () => {
+      this.ctx.config.delete('quickPrompts');
+      return DEFAULT_QUICK_PROMPTS;
+    });
 
     reg('deviceContext', () => {
       try {
@@ -361,8 +438,7 @@ export class AssistantService {
     reg('modules.import', (args) => {
       const { json } = args || {};
       const { module, docs } = importModuleBundle(json);
-      const existing = this.store.getModule(module.id);
-      if (existing) throw new Error(`模块已存在: ${module.id}`);
+      if (this.store.getModule(module.id)) throw new Error(`模块已存在: ${module.id}`);
       const created = this.store.createModule({
         id: module.id,
         name: module.name,
@@ -419,15 +495,23 @@ export class AssistantService {
 
     // 索引
     reg('index.rebuild', async (args) => {
-      const { moduleId } = args || {};
+      const { moduleId, token } = args || {};
+      const emitProgress = (p) => this.ctx.ipc.emit('index.progress', { token, ...p });
+      const isCancelled = () => (token ? this._cancelTokens.has(token) : false);
       if (moduleId) {
-        return this.rebuildIndex(moduleId);
+        return this.rebuildIndex(moduleId, { onProgress: emitProgress, isCancelled });
       }
       const results = [];
       for (const m of this.store.loadModules()) {
-        results.push(await this.rebuildIndex(m.id));
+        results.push(await this.rebuildIndex(m.id, { onProgress: emitProgress, isCancelled }));
+        if (isCancelled()) break;
       }
       return results;
+    });
+    reg('index.cancelRebuild', (args) => {
+      const { token } = args || {};
+      if (token) this._cancelTokens.add(token);
+      return { ok: true };
     });
     reg('index.status', () => {
       return this.store.listModules().map((m) => ({
@@ -436,6 +520,18 @@ export class AssistantService {
         docCount: m.docCount,
         indexedDocCount: m.indexedDocCount,
         hasIndex: loadIndex(this.dataDir, m.id) !== null,
+      }));
+    });
+    reg('index.docs', (args) => {
+      const { moduleId } = args || {};
+      const docs = this.store.listDocs(moduleId);
+      const entries = loadIndex(this.dataDir, moduleId) || [];
+      const indexedIds = new Set(entries.map((e) => e.documentId));
+      return docs.map((d) => ({
+        docId: d.id,
+        title: d.title,
+        charCount: d.charCount,
+        indexed: indexedIds.has(d.id),
       }));
     });
 
@@ -457,24 +553,63 @@ export class AssistantService {
       return this.chatSync(query, history, deviceContext);
     });
     reg('analyzeLog', (args) => {
-      const { text } = args || {};
-      return this.analyzeLogSync(text || '');
+      const { text, deviceContext } = args || {};
+      return this.analyzeLogSync(text || '', deviceContext);
     });
     reg('generateCommand', (args) => {
       const { description, deviceContext } = args || {};
       return this.generateCommandSync(description || '', deviceContext);
     });
 
+    // 命令模板
+    reg('templates.list', () => {
+      const saved = this.ctx.config.get('templates');
+      return Array.isArray(saved) ? saved : [];
+    });
+    reg('templates.save', (args) => {
+      const { name, command } = args || {};
+      if (!name || !command) throw new Error('模板名称与命令不能为空');
+      const list = Array.isArray(this.ctx.config.get('templates')) ? this.ctx.config.get('templates') : [];
+      const next = list.filter((t) => t.name !== name).concat({ name, command, createdAt: Date.now() });
+      this.ctx.config.set('templates', next);
+      return next;
+    });
+    reg('templates.delete', (args) => {
+      const { name } = args || {};
+      const list = Array.isArray(this.ctx.config.get('templates')) ? this.ctx.config.get('templates') : [];
+      const next = list.filter((t) => t.name !== name);
+      this.ctx.config.set('templates', next);
+      return next;
+    });
+
     // 对话历史
     reg('conversations.list', () => this.conversations.list());
     reg('conversations.get', (args) => {
       const { id } = args || {};
-      return this.conversations.get(id || 'default');
+      const conv = this.conversations.get(id);
+      return conv || null;
+    });
+    reg('conversations.create', () => this.conversations.create());
+    reg('conversations.rename', (args) => {
+      const { id, title } = args || {};
+      return this.conversations.rename(id, title);
+    });
+    reg('conversations.delete', (args) => {
+      const { id } = args || {};
+      this.conversations.delete(id);
+      return { ok: true };
     });
     reg('conversations.clear', (args) => {
       const { id } = args || {};
-      this.conversations.clear(id || 'default');
-      return { ok: true };
+      const conv = this.conversations.clearMessages(id);
+      return conv ? toConversationMeta(conv) : { ok: true };
+    });
+    reg('conversations.search', (args) => {
+      const { keyword } = args || {};
+      const list = this.conversations.list();
+      if (!keyword) return list;
+      const kw = String(keyword).toLowerCase();
+      return list.filter((c) => c.title.toLowerCase().includes(kw) || c.lastPreview.toLowerCase().includes(kw));
     });
   }
 

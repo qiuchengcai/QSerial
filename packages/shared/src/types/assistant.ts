@@ -96,6 +96,44 @@ export interface VectorIndexEntry {
   vector: number[];
 }
 
+/** 结构化日志分析结果。 */
+export interface AnalysisField {
+  label: string;
+  value: string;
+}
+
+export interface AnalysisAnomaly {
+  type: string;
+  description: string;
+  severity: 'high' | 'medium' | 'low';
+}
+
+export interface LogAnalysisResult {
+  protocol: string;
+  confidence: number;
+  keyFields: AnalysisField[];
+  anomalies: AnalysisAnomaly[];
+  suggestions: string[];
+}
+
+/** 命令生成结果（hex / ASCII 双模式 + 字节解释）。 */
+export interface CommandResult {
+  hex: string;
+  ascii: string;
+  explanation: string;
+}
+
+/** 对话消息元数据（引用 / token / 结构化结果等）。 */
+export interface ChatMessageMetadata {
+  references?: ChatReference[];
+  tokens?: number;
+  analysis?: LogAnalysisResult;
+  command?: CommandResult;
+  error?: boolean;
+  /** 结构化分析时的原始日志文本 */
+  logText?: string;
+}
+
 /** 对话消息。 */
 export interface ChatMessage {
   id: string;
@@ -104,6 +142,7 @@ export interface ChatMessage {
   createdAt: number;
   /** 回答末尾引用的来源（模块 / 文档 / 标题 / 片段） */
   references?: ChatReference[];
+  metadata?: ChatMessageMetadata;
 }
 
 /** 引用来源。 */
@@ -112,4 +151,36 @@ export interface ChatReference {
   documentTitle: string;
   heading: string;
   snippet: string;
+  /** 跳转到知识库对应文档所需 */
+  moduleId?: string;
+  documentId?: string;
+}
+
+/** 会话元信息（列表展示，不含完整消息）。 */
+export interface ConversationMeta {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+  /** 最后一条消息预览 */
+  lastPreview: string;
+}
+
+/** 完整会话（含消息列表）。 */
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
+}
+
+/** 快捷指令。 */
+export interface QuickPrompt {
+  id: string;
+  label: string;
+  prompt: string;
+  /** 分类：analysis / query / generate */
+  category?: 'analysis' | 'query' | 'generate';
 }
